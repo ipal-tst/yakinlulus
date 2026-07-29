@@ -1,0 +1,88 @@
+# 03_learning_resource.mmd
+
+```mermaid
+flowchart TD
+
+LR[Learning Resource]
+
+LR --> LV[Learning Version]
+
+LR --> LA[Learning Academic]
+
+LR --> LS[Learning Section]
+
+LR --> LC[Learning Content]
+
+LR --> LM[Learning Media]
+
+LR --> LT[Transcript]
+
+LR --> LB[Subtitle]
+
+LR --> LRF[Reference]
+
+LR --> LRG[Learning Tag]
+
+LR --> LH[Learning History]
+
+LR --> LRR[Learning Review]
+
+LA --> GL[Grade]
+
+LA --> SB[Subject]
+
+LA --> CH[Chapter]
+
+LA --> TP[Topic]
+
+LA --> ST[Sub Topic]
+
+LA --> LO[Learning Objective]
+
+LC --> TXT[Text]
+
+LC --> IMG[Image]
+
+LC --> VID[Video]
+
+LC --> AUD[Audio]
+
+LC --> PDF[PDF]
+
+LC --> QUIZ[Embedded Quiz]
+
+LC --> SIM[Interactive Simulation]
+```
+
+Arsitektur yang saya rekomendasikan
+
+Saya akan mengganti struktur menjadi:
+
+Learning Resource
+│
+├── Learning Academic
+├── Learning Version
+├── Learning Section
+│      │
+│      └── Learning Block
+│
+├── Learning Attachment
+├── Learning Review
+├── Learning History
+├── Learning Reference
+└── Learning Tag
+Kenapa lebih baik?
+
+Karena nanti ketika Anda ingin membuat:
+
+editor drag & drop,
+materi interaktif,
+AI yang dapat menyisipkan blok baru,
+rumus matematika (LaTeX),
+simulasi,
+canvas menggambar,
+video dengan kuis di tengah,
+
+Anda tidak perlu mengubah struktur database, cukup menambah jenis block_type.
+
+Menurut saya, ini akan menjadi fondasi yang jauh lebih kuat untuk platform edutech modern dibanding model LMS tradisional yang hanya mengenal "Section → Content".

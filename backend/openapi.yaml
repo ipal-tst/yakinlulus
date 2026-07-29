@@ -1,0 +1,3150 @@
+openapi: "3.1.0"
+info:
+  title: YakinLulus.id API
+  version: "1.0.0"
+  description: |
+    Computer-Based Testing (CBT) platform API for YakinLulus.id.
+    Authentication via Bearer JWT. All authenticated routes use
+    the `Authorization: Bearer <token>` header.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+paths:
+  # ──────────────────────────────────────────
+  # Auth Module (15 endpoints)
+  # ──────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      summary: Register new user
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                name: { type: string }
+                phone: { type: string }
+              required: [email, password, name]
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Login with email + password
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+              required: [email, password]
+      responses:
+        "200":
+          description: Login success, returns JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      summary: Request password reset email
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+              required: [email]
+      responses:
+        "200":
+          description: Reset link sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      summary: Reset password with token
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+              required: [token, password]
+      responses:
+        "200":
+          description: Password reset success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Get current user profile
+      tags: [Auth]
+      responses:
+        "200":
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/profile:
+    put:
+      operationId: updateProfile
+      summary: Update current user profile
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                avatar_url: { type: string, format: uri }
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Invalidate current session
+      tags: [Auth]
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Refresh JWT token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+              required: [refresh_token]
+      responses:
+        "200":
+          description: New tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/users:
+    get:
+      operationId: listUsers
+      summary: List all users (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: role
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createUser
+      summary: Create user (admin/staff)
+      tags: [Auth Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                name: { type: string }
+                role: { type: string }
+              required: [email, password, name, role]
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/users/search:
+    get:
+      operationId: searchUsers
+      summary: Search users (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+
+  /auth/users/{id}:
+    get:
+      operationId: getUser
+      summary: Get user by ID (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateUser
+      summary: Update user (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                role: { type: string }
+                is_active: { type: boolean }
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteUser
+      summary: Delete user (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /auth/users/{id}/activate:
+    patch:
+      operationId: activateUser
+      summary: Activate/deactivate user (admin/staff)
+      tags: [Auth Admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_active: { type: boolean }
+              required: [is_active]
+      responses:
+        "200":
+          description: User activation status changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Academic Module (16 endpoints)
+  # ──────────────────────────────────────────
+  /academic/levels:
+    get:
+      operationId: listLevels
+      summary: List education levels
+      tags: [Academic]
+      responses:
+        "200":
+          description: List of levels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: createLevel
+      summary: Create education level (admin/staff)
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                code: { type: string }
+                description: { type: string }
+              required: [name, code]
+      responses:
+        "201":
+          description: Level created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/levels/{id}:
+    get:
+      operationId: getLevel
+      summary: Get education level by ID
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Level data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateLevel
+      summary: Update education level (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                code: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Level updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteLevel
+      summary: Delete education level (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Level deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/subjects:
+    get:
+      operationId: listSubjects
+      summary: List subjects
+      tags: [Academic]
+      parameters:
+        - name: level_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of subjects
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: createSubject
+      summary: Create subject (admin/staff)
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                code: { type: string }
+                level_id: { type: string }
+                description: { type: string }
+              required: [name, code, level_id]
+      responses:
+        "201":
+          description: Subject created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/subjects/{id}:
+    get:
+      operationId: getSubject
+      summary: Get subject by ID
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Subject data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateSubject
+      summary: Update subject (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                code: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Subject updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteSubject
+      summary: Delete subject (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Subject deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/subjects/{id}/chapters:
+    get:
+      operationId: listSubjectChapters
+      summary: List chapters for a subject
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/chapters/{id}:
+    get:
+      operationId: getChapter
+      summary: Get chapter by ID
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Chapter data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateChapter
+      summary: Update chapter (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                order: { type: integer }
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteChapter
+      summary: Delete chapter (admin/staff)
+      tags: [Academic]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Chapter deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/chapters:
+    post:
+      operationId: createChapter
+      summary: Create chapter (admin/staff)
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_id: { type: string }
+                name: { type: string }
+                description: { type: string }
+                order: { type: integer }
+              required: [subject_id, name]
+      responses:
+        "201":
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /academic/curriculums:
+    get:
+      operationId: listCurriculums
+      summary: List curriculums
+      tags: [Academic]
+      responses:
+        "200":
+          description: List of curriculums
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Question Bank Module (10 endpoints)
+  # ──────────────────────────────────────────
+  /questions:
+    get:
+      operationId: listQuestions
+      summary: List questions with filters
+      tags: [Question Bank]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: subject_id
+          in: query
+          schema: { type: string }
+        - name: level_id
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: difficulty
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated question list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createQuestion
+      summary: Create a question (admin/staff/teacher)
+      tags: [Question Bank]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_id: { type: string }
+                chapter_id: { type: string }
+                type: { type: string }
+                difficulty: { type: string }
+                stem: { type: string }
+                options:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      label: { type: string }
+                      text: { type: string }
+                      is_correct: { type: boolean }
+                explanation: { type: string }
+                points: { type: integer }
+              required: [subject_id, type, stem]
+      responses:
+        "201":
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /questions/{id}:
+    get:
+      operationId: getQuestion
+      summary: Get question by ID
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Question data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateQuestion
+      summary: Update question (admin/staff/teacher)
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stem: { type: string }
+                type: { type: string }
+                difficulty: { type: string }
+                explanation: { type: string }
+                points: { type: integer }
+      responses:
+        "200":
+          description: Question updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteQuestion
+      summary: Delete question (admin/staff/teacher)
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Question deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /questions/{id}/options:
+    get:
+      operationId: getQuestionOptions
+      summary: Get options for a question
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateQuestionOptions
+      summary: Bulk replace options (admin/staff/teacher)
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  label: { type: string }
+                  text: { type: string }
+                  is_correct: { type: boolean }
+                required: [label, text, is_correct]
+      responses:
+        "200":
+          description: Options updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /questions/{id}/publish:
+    patch:
+      operationId: publishQuestion
+      summary: Publish/unpublish question (admin/staff/teacher)
+      tags: [Question Bank]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                published: { type: boolean }
+              required: [published]
+      responses:
+        "200":
+          description: Publish status changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /questions/import:
+    post:
+      operationId: importQuestions
+      summary: Bulk import questions (admin/staff/teacher)
+      tags: [Question Bank]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                subject_id: { type: string }
+              required: [file, subject_id]
+      responses:
+        "200":
+          description: Import results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /questions/export:
+    get:
+      operationId: exportQuestions
+      summary: Export questions as file (admin/staff/teacher)
+      tags: [Question Bank]
+      parameters:
+        - name: subject_id
+          in: query
+          schema: { type: string }
+        - name: format
+          in: query
+          schema: { type: string, enum: [csv, xlsx] }
+      responses:
+        "200":
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ──────────────────────────────────────────
+  # CBT Engine - Exams (24 endpoints)
+  # ──────────────────────────────────────────
+  /exams:
+    get:
+      operationId: listExams
+      summary: List exams with filters
+      tags: [CBT Engine]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: subject_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated exam list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createExam
+      summary: Create exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                subject_id: { type: string }
+                level_id: { type: string }
+                description: { type: string }
+                duration_minutes: { type: integer }
+                total_questions: { type: integer }
+                passing_score: { type: integer }
+              required: [title, subject_id]
+      responses:
+        "201":
+          description: Exam created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}:
+    get:
+      operationId: getExam
+      summary: Get exam by ID
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateExam
+      summary: Update exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                duration_minutes: { type: integer }
+                passing_score: { type: integer }
+      responses:
+        "200":
+          description: Exam updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteExam
+      summary: Delete exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/analytics:
+    get:
+      operationId: getExamAnalytics
+      summary: Get analytics for an exam
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/publish:
+    post:
+      operationId: publishExam
+      summary: Publish exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/schedule:
+    post:
+      operationId: scheduleExam
+      summary: Schedule exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+              required: [start_time, end_time]
+      responses:
+        "200":
+          description: Exam scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/archive:
+    post:
+      operationId: archiveExam
+      summary: Archive exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/rule:
+    get:
+      operationId: getExamRule
+      summary: Get exam rules
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateExamRule
+      summary: Update exam rules (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shuffle_questions: { type: boolean }
+                shuffle_options: { type: boolean }
+                show_result: { type: boolean }
+                max_attempts: { type: integer }
+                proctoring: { type: boolean }
+                navigation: { type: string }
+              required: []
+      responses:
+        "200":
+          description: Rules updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/clone:
+    post:
+      operationId: cloneExam
+      summary: Clone an exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+              required: [title]
+      responses:
+        "200":
+          description: Exam cloned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/blueprint:
+    get:
+      operationId: getExamBlueprint
+      summary: Get exam blueprint (table of specifications)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Blueprint data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: createExamBlueprint
+      summary: Create/update exam blueprint (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      chapter_id: { type: string }
+                      question_count: { type: integer }
+                      difficulty: { type: string }
+                      percentage: { type: number }
+              required: [items]
+      responses:
+        "200":
+          description: Blueprint saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/pool:
+    get:
+      operationId: getExamPool
+      summary: Get exam question pool
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Question pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: addQuestionsToPool
+      summary: Add questions to pool (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_ids:
+                  type: array
+                  items: { type: string }
+              required: [question_ids]
+      responses:
+        "200":
+          description: Questions added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateExamPool
+      summary: Replace exam question pool (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_ids:
+                  type: array
+                  items: { type: string }
+              required: [question_ids]
+      responses:
+        "200":
+          description: Pool replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: clearExamPool
+      summary: Clear exam question pool (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pool cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/participants:
+    get:
+      operationId: listExamParticipants
+      summary: List exam participants
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Participant list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: addExamParticipants
+      summary: Add participants to exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_ids:
+                  type: array
+                  items: { type: string }
+              required: [user_ids]
+      responses:
+        "200":
+          description: Participants added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/participants/{userId}:
+    delete:
+      operationId: removeExamParticipant
+      summary: Remove participant from exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Participant removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/questions:
+    get:
+      operationId: listExamQuestions
+      summary: List questions in an exam
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of exam questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: addExamQuestions
+      summary: Add questions to exam (admin/staff/teacher)
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_ids:
+                  type: array
+                  items: { type: string }
+              required: [question_ids]
+      responses:
+        "200":
+          description: Questions added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exams/{id}/exam-questions:
+    get:
+      operationId: listExamQuestionDetails
+      summary: Get detailed exam questions with metadata
+      tags: [CBT Engine]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Detailed question list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # CBT Runtime (10 endpoints)
+  # ──────────────────────────────────────────
+  /cbt/{exam_id}/start:
+    post:
+      operationId: startExam
+      summary: Start exam session
+      tags: [CBT Runtime]
+      parameters:
+        - name: exam_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/sync:
+    post:
+      operationId: syncSession
+      summary: Sync answers during exam
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      question_id: { type: string }
+                      answer: { type: string }
+              required: [answers]
+      responses:
+        "200":
+          description: Synced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/navigate:
+    post:
+      operationId: navigateQuestion
+      summary: Navigate to a question
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_id: { type: string }
+                direction: { type: string, enum: [next, prev, goto] }
+              required: [question_id]
+      responses:
+        "200":
+          description: Navigated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/pause:
+    post:
+      operationId: pauseSession
+      summary: Pause exam session
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/resume:
+    post:
+      operationId: resumeSession
+      summary: Resume exam session
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/finish:
+    post:
+      operationId: finishSession
+      summary: Submit and finish exam session
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/violation:
+    post:
+      operationId: reportViolation
+      summary: Report proctoring violation
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string }
+                details: { type: string }
+              required: [type]
+      responses:
+        "200":
+          description: Violation recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/answers:
+    get:
+      operationId: getSessionAnswers
+      summary: Get answers for a session
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/{session_id}/questions:
+    get:
+      operationId: getSessionQuestions
+      summary: Get questions for a session
+      tags: [CBT Runtime]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /cbt/admin/auto-submit:
+    post:
+      operationId: autoSubmitExpired
+      summary: Auto-submit all expired sessions (admin)
+      tags: [CBT Runtime]
+      responses:
+        "200":
+          description: Auto-submit triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Scoring Module (2 endpoints)
+  # ──────────────────────────────────────────
+  /results:
+    get:
+      operationId: listResults
+      summary: List exam results
+      tags: [Scoring]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: exam_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+
+  /results/{session_id}:
+    get:
+      operationId: getResult
+      summary: Get result by session ID
+      tags: [Scoring]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Result data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Analytics Module (5 endpoints)
+  # ──────────────────────────────────────────
+  /analytics/exams/{id}:
+    get:
+      operationId: getExamAnalyticsData
+      summary: Get exam analytics
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /analytics/students/{id}:
+    get:
+      operationId: getStudentAnalytics
+      summary: Get student analytics
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Student analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /analytics/questions/{id}:
+    get:
+      operationId: getQuestionAnalytics
+      summary: Get question analytics (difficulty, discrimination)
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Question analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /analytics/admin/reports/exams:
+    get:
+      operationId: listExamReports
+      summary: List exam reports (admin/staff/teacher)
+      tags: [Analytics]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Paginated reports
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+
+  /analytics/admin/reports/exams/{id}:
+    get:
+      operationId: getExamReport
+      summary: Get detailed exam report (admin/staff/teacher)
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Detailed report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Media Module (4 endpoints)
+  # ──────────────────────────────────────────
+  /media/upload:
+    post:
+      operationId: uploadMedia
+      summary: Upload media file (admin/staff/teacher)
+      tags: [Media]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                entity_type: { type: string }
+                entity_id: { type: string }
+              required: [file]
+      responses:
+        "201":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /media/entity/{type}/{id}:
+    get:
+      operationId: listEntityMedia
+      summary: List media for an entity
+      tags: [Media]
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /media/{id}:
+    get:
+      operationId: getMedia
+      summary: Get media metadata
+      tags: [Media]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Media metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteMedia
+      summary: Delete media (admin/staff/teacher)
+      tags: [Media]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Media deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Material Module (10 endpoints)
+  # ──────────────────────────────────────────
+  /materials:
+    get:
+      operationId: listMaterials
+      summary: List learning materials
+      tags: [Material]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: subject_id
+          in: query
+          schema: { type: string }
+        - name: chapter_id
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated material list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createMaterial
+      summary: Create learning material (admin/staff/teacher)
+      tags: [Material]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                subject_id: { type: string }
+                chapter_id: { type: string }
+                type: { type: string }
+                content: { type: string }
+                order: { type: integer }
+              required: [title, subject_id, type]
+      responses:
+        "201":
+          description: Material created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /materials/progress:
+    get:
+      operationId: listMaterialProgress
+      summary: List material progress for current user
+      tags: [Material]
+      parameters:
+        - name: subject_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Progress data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /materials/{id}:
+    get:
+      operationId: getMaterial
+      summary: Get material by ID
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Material data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateMaterial
+      summary: Update material (admin/staff/teacher)
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+                type: { type: string }
+                order: { type: integer }
+      responses:
+        "200":
+          description: Material updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteMaterial
+      summary: Delete material (admin/staff/teacher)
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Material deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /materials/{id}/publish:
+    patch:
+      operationId: publishMaterial
+      summary: Publish/unpublish material (admin/staff/teacher)
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                published: { type: boolean }
+              required: [published]
+      responses:
+        "200":
+          description: Publish status changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /materials/{id}/archive:
+    patch:
+      operationId: archiveMaterial
+      summary: Archive material (admin/staff/teacher)
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                archived: { type: boolean }
+              required: [archived]
+      responses:
+        "200":
+          description: Archive status changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /materials/{id}/progress:
+    get:
+      operationId: getMaterialProgress
+      summary: Get progress for a specific material
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Material progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: updateMaterialProgress
+      summary: Update material progress
+      tags: [Material]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                progress: { type: integer, minimum: 0, maximum: 100 }
+                completed: { type: boolean }
+              required: [progress]
+      responses:
+        "200":
+          description: Progress updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # School + Branding Module (10 endpoints)
+  # ──────────────────────────────────────────
+  /schools:
+    get:
+      operationId: listSchools
+      summary: List schools (admin/staff)
+      tags: [School]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated school list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createSchool
+      summary: Create school (admin/staff)
+      tags: [School]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                code: { type: string }
+                address: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+              required: [name, code]
+      responses:
+        "201":
+          description: School created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /schools/{id}:
+    get:
+      operationId: getSchool
+      summary: Get school by ID
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: School data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateSchool
+      summary: Update school (admin/staff)
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                address: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+              required: []
+      responses:
+        "200":
+          description: School updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteSchool
+      summary: Delete school (admin/staff)
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: School deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /schools/{id}/status:
+    patch:
+      operationId: updateSchoolStatus
+      summary: Update school status (admin/staff)
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_active: { type: boolean }
+              required: [is_active]
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /schools/{id}/settings:
+    get:
+      operationId: getSchoolSettings
+      summary: Get school settings
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: School settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateSchoolSettings
+      summary: Update school settings (admin/staff)
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: true
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /schools/{id}/branding:
+    get:
+      operationId: getSchoolBranding
+      summary: Get school branding
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: School branding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    put:
+      operationId: updateSchoolBranding
+      summary: Update school branding (admin/staff)
+      tags: [School]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                logo_url: { type: string, format: uri }
+                primary_color: { type: string }
+                secondary_color: { type: string }
+                favicon_url: { type: string, format: uri }
+      responses:
+        "200":
+          description: Branding updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Notification Module (15 endpoints)
+  # ──────────────────────────────────────────
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: List notifications for current user
+      tags: [Notification]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: unread_only
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Paginated notification list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+
+  /notifications/unread-count:
+    get:
+      operationId: getUnreadCount
+      summary: Get unread notification count
+      tags: [Notification]
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/{id}:
+    get:
+      operationId: getNotification
+      summary: Get notification by ID
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notification data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteNotification
+      summary: Delete notification
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notification deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      summary: Mark notification as read
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/{id}/archive:
+    post:
+      operationId: archiveNotification
+      summary: Archive a notification
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllRead
+      summary: Mark all notifications as read
+      tags: [Notification]
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/send:
+    post:
+      operationId: sendNotification
+      summary: Send notification to specific user (admin/staff)
+      tags: [Notification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string }
+                title: { type: string }
+                body: { type: string }
+                type: { type: string }
+              required: [user_id, title, body]
+      responses:
+        "200":
+          description: Notification sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/broadcast:
+    post:
+      operationId: broadcastNotification
+      summary: Broadcast notification to all users (admin/staff)
+      tags: [Notification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                body: { type: string }
+                type: { type: string }
+                role_filter: { type: string }
+              required: [title, body]
+      responses:
+        "200":
+          description: Broadcast sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/preferences:
+    get:
+      operationId: getNotificationPreferences
+      summary: Get notification preferences
+      tags: [Notification]
+      responses:
+        "200":
+          description: Preferences data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notifications/preferences/{channel}:
+    put:
+      operationId: updateNotificationPreference
+      summary: Update notification preference for a channel
+      tags: [Notification]
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+              required: [enabled]
+      responses:
+        "200":
+          description: Preference updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notification-templates:
+    get:
+      operationId: listNotificationTemplates
+      summary: List notification templates (admin/staff)
+      tags: [Notification]
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: createNotificationTemplate
+      summary: Create notification template (admin/staff)
+      tags: [Notification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                subject: { type: string }
+                body: { type: string }
+                channel: { type: string }
+                variables:
+                  type: array
+                  items: { type: string }
+              required: [name, subject, body, channel]
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /notification-templates/{id}:
+    put:
+      operationId: updateNotificationTemplate
+      summary: Update notification template (admin/staff)
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                subject: { type: string }
+                body: { type: string }
+                channel: { type: string }
+                variables:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteNotificationTemplate
+      summary: Delete notification template (admin/staff)
+      tags: [Notification]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Template deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Dashboard Module (3 endpoints)
+  # ──────────────────────────────────────────
+  /dashboard/student:
+    get:
+      operationId: getStudentDashboard
+      summary: Get student dashboard summary
+      tags: [Dashboard]
+      responses:
+        "200":
+          description: Student dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /dashboard/teacher:
+    get:
+      operationId: getTeacherDashboard
+      summary: Get teacher dashboard summary
+      tags: [Dashboard]
+      responses:
+        "200":
+          description: Teacher dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /dashboard/admin:
+    get:
+      operationId: getAdminDashboard
+      summary: Get admin dashboard summary
+      tags: [Dashboard]
+      responses:
+        "200":
+          description: Admin dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Gamification Module (8 endpoints)
+  # ──────────────────────────────────────────
+  /gamification/xp:
+    get:
+      operationId: getXP
+      summary: Get current user XP
+      tags: [Gamification]
+      responses:
+        "200":
+          description: XP data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/xp/add:
+    post:
+      operationId: addXP
+      summary: Award XP to user (admin/staff)
+      tags: [Gamification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string }
+                amount: { type: integer }
+                reason: { type: string }
+              required: [user_id, amount]
+      responses:
+        "200":
+          description: XP awarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/badges:
+    get:
+      operationId: listBadges
+      summary: List all available badges
+      tags: [Gamification]
+      responses:
+        "200":
+          description: Badge list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/user/badges:
+    get:
+      operationId: getUserBadges
+      summary: Get current user's earned badges
+      tags: [Gamification]
+      responses:
+        "200":
+          description: User badges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/streak:
+    get:
+      operationId: getStreak
+      summary: Get current user's streak
+      tags: [Gamification]
+      responses:
+        "200":
+          description: Streak data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/streak/ping:
+    post:
+      operationId: pingStreak
+      summary: Ping daily streak
+      tags: [Gamification]
+      responses:
+        "200":
+          description: Streak updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/leaderboard:
+    get:
+      operationId: getLeaderboard
+      summary: Get leaderboard
+      tags: [Gamification]
+      parameters:
+        - name: period
+          in: query
+          schema: { type: string, enum: [daily, weekly, monthly, all] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /gamification/achievements:
+    get:
+      operationId: listAchievements
+      summary: List all achievements
+      tags: [Gamification]
+      responses:
+        "200":
+          description: Achievement list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Practice Module (5 endpoints)
+  # ──────────────────────────────────────────
+  /practice/sessions/start:
+    post:
+      operationId: startPracticeSession
+      summary: Start a practice session
+      tags: [Practice]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_id: { type: string }
+                chapter_id: { type: string }
+                question_count: { type: integer }
+                difficulty: { type: string }
+              required: [subject_id]
+      responses:
+        "200":
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /practice/sessions/{id}/answer:
+    post:
+      operationId: answerPracticeQuestion
+      summary: Submit answer for practice question
+      tags: [Practice]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_id: { type: string }
+                answer: { type: string }
+                time_spent: { type: integer }
+              required: [question_id, answer]
+      responses:
+        "200":
+          description: Answer recorded with feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /practice/sessions/{id}:
+    get:
+      operationId: getPracticeSession
+      summary: Get practice session details
+      tags: [Practice]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /practice/sessions:
+    get:
+      operationId: listPracticeSessions
+      summary: List practice sessions for current user
+      tags: [Practice]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: subject_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated session list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - $ref: "#/components/schemas/PaginationMeta"
+
+  /practice/stats:
+    get:
+      operationId: getPracticeStats
+      summary: Get practice statistics
+      tags: [Practice]
+      responses:
+        "200":
+          description: Practice stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # AI Tutor Module (5 endpoints)
+  # ──────────────────────────────────────────
+  /ai/tutor/chat:
+    post:
+      operationId: aiTutorChat
+      summary: Send chat message to AI tutor
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversation_id: { type: string }
+                message: { type: string }
+                context:
+                  type: object
+                  properties:
+                    subject_id: { type: string }
+                    chapter_id: { type: string }
+              required: [message]
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /ai/tutor/conversations:
+    post:
+      operationId: createConversation
+      summary: Start a new AI tutor conversation
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                subject_id: { type: string }
+              required: []
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /ai/tutor/conversations/{id}:
+    get:
+      operationId: getConversation
+      summary: Get conversation history
+      tags: [AI Tutor]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Conversation data with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteConversation
+      summary: Delete a conversation
+      tags: [AI Tutor]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Conversation deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /ai/generate-question:
+    post:
+      operationId: generateQuestion
+      summary: Generate a question using AI
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_id: { type: string }
+                chapter_id: { type: string }
+                difficulty: { type: string }
+                type: { type: string }
+                count: { type: integer, default: 1 }
+              required: [subject_id, type]
+      responses:
+        "200":
+          description: Generated questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login
+
+  schemas:
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Operation result
+          example: true
+        message:
+          type: string
+          description: Human-readable message
+          example: Operation successful
+        data:
+          description: Response payload
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code identifier
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable error description
+              example: Invalid input fields
+            details:
+              type: object
+              description: Additional error context (field-level errors etc.)
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        total_pages:
+          type: integer
+          description: Total number of pages
+          example: 8
+
+security:
+  - BearerAuth: []

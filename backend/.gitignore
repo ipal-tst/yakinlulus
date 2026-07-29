@@ -1,0 +1,8 @@
+yakinlulus-api.exe
+yakinlulus-api
+.env
+config.yaml
+*.exe
+*.dll
+*.so
+*.dylib

@@ -1,0 +1,58 @@
+# 05_user_management.mmd
+
+```mermaid
+flowchart TD
+
+USR[User]
+
+USR --> PRF[User Profile]
+
+USR --> AUTH[Authentication]
+
+USR --> SES[User Session]
+
+USR --> DEV[Registered Device]
+
+USR --> PREF[User Preference]
+
+USR --> ROLE[User Role Assignment]
+
+ROLE --> ROL[Role]
+
+ROL --> PERM[Permission]
+
+PERM --> MENU[Menu Permission]
+
+PERM --> API[API Permission]
+
+AUTH --> MFA[Multi Factor Authentication]
+
+AUTH --> OTP[OTP Verification]
+
+AUTH --> PASS[Password Credential]
+
+AUTH --> SOCIAL[Social Login]
+
+AUTH --> TOKEN[Access Token]
+```
+
+
+Struktur yang saya rekomendasikan
+Identity
+│
+├── User
+├── User Profile
+├── User Preference
+├── Registered Device
+├── User Role Assignment
+│      └── Role
+│             └── Permission
+│
+Authentication
+│
+├── Credential
+├── Password
+├── MFA
+├── OTP
+├── Session
+└── Token

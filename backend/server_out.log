@@ -1,0 +1,61 @@
+time=2026-07-29T06:54:27.320+07:00 level=INFO msg="Connected to PostgreSQL"
+time=2026-07-29T06:54:27.422+07:00 level=INFO msg="All migrations applied" total=28
+time=2026-07-29T06:54:27.422+07:00 level=INFO msg="Migrations applied"
+time=2026-07-29T06:54:29.150+07:00 level=WARN msg="Redis connect failed, running without cache" error="dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it."
+time=2026-07-29T06:54:29.153+07:00 level=WARN msg="MinIO client init failed, file upload will skip storage" error="minio bucket check: Get \"http://localhost:9000/yakinlulus/?location=\": dial tcp [::1]:9000: connectex: No connection could be made because the target machine actively refused it."
+time=2026-07-29T06:54:29.154+07:00 level=INFO msg="Server starting" addr=0.0.0.0:8080
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                 YakinLulus.id API                 │ 
+ │                  Fiber v2.52.14                   │ 
+ │               http://127.0.0.1:8080               │ 
+ │       (bound on host 0.0.0.0 and port 8080)       │ 
+ │                                                   │ 
+ │ Handlers ........... 400  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID .............. 2184 │ 
+ └───────────────────────────────────────────────────┘ 
+
+time=2026-07-29T06:56:38.407+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects status=200 duration=92.9154ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:40.214+07:00 level=INFO msg=HTTP method=GET path=/api/v1/auth/users status=200 duration=411.6232ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:40.643+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/chapters status=200 duration=0s ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:40.753+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/levels status=200 duration=2.4415786s ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:40.767+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects/21000000-0000-0000-0000-000000000002/chapters status=200 duration=111.1143ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:41.131+07:00 level=INFO msg=HTTP method=GET path=/api/v1/questions status=200 duration=494.7052ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:43.376+07:00 level=INFO msg=HTTP method=GET path=/api/v1/materials status=200 duration=165.5671ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:48.913+07:00 level=INFO msg=HTTP method=GET path=/api/v1/analytics/admin/reports/exams status=200 duration=434.2924ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:50.503+07:00 level=INFO msg=HTTP method=GET path=/api/v1/schools status=200 duration=160.8697ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:51.118+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/grades status=200 duration=107.0833ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:51.146+07:00 level=INFO msg=HTTP method=GET path=/api/v1/exams status=200 duration=139.9327ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:56:52.646+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/chapters status=200 duration=0s ip=127.0.0.1 request_id=""
+time=2026-07-29T06:57:00.809+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=401 duration=148.7434ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:57:22.951+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=401 duration=115.7582ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:59:47.161+07:00 level=INFO msg=HTTP method=DELETE path=/api/v1/auth/users/15cf8748-afc7-453e-b77f-fa0548a448e3 status=200 duration=790.9766ms ip=127.0.0.1 request_id=""
+time=2026-07-29T06:59:47.229+07:00 level=INFO msg=HTTP method=GET path=/api/v1/auth/users status=200 duration=59.3019ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:00:45.184+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/users status=201 duration=163.3931ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:00:45.583+07:00 level=INFO msg=HTTP method=GET path=/api/v1/auth/users status=200 duration=386.9389ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:10.657+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=401 duration=154.036ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:11.750+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=401 duration=125.6346ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:23.150+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=200 duration=123.8751ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:27.578+07:00 level=INFO msg=HTTP method=GET path=/api/v1/auth/me status=200 duration=92.7378ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:27.647+07:00 level=INFO msg=HTTP method=GET path=/api/v1/gamification/streak status=200 duration=69.5845ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:27.674+07:00 level=INFO msg=HTTP method=GET path=/api/v1/gamification/xp status=200 duration=97.0879ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:27.743+07:00 level=INFO msg=HTTP method=GET path=/api/v1/exams status=200 duration=164.4728ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:27.976+07:00 level=INFO msg=HTTP method=GET path=/api/v1/gamification/badges status=200 duration=386.9959ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:28.197+07:00 level=INFO msg=HTTP method=GET path=/api/v1/dashboard/student status=200 duration=627.6357ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:37.179+07:00 level=INFO msg=HTTP method=GET path=/api/v1/materials status=200 duration=163.7599ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:40.162+07:00 level=INFO msg=HTTP method=GET path=/api/v1/practice/sessions status=200 duration=159.304ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:47.232+07:00 level=INFO msg=HTTP method=GET path=/api/v1/exams status=200 duration=168.6128ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:01:59.842+07:00 level=INFO msg=HTTP method=GET path=/api/v1/materials status=200 duration=32.2653558s ip=127.0.0.1 request_id=""
+time=2026-07-29T07:02:09.227+07:00 level=INFO msg=HTTP method=GET path=/api/v1/materials status=200 duration=90.8459ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:02:39.847+07:00 level=INFO msg=HTTP method=GET path=/health status=200 duration=88.7369ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:02:40.192+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/levels status=401 duration=0s ip=127.0.0.1 request_id=""
+time=2026-07-29T07:02:49.829+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/login status=401 duration=114.9743ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:02:58.156+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/register status=201 duration=182.3443ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:06.881+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/register status=201 duration=149.1541ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:06.961+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects status=200 duration=31.028ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:07.081+07:00 level=INFO msg=HTTP method=GET path=/api/v1/auth/users status=200 duration=60.9703ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:23.479+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects status=401 duration=0s ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:23.491+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects/d6ecb701-5bb0-492b-bd2b-578c6969593b/chapters status=401 duration=0s ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:31.932+07:00 level=INFO msg=HTTP method=POST path=/api/v1/auth/register status=201 duration=157.0437ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:32.078+07:00 level=INFO msg=HTTP method=GET path=/api/v1/academic/subjects/d6ecb701-5bb0-492b-bd2b-578c6969593b/chapters status=200 duration=66.2825ms ip=127.0.0.1 request_id=""
+time=2026-07-29T07:03:32.302+07:00 level=INFO msg=HTTP method=GET path=/api/v1/questions status=200 duration=194.0197ms ip=127.0.0.1 request_id=""

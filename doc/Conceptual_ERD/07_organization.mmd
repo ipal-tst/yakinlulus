@@ -1,0 +1,54 @@
+# 07_organization.mmd
+
+```mermaid
+flowchart TD
+
+ORG[Organization]
+
+ORG --> BR[Branch]
+
+BR --> AC[Academic Year]
+
+AC --> TERM[Academic Term]
+
+TERM --> CLS[Classroom]
+
+CLS --> MEM[Class Membership]
+
+MEM --> USR[User]
+
+ORG --> DEP[Department]
+
+DEP --> TEA[Teaching Assignment]
+
+CLS --> SUB[Subject Assignment]
+
+SUB --> TCH[Teacher]
+
+CLS --> SCH[Schedule]
+
+SCH --> SES[Class Session]
+```
+
+Struktur akhir yang saya rekomendasikan
+
+Organization
+│
+├── Branch
+├── Program
+│      ├── Batch
+│      └── Enrollment
+│
+├── Academic Year
+├── Academic Term
+├── Department
+├── Classroom
+│      ├── Membership
+│      ├── Subject Assignment
+│      ├── Teaching Assignment
+│      ├── Schedule
+│      ├── Class Session
+│      └── Attendance
+│
+├── Invitation
+└── Guardian

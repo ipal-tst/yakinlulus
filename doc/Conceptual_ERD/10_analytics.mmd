@@ -1,0 +1,53 @@
+# 10_analytics.mmd
+
+```mermaid
+flowchart TD
+
+AN[Analytics]
+
+AN --> KPI[KPI]
+
+AN --> USER[User Analytics]
+
+AN --> QUESTION[Question Analytics]
+
+AN --> EXAM[Exam Analytics]
+
+AN --> LEARN[Learning Analytics]
+
+AN --> ORG[Organization Analytics]
+
+AN --> DASH[Dashboard]
+
+AN --> REPORT[Report]
+
+AN --> EXPORT[Export]
+
+AN --> SNAP[Snapshot]
+
+AN --> TREND[Trend]
+
+AN --> EVENT[Event Store]
+```
+
+Struktur akhir yang saya rekomendasikan
+Analytics
+│
+├── Event Store
+├── Analytics Aggregate
+│      ├── User Analytics
+│      ├── Question Analytics
+│      ├── Exam Analytics
+│      ├── Learning Analytics
+│      └── Organization Analytics
+│
+├── KPI
+├── Snapshot
+├── Trend
+├── Dashboard
+├── Report
+├── Scheduled Report
+├── Alert
+├── Export
+├── Cache
+└── Data Warehouse

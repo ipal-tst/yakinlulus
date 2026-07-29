@@ -1,0 +1,550 @@
+# 02_question_bank.mmd
+
+```mermaid
+flowchart TD
+
+Q[Question]
+
+Q --> QV[Question Version]
+
+Q --> QM[Question Metadata]
+
+Q --> QO[Question Option]
+
+Q --> QE[Question Explanation]
+
+Q --> QA[Question Attachment]
+
+Q --> QR[Question Reference]
+
+Q --> QT[Question Tag]
+
+Q --> QS[Question Source]
+
+Q --> QRV[Question Review]
+
+Q --> QH[Question History]
+
+QM --> GL[Grade]
+
+QM --> SB[Subject]
+
+QM --> CH[Chapter]
+
+QM --> TP[Topic]
+
+QM --> ST[Sub Topic]
+
+QM --> LO[Learning Objective]
+
+QM --> DF[Difficulty]
+
+QM --> BT[Bloom Taxonomy]
+
+QM --> TY[Question Type]
+
+QM --> LG[Language]
+```
+
+Saya akan melanjutkan ke **02_question_bank.mmd**.
+
+Ini menurut saya adalah **domain paling penting** di seluruh YakinLulus. Hampir semua domain lain bergantung padanya:
+
+* CBT Engine
+* Learning
+* AI
+* Analytics
+* Search
+* Recommendation
+
+Karena itu saya ingin desainnya benar-benar bersih.
+
+---
+
+# 02_question_bank.mmd
+
+````markdown
+# 02_question_bank.mmd
+
+```mermaid
+flowchart TD
+
+Q[Question]
+
+Q --> QV[Question Version]
+
+Q --> QM[Question Metadata]
+
+Q --> QO[Question Option]
+
+Q --> QE[Question Explanation]
+
+Q --> QA[Question Attachment]
+
+Q --> QR[Question Reference]
+
+Q --> QT[Question Tag]
+
+Q --> QS[Question Source]
+
+Q --> QRV[Question Review]
+
+Q --> QH[Question History]
+
+QM --> GL[Grade]
+
+QM --> SB[Subject]
+
+QM --> CH[Chapter]
+
+QM --> TP[Topic]
+
+QM --> ST[Sub Topic]
+
+QM --> LO[Learning Objective]
+
+QM --> DF[Difficulty]
+
+QM --> BT[Bloom Taxonomy]
+
+QM --> TY[Question Type]
+
+QM --> LG[Language]
+```
+````
+
+---
+
+# Konsep Domain
+
+Question menjadi **Aggregate Root**.
+
+Semua entity lain berada di bawah Question.
+
+```
+Question
+│
+├── Version
+├── Metadata
+├── Option
+├── Explanation
+├── Attachment
+├── Reference
+├── Source
+├── Review
+├── History
+└── Tag
+```
+
+Ini mengikuti konsep **DDD Aggregate**.
+
+---
+
+# Kenapa Metadata dipisah?
+
+Banyak sistem seperti Moodle atau LMS tradisional membuat tabel:
+
+```
+question
+
+id
+
+subject_id
+
+chapter_id
+
+topic_id
+
+difficulty_id
+
+grade_id
+
+curriculum_id
+
+semester_id
+
+language_id
+
+question_type_id
+
+...
+```
+
+Akhirnya satu tabel menjadi sangat lebar.
+
+Saya lebih menyukai:
+
+```
+Question
+        │
+        ▼
+Question Metadata
+        │
+        ├── Grade
+        ├── Subject
+        ├── Chapter
+        ├── Topic
+        ├── Difficulty
+        ├── Bloom
+        ├── Type
+```
+
+Keuntungan:
+
+* Question hanya menyimpan inti soal.
+* Metadata berkembang tanpa mengubah tabel Question.
+* Index menjadi lebih efisien.
+* Filtering menjadi lebih fleksibel.
+
+---
+
+# Struktur Aggregate
+
+```
+Question
+│
+├── Question Version
+│
+├── Question Metadata
+│
+├── Question Option
+│
+├── Question Explanation
+│
+├── Question Attachment
+│
+├── Question Reference
+│
+├── Question Review
+│
+├── Question History
+│
+└── Question Tag
+```
+
+---
+
+# Ownership
+
+| Entity      | Owner           |
+| ----------- | --------------- |
+| Question    | Question Domain |
+| Metadata    | Question Domain |
+| Option      | Question Domain |
+| Explanation | Question Domain |
+| Attachment  | Question Domain |
+| Version     | Question Domain |
+| Review      | Question Domain |
+| History     | Question Domain |
+
+Tidak ada domain lain boleh mengubah entity tersebut.
+
+---
+
+# Relationship
+
+```
+Question
+
+↓
+
+1 Metadata
+
+↓
+
+N Option
+
+↓
+
+1 Explanation
+
+↓
+
+N Attachment
+
+↓
+
+N Tag
+
+↓
+
+N Review
+
+↓
+
+N Version
+```
+
+---
+
+# Lifecycle
+
+```
+Create
+
+↓
+
+Draft
+
+↓
+
+Review
+
+↓
+
+Approved
+
+↓
+
+Published
+
+↓
+
+Archived
+```
+
+---
+
+# Question Version
+
+Saya menyarankan **Version sebagai entity terpisah**, bukan sekadar kolom `version`.
+
+```
+Question
+
+↓
+
+Question Version 1
+
+↓
+
+Question Version 2
+
+↓
+
+Question Version 3
+```
+
+Karena nanti bisa terjadi:
+
+```
+UTBK 2028
+
+↓
+
+Version 2
+
+UTBK 2029
+
+↓
+
+Version 3
+```
+
+Riwayat perubahan tetap utuh.
+
+---
+
+# Attachment
+
+Attachment jangan hanya Image.
+
+```
+Attachment
+
+↓
+
+Image
+
+Video
+
+Audio
+
+PDF
+
+SVG
+
+GIF
+
+Animation
+```
+
+Karena ke depan soal bisa sangat interaktif.
+
+---
+
+# Reference
+
+Question bisa berasal dari:
+
+```
+Kemendikbud
+
+Sekolah
+
+Guru
+
+AI
+
+Import Excel
+
+Manual
+
+Publisher
+```
+
+Reference dipisahkan agar provenance (asal-usul soal) jelas.
+
+---
+
+# Review
+
+Question Review sebaiknya tidak hanya Approved / Reject.
+
+```
+Review
+
+↓
+
+Reviewer
+
+↓
+
+Score
+
+↓
+
+Comment
+
+↓
+
+Decision
+
+↓
+
+Revision
+```
+
+Ini penting jika nanti ada workflow editorial.
+
+---
+
+# History
+
+History berbeda dengan Audit Log.
+
+History menyimpan perubahan bisnis.
+
+Contoh:
+
+```
+Difficulty
+
+Medium
+
+↓
+
+Hard
+```
+
+Audit Log menyimpan:
+
+```
+User A
+
+Jam 10.21
+
+IP
+
+Browser
+```
+
+Jangan dicampur.
+
+---
+
+# Tag
+
+Tag dibuat fleksibel.
+
+```
+HOTS
+
+AKM
+
+UTBK
+
+Numerasi
+
+Literasi
+
+Olimpiade
+
+Remedial
+
+Try Out
+```
+
+Satu soal bisa memiliki banyak tag.
+
+---
+
+# Saya mengusulkan satu perubahan besar
+
+## Metadata jangan menjadi satu tabel
+
+Tadi kita membuat:
+
+```
+Question
+
+↓
+
+Question Metadata
+```
+
+Setelah dipikirkan lebih jauh, saya **merevisi usulan tersebut**.
+
+Untuk sistem sebesar YakinLulus, saya lebih menyarankan **Metadata dipecah menjadi beberapa entity** daripada satu tabel besar.
+
+Contohnya:
+
+```text
+Question
+│
+├── Question Academic
+├── Question Difficulty
+├── Question Classification
+├── Question Statistics
+├── Question Source
+├── Question Version
+├── Question Option
+├── Question Explanation
+├── Question Attachment
+├── Question Review
+└── Question History
+```
+
+Alasannya:
+
+### 1. Single Responsibility Principle
+
+Setiap entity hanya memiliki satu tanggung jawab.
+
+### 2. Mudah berkembang
+
+Misalnya nanti ingin menambah:
+
+* IRT (Item Response Theory)
+* Rasch Model
+* Discrimination Index
+* Guessing Parameter
+* AI Quality Score
+
+Semuanya masuk ke **Question Statistics**, bukan membuat tabel `question` terus melebar.
+
+### 3. Lebih cocok untuk 100 juta+ record
+
+Saat statistik berubah setelah jutaan peserta mengerjakan soal, yang di-update hanya **Question Statistics**, bukan tabel inti `Question`.
+
+---

@@ -1,0 +1,47 @@
+# 08_media.mmd
+
+```mermaid
+flowchart TD
+
+MEDIA[Media Asset]
+
+MEDIA --> FILE[Media File]
+
+MEDIA --> VER[Media Version]
+
+MEDIA --> VAR[Media Variant]
+
+MEDIA --> META[Media Metadata]
+
+MEDIA --> THUMB[Thumbnail]
+
+MEDIA --> PREVIEW[Preview]
+
+MEDIA --> TRANS[Media Transformation]
+
+MEDIA --> STORAGE[Storage Provider]
+
+MEDIA --> ACCESS[Access Policy]
+
+MEDIA --> USAGE[Media Usage]
+
+MEDIA --> HISTORY[Media History]
+```
+
+Struktur akhir yang saya rekomendasikan
+Media Asset
+│
+├── Media Object
+│      ├── File
+│      ├── Variant
+│      ├── Thumbnail
+│      ├── Preview
+│      └── Metadata
+│
+├── Upload Job
+├── Processing Job
+├── Storage Provider
+├── Access Policy
+├── Media Usage
+├── AI Metadata
+└── History

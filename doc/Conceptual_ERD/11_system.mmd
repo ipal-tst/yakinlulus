@@ -1,0 +1,64 @@
+# 11_system.mmd
+
+```mermaid
+flowchart TD
+
+SYS[System]
+
+SYS --> CFG[System Configuration]
+
+SYS --> SET[Application Setting]
+
+SYS --> ENV[Environment]
+
+SYS --> FF[Feature Flag]
+
+SYS --> JOB[Background Job]
+
+SYS --> SCH[Scheduler]
+
+SYS --> NOTIF[Notification]
+
+SYS --> AUDIT[Audit Log]
+
+SYS --> WEBHOOK[Webhook]
+
+SYS --> APIKEY[API Key]
+
+SYS --> TOKEN[System Token]
+
+SYS --> BACKUP[Backup]
+
+SYS --> HEALTH[Health Check]
+
+SYS --> LICENSE[License]
+
+SYS --> HISTORY[System History]
+```
+
+Struktur akhir yang saya rekomendasikan
+System
+│
+├── Configuration
+├── Application Setting
+├── Feature Flag
+├── Messaging
+│      └── Notification
+│
+├── Background Job
+│      ├── Queue
+│      └── Dead Letter Queue
+│
+├── Scheduler
+├── Webhook
+├── API Key
+├── Secret Manager
+├── System Token
+├── Rate Limit
+├── Backup
+├── Deployment
+├── Health Check
+├── License
+├── Maintenance Window
+├── Audit Log
+└── History

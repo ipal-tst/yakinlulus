@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.next/
+vendor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Config with secrets
+config.yaml
+backend/config.yaml
+
+# Credentials
+credentials.txt
+*credentials*
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+backend/yakinlulus-api
+backend/hermes-s1-api.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+/tmp/
+/tools/

@@ -1,0 +1,900 @@
+# 06_learning_ldm.md
+
+# Logical Data Model
+## Domain : Learning
+
+Version : 1.0
+
+---
+
+# Tujuan
+
+Learning Domain mengelola seluruh aktivitas belajar pengguna pada platform YakinLulus.
+
+Domain ini bertanggung jawab terhadap:
+
+- Progress belajar
+- Learning Path
+- Course Enrollment
+- Riwayat belajar
+- Bookmark
+- Catatan belajar
+- Latihan mandiri
+- Target belajar
+- Achievement
+- Gamification
+
+Learning Domain **bukan pemilik materi pembelajaran**.
+
+Seluruh materi berasal dari **Learning Resource Domain**.
+
+Learning Domain juga **bukan pemilik soal**.
+
+Seluruh soal berasal dari **Question Bank Domain**.
+
+---
+
+# Aggregate Root
+
+```
+Learning Session
+```
+
+---
+
+# Entity Hierarchy
+
+```
+Learning Session
+│
+├── Learning Enrollment
+├── Learning Progress
+├── Learning Activity
+├── Learning Block Progress
+├── Learning Bookmark
+├── Learning Note
+├── Learning Practice
+├── Learning Target
+├── Learning Streak
+├── Learning Achievement
+├── Learning Certificate
+├── Learning Recommendation
+├── Learning History
+└── Learning Audit
+```
+
+---
+
+# Logical Entity List
+
+| Entity | Purpose |
+|----------|----------|
+| Learning Session | Sesi belajar |
+| Learning Enrollment | Kepesertaan materi |
+| Learning Progress | Progress materi |
+| Learning Activity | Aktivitas belajar |
+| Learning Block Progress | Progress per blok |
+| Learning Bookmark | Bookmark |
+| Learning Note | Catatan |
+| Learning Practice | Latihan |
+| Learning Target | Target belajar |
+| Learning Streak | Konsistensi belajar |
+| Learning Achievement | Achievement |
+| Learning Certificate | Sertifikat |
+| Learning Recommendation | Rekomendasi belajar |
+| Learning History | Riwayat |
+| Learning Audit | Audit |
+
+---
+
+# Aggregate Root
+
+## Learning Session
+
+### Business Purpose
+
+Merepresentasikan satu sesi belajar pengguna.
+
+### Candidate Attribute
+
+```
+ID
+
+Session Code
+
+User ID
+
+Learning Resource ID
+
+Started At
+
+Ended At
+
+Status
+
+Device
+
+Platform
+```
+
+---
+
+Status
+
+```
+Started
+
+Paused
+
+Completed
+
+Cancelled
+
+Expired
+```
+
+---
+
+Business Rule
+
+- satu Session hanya dimiliki satu User
+- satu Session hanya mempelajari satu Learning Resource
+
+---
+
+# Learning Enrollment
+
+### Business Purpose
+
+Hubungan User dengan Learning Resource.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Enrollment Date
+
+Completion Status
+
+Completion Date
+
+Source
+```
+
+---
+
+Source
+
+```
+Manual
+
+Assignment
+
+Recommendation
+
+Course
+
+Organization
+```
+
+---
+
+# Learning Progress
+
+### Business Purpose
+
+Progress keseluruhan materi.
+
+### Candidate Attribute
+
+```
+ID
+
+Enrollment ID
+
+Progress Percentage
+
+Current Block
+
+Completed Block
+
+Total Block
+
+Last Activity
+
+Study Duration
+```
+
+---
+
+Business Rule
+
+Progress dihitung otomatis berdasarkan Learning Block.
+
+---
+
+# Learning Activity
+
+### Business Purpose
+
+Log aktivitas belajar.
+
+### Candidate Attribute
+
+```
+ID
+
+Session ID
+
+Activity Type
+
+Learning Block ID
+
+Duration
+
+Activity Time
+
+Metadata
+```
+
+---
+
+Activity Type
+
+```
+Open
+
+Read
+
+Watch
+
+Listen
+
+Complete Block
+
+Download
+
+Practice
+
+Quiz
+
+Bookmark
+
+Note
+
+Share
+```
+
+---
+
+# Learning Block Progress
+
+### Business Purpose
+
+Progress pada setiap blok materi.
+
+### Candidate Attribute
+
+```
+ID
+
+Session ID
+
+Learning Block ID
+
+Status
+
+Time Spent
+
+Completed At
+```
+
+---
+
+Status
+
+```
+Not Started
+
+In Progress
+
+Completed
+
+Skipped
+```
+
+---
+
+# Learning Bookmark
+
+### Business Purpose
+
+Bookmark materi.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Learning Block ID
+
+Created At
+```
+
+---
+
+# Learning Note
+
+### Business Purpose
+
+Catatan pribadi pengguna.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Learning Block ID
+
+Note
+
+Created At
+
+Updated At
+```
+
+---
+
+# Learning Practice
+
+### Business Purpose
+
+Latihan mandiri dari materi.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Question ID
+
+Answer
+
+Score
+
+Attempt
+
+Answered At
+```
+
+---
+
+Business Rule
+
+Question berasal dari Question Bank.
+
+---
+
+# Learning Target
+
+### Business Purpose
+
+Target belajar.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Target Type
+
+Target Value
+
+Current Value
+
+Start Date
+
+End Date
+
+Status
+```
+
+---
+
+Target Type
+
+```
+Study Hour
+
+Complete Material
+
+Practice Question
+
+Daily Login
+
+Weekly Goal
+```
+
+---
+
+# Learning Streak
+
+### Business Purpose
+
+Konsistensi belajar.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Current Streak
+
+Longest Streak
+
+Last Study Date
+```
+
+---
+
+# Learning Achievement
+
+### Business Purpose
+
+Badge dan achievement.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Achievement Type
+
+Achievement Name
+
+Earned At
+
+Score
+```
+
+---
+
+Achievement Type
+
+```
+Badge
+
+Level
+
+Medal
+
+Mission
+
+Challenge
+```
+
+---
+
+# Learning Certificate
+
+### Business Purpose
+
+Sertifikat penyelesaian.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Certificate Number
+
+Issued At
+
+Media Asset ID
+```
+
+---
+
+Business Rule
+
+File sertifikat menggunakan Media Domain.
+
+---
+
+# Learning Recommendation
+
+### Business Purpose
+
+Rekomendasi pembelajaran.
+
+### Candidate Attribute
+
+```
+ID
+
+User ID
+
+Recommendation Type
+
+Reference ID
+
+Reason
+
+Generated By
+
+Generated At
+```
+
+---
+
+Generated By
+
+```
+AI
+
+Rule Engine
+
+Teacher
+
+System
+```
+
+---
+
+# Learning History
+
+### Candidate Attribute
+
+```
+ID
+
+Learning Session ID
+
+Action
+
+Old Value
+
+New Value
+
+Changed By
+
+Changed At
+```
+
+---
+
+# Learning Audit
+
+### Candidate Attribute
+
+```
+ID
+
+Learning Session ID
+
+User ID
+
+Action
+
+IP Address
+
+Browser
+
+Timestamp
+```
+
+---
+
+# Relationship
+
+```
+Learning Session
+
+1
+
+↓
+
+1
+
+Learning Enrollment
+
+↓
+
+1
+
+Learning Progress
+
+↓
+
+N
+
+Learning Activity
+
+↓
+
+N
+
+Learning Block Progress
+
+↓
+
+N
+
+Learning Bookmark
+
+↓
+
+N
+
+Learning Note
+
+↓
+
+N
+
+Learning Practice
+
+↓
+
+1
+
+Learning Target
+
+↓
+
+1
+
+Learning Streak
+
+↓
+
+N
+
+Learning Achievement
+
+↓
+
+N
+
+Learning Certificate
+```
+
+---
+
+# Ownership
+
+| Entity | Owner |
+|----------|--------|
+| Learning Session | Learning Domain |
+| Learning Enrollment | Learning Domain |
+| Learning Progress | Learning Domain |
+| Learning Activity | Learning Domain |
+| Learning Block Progress | Learning Domain |
+| Learning Bookmark | Learning Domain |
+| Learning Note | Learning Domain |
+| Learning Practice | Learning Domain |
+| Learning Target | Learning Domain |
+| Learning Streak | Learning Domain |
+| Learning Achievement | Learning Domain |
+| Learning Certificate | Learning Domain |
+| Learning Recommendation | AI Domain (generated), Learning Domain (stored) |
+| Learning History | Learning Domain |
+| Learning Audit | System Domain |
+
+---
+
+# Cross Domain Reference
+
+Learning Domain menggunakan:
+
+- User Management
+- Learning Resource
+- Question Bank
+- Master Academic
+- Media
+- AI
+- Analytics
+
+---
+
+# Business Constraint
+
+- User harus terdaftar sebelum memulai sesi belajar.
+- Progress dihitung otomatis.
+- Bookmark tidak boleh duplikat.
+- Sertifikat hanya diterbitkan jika syarat terpenuhi.
+- Learning Practice hanya boleh menggunakan soal Published.
+- Recommendation tidak boleh mengubah data materi.
+- Soft Delete diterapkan pada entity bisnis.
+
+---
+
+# Normalization
+
+Target
+
+```
+BCNF
+```
+
+Tidak diperbolehkan menyimpan:
+
+- isi materi
+- isi soal
+- nama mata pelajaran
+- nama bab
+
+Seluruhnya direferensikan menggunakan Foreign Key.
+
+---
+
+# Lifecycle
+
+## Learning Session
+
+```
+Created
+
+↓
+
+Started
+
+↓
+
+Paused
+
+↓
+
+Resumed
+
+↓
+
+Completed
+
+↓
+
+Archived
+```
+
+---
+
+## Learning Enrollment
+
+```
+Enrolled
+
+↓
+
+Learning
+
+↓
+
+Completed
+
+↓
+
+Expired
+```
+
+---
+
+# Design Notes
+
+## 1. Activity Domain
+
+Learning Domain hanya menyimpan **aktivitas pengguna**, bukan konten.
+
+Learning Resource tetap menjadi pemilik materi.
+
+---
+
+## 2. Progress Granular
+
+Progress dihitung hingga level **Learning Block**, bukan hanya level materi.
+
+Hal ini memungkinkan:
+
+- Resume belajar
+- Persentase akurat
+- Adaptive Learning
+- Analytics yang lebih detail
+
+---
+
+## 3. Session Based
+
+Seluruh aktivitas belajar terjadi di dalam Learning Session.
+
+Dengan model ini sistem dapat menghitung:
+
+- waktu belajar
+- durasi efektif
+- aktivitas per perangkat
+- frekuensi belajar
+
+---
+
+## 4. Practice Integration
+
+Latihan tidak membuat salinan soal.
+
+Learning Practice hanya menyimpan referensi ke Question Bank beserta jawaban pengguna.
+
+---
+
+## 5. Gamification Ready
+
+Learning Streak, Achievement, Target, dan Certificate dipisahkan agar mudah dikembangkan menjadi sistem gamifikasi yang lebih kompleks.
+
+---
+
+## 6. Recommendation Independent
+
+Recommendation tidak menghasilkan perubahan data.
+
+Entity ini hanya menyimpan rekomendasi yang dihasilkan AI atau Rule Engine.
+
+---
+
+## 7. Analytics Friendly
+
+Learning Activity menjadi sumber utama event untuk Analytics Domain.
+
+Contoh event:
+
+- membaca materi
+- menonton video
+- menyelesaikan blok
+- mengerjakan latihan
+- membuat bookmark
+- membuat catatan
+
+---
+
+## 8. Future Ready
+
+Model ini telah disiapkan untuk mendukung:
+
+- Learning Path
+- Course
+- Playlist Materi
+- Adaptive Learning
+- AI Tutor
+- Mentor Session
+- Collaborative Learning
+- Peer Discussion
+- Daily Challenge
+- Gamification
+- Offline Learning
+- xAPI / SCORM Tracking
+- Personalized Recommendation
+- Skill Mapping
+- Competency Tracking
+- Lifelong Learning Record

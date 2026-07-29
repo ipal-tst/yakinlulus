@@ -1,0 +1,1087 @@
+# 10_analytics_ldm.md
+
+# Logical Data Model
+## Domain : Analytics
+
+Version : 1.0
+
+---
+
+# Tujuan
+
+Analytics Domain bertanggung jawab mengelola pengumpulan, pengolahan, penyimpanan, dan penyajian data analitik dari seluruh aktivitas platform YakinLulus.
+
+Domain ini menjadi pusat untuk:
+
+- Learning Analytics
+- Exam Analytics
+- Student Performance Analysis
+- Teacher Analytics
+- Organization Analytics
+- Question Quality Analysis
+- AI Analytics
+- Platform Metrics
+- Business Intelligence
+
+Analytics Domain **bukan pemilik transaksi bisnis**.
+
+Analytics hanya membaca event dan menghasilkan insight.
+
+---
+
+# Prinsip Utama
+
+Analytics menggunakan pendekatan:
+
+```
+Event Driven Analytics
+```
+
+Sumber data:
+
+```
+User Activity
+
+↓
+
+Domain Event
+
+↓
+
+Analytics Pipeline
+
+↓
+
+Data Warehouse
+
+↓
+
+Dashboard / Report
+```
+
+---
+
+# Aggregate Root
+
+```
+Analytics Event
+```
+
+---
+
+# Entity Hierarchy
+
+```
+Analytics Event
+│
+├── Event Type
+├── Event Property
+├── User Behavior
+├── Learning Metric
+├── Exam Metric
+├── Question Metric
+├── Student Performance
+├── Teacher Performance
+├── Organization Metric
+├── AI Metric
+├── Dashboard
+├── Report
+├── Data Snapshot
+├── Analytics Job
+├── Data Pipeline
+├── Analytics Alert
+├── Analytics History
+└── Analytics Audit
+```
+
+---
+
+# Logical Entity List
+
+| Entity | Purpose |
+|---|---|
+| Analytics Event | Event aktivitas |
+| Event Type | Jenis event |
+| Event Property | Detail event |
+| User Behavior | Analisis perilaku |
+| Learning Metric | Statistik belajar |
+| Exam Metric | Statistik ujian |
+| Question Metric | Statistik soal |
+| Student Performance | Performa siswa |
+| Teacher Performance | Performa guru |
+| Organization Metric | Statistik organisasi |
+| AI Metric | Statistik AI |
+| Dashboard | Tampilan analitik |
+| Report | Laporan |
+| Data Snapshot | Snapshot data |
+| Analytics Job | Proses analitik |
+| Data Pipeline | Pipeline data |
+| Analytics Alert | Peringatan |
+| Analytics History | Riwayat |
+| Analytics Audit | Audit |
+
+---
+
+# Aggregate Root
+
+# Analytics Event
+
+## Business Purpose
+
+Menyimpan seluruh aktivitas sistem.
+
+Contoh:
+
+```
+Student opened material
+
+Student answered question
+
+Teacher created exam
+
+AI generated question
+```
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Event ID
+
+Event Type ID
+
+User ID
+
+Organization ID
+
+Source Domain
+
+Entity Type
+
+Entity ID
+
+Timestamp
+
+Metadata
+```
+
+---
+
+# Event Type
+
+## Business Purpose
+
+Master jenis event.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Code
+
+Name
+
+Category
+
+Description
+```
+
+---
+
+Contoh:
+
+Learning:
+
+```
+MATERIAL_OPENED
+
+VIDEO_COMPLETED
+
+LESSON_COMPLETED
+```
+
+CBT:
+
+```
+EXAM_STARTED
+
+QUESTION_ANSWERED
+
+EXAM_FINISHED
+```
+
+---
+
+# Event Property
+
+## Business Purpose
+
+Detail tambahan event.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Event ID
+
+Property Key
+
+Property Value
+```
+
+---
+
+Contoh:
+
+```
+question_id = 10001
+
+duration = 120 sec
+
+device = android
+```
+
+---
+
+# User Behavior
+
+## Business Purpose
+
+Analisis pola pengguna.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+User ID
+
+Period
+
+Login Count
+
+Study Time
+
+Exam Count
+
+Activity Score
+```
+
+---
+
+Contoh:
+
+```
+Belajar rata-rata 2 jam/hari
+
+Mengerjakan 50 soal/minggu
+```
+
+---
+
+# Learning Metric
+
+## Business Purpose
+
+Statistik pembelajaran.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+User ID
+
+Learning Resource ID
+
+Progress
+
+Completion Rate
+
+Study Duration
+
+Last Activity
+
+Period
+```
+
+---
+
+# Exam Metric
+
+## Business Purpose
+
+Statistik ujian.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Exam ID
+
+Participant Count
+
+Average Score
+
+Highest Score
+
+Lowest Score
+
+Completion Rate
+
+Period
+```
+
+---
+
+# Question Metric
+
+## Business Purpose
+
+Analisis kualitas soal.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Question ID
+
+Attempt Count
+
+Correct Count
+
+Wrong Count
+
+Difficulty Index
+
+Discrimination Index
+
+Period
+```
+
+---
+
+Contoh:
+
+```
+Question A
+
+Difficulty = Medium
+
+Correct Rate = 65%
+```
+
+---
+
+# Student Performance
+
+## Business Purpose
+
+Analisis perkembangan siswa.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+User ID
+
+Subject ID
+
+Competency ID
+
+Score
+
+Trend
+
+Period
+```
+
+---
+
+Contoh:
+
+```
+Matematika
+
+↓
+
+Menurun 10%
+
+↓
+
+Rekomendasi latihan
+```
+
+---
+
+# Teacher Performance
+
+## Business Purpose
+
+Analisis aktivitas guru.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Teacher User ID
+
+Material Created
+
+Question Created
+
+Student Engagement
+
+Rating
+
+Period
+```
+
+---
+
+# Organization Metric
+
+## Business Purpose
+
+Analisis institusi.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Organization ID
+
+Active User
+
+Exam Count
+
+Learning Activity
+
+Storage Usage
+
+Period
+```
+
+---
+
+# AI Metric
+
+## Business Purpose
+
+Monitoring AI.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Model ID
+
+Request Count
+
+Token Usage
+
+Accuracy Score
+
+Cost
+
+Period
+```
+
+---
+
+# Dashboard
+
+## Business Purpose
+
+Konfigurasi dashboard.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Dashboard Name
+
+Owner Type
+
+Owner ID
+
+Configuration
+
+Created At
+```
+
+---
+
+Contoh:
+
+```
+Student Dashboard
+
+Teacher Dashboard
+
+School Dashboard
+```
+
+---
+
+# Report
+
+## Business Purpose
+
+Laporan analitik.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Report Name
+
+Report Type
+
+Generated By
+
+Generated At
+
+File Media ID
+```
+
+---
+
+# Data Snapshot
+
+## Business Purpose
+
+Menyimpan hasil agregasi.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Snapshot Type
+
+Reference ID
+
+Data
+
+Generated At
+```
+
+---
+
+Contoh:
+
+```
+Monthly Student Ranking
+
+School Performance Report
+```
+
+---
+
+# Analytics Job
+
+## Business Purpose
+
+Proses perhitungan analytics.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Job Type
+
+Status
+
+Started At
+
+Completed At
+
+Error Message
+```
+
+---
+
+Job Type:
+
+```
+Aggregation
+
+ETL
+
+Report Generation
+
+ML Processing
+```
+
+---
+
+# Data Pipeline
+
+## Business Purpose
+
+Alur pengolahan data.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Pipeline Name
+
+Source
+
+Destination
+
+Schedule
+
+Status
+```
+
+---
+
+Contoh:
+
+```
+Production Database
+
+↓
+
+Analytics Warehouse
+```
+
+---
+
+# Analytics Alert
+
+## Business Purpose
+
+Notifikasi kondisi tertentu.
+
+---
+
+## Candidate Attribute
+
+```
+ID
+
+Alert Type
+
+Reference ID
+
+Condition
+
+Threshold
+
+Status
+```
+
+---
+
+Contoh:
+
+```
+Student score drop > 20%
+
+↓
+
+Alert Teacher
+```
+
+---
+
+# Analytics History
+
+## Candidate Attribute
+
+```
+ID
+
+Entity Name
+
+Entity ID
+
+Action
+
+Changed By
+
+Changed At
+```
+
+---
+
+# Analytics Audit
+
+## Candidate Attribute
+
+```
+ID
+
+User ID
+
+Action
+
+Timestamp
+
+IPAddress
+```
+
+---
+
+# Relationship
+
+```
+Analytics Event
+
+1
+
+↓
+
+N
+
+Event Property
+
+
+Analytics Event
+
+↓
+
+User Behavior
+
+
+Analytics Event
+
+↓
+
+Learning Metric
+
+
+Analytics Event
+
+↓
+
+Exam Metric
+
+
+Analytics Event
+
+↓
+
+Question Metric
+
+
+Analytics Job
+
+1
+
+↓
+
+N
+
+Data Snapshot
+
+
+Dashboard
+
+1
+
+↓
+
+N
+
+Report
+```
+
+---
+
+# Ownership
+
+| Entity | Owner |
+|---|---|
+| Analytics Event | Analytics Domain |
+| Event Type | Analytics Domain |
+| Event Property | Analytics Domain |
+| User Behavior | Analytics Domain |
+| Learning Metric | Analytics Domain |
+| Exam Metric | Analytics Domain |
+| Question Metric | Analytics Domain |
+| Student Performance | Analytics Domain |
+| Teacher Performance | Analytics Domain |
+| Organization Metric | Analytics Domain |
+| AI Metric | Analytics Domain |
+| Dashboard | Analytics Domain |
+| Report | Analytics Domain |
+| Data Snapshot | Analytics Domain |
+| Analytics Job | Analytics Domain |
+| Data Pipeline | Analytics Domain |
+| Analytics Alert | Analytics Domain |
+| Analytics History | Analytics Domain |
+| Analytics Audit | System Domain |
+
+---
+
+# Cross Domain Reference
+
+Analytics menerima event dari:
+
+- User Management
+- Question Bank
+- Learning Resource
+- Learning
+- CBT Engine
+- Organization
+- AI
+- Media
+
+---
+
+# Business Constraint
+
+- Analytics tidak boleh mengubah data transaksi.
+- Event harus immutable.
+- Event timestamp wajib ada.
+- Semua metric harus memiliki periode.
+- Data agregasi dapat dibuat ulang dari event.
+- Dashboard tidak menyimpan transaksi.
+- Report menggunakan Media Domain.
+- Audit tidak boleh dihapus.
+
+---
+
+# Normalization
+
+Target:
+
+```
+3NF
+```
+
+Berbeda dengan transactional database, Analytics dapat menggunakan:
+
+```
+Denormalized Table
+Materialized View
+Data Warehouse
+Star Schema
+```
+
+untuk performa query.
+
+---
+
+# Lifecycle
+
+## Analytics Event
+
+```
+Generated
+
+↓
+
+Collected
+
+↓
+
+Processed
+
+↓
+
+Archived
+```
+
+---
+
+## Analytics Job
+
+```
+Created
+
+↓
+
+Running
+
+↓
+
+Completed
+
+↓
+
+Failed
+```
+
+---
+
+# Design Notes
+
+## 1. Transaction Database vs Analytics Database
+
+Jangan menjalankan analisis berat pada database utama.
+
+Arsitektur:
+
+```
+Operational Database
+
+(User, Question, Exam)
+
+        |
+
+        ▼
+
+Event Stream
+
+        |
+
+        ▼
+
+Analytics Storage
+
+        |
+
+        ▼
+
+Dashboard
+```
+
+---
+
+# 2. Event Sourcing Ready
+
+Event menjadi sumber utama untuk analitik.
+
+Contoh:
+
+```
+QUESTION_ANSWERED
+
+{
+ user_id:100,
+ question_id:500,
+ answer:"B",
+ correct:true,
+ duration:35
+}
+```
+
+Dari event tersebut dapat dihitung:
+
+- kemampuan siswa,
+- kualitas soal,
+- statistik ujian.
+
+---
+
+# 3. Learning Analytics
+
+Mendukung:
+
+- waktu belajar,
+- materi favorit,
+- materi sulit,
+- progress,
+- learning habit.
+
+---
+
+# 4. Exam Analytics
+
+Mendukung:
+
+- distribusi nilai,
+- ranking,
+- analisis kelemahan,
+- prediksi kelulusan,
+- evaluasi kualitas ujian.
+
+---
+
+# 5. Question Analytics
+
+Sangat penting untuk bank soal besar.
+
+Dapat menghitung:
+
+```
+Difficulty Index
+
+Discrimination Index
+
+Average Time
+
+Wrong Answer Pattern
+```
+
+---
+
+# 6. AI Analytics
+
+Mengukur:
+
+- penggunaan AI,
+- biaya,
+- akurasi,
+- feedback pengguna,
+- performa model.
+
+---
+
+# 7. Future Ready
+
+Model ini mendukung:
+
+- Data Warehouse
+- Data Lake
+- BI Dashboard
+- Machine Learning Pipeline
+- Student Risk Prediction
+- Learning Recommendation
+- Knowledge Graph Analytics
+- Cohort Analysis
+- A/B Testing
+- Predictive Analytics
+- Adaptive Learning Analytics
+- Education Intelligence Platform

@@ -1,0 +1,12 @@
+-- Migration 027: Ensure all metadata columns exist on questions table
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS topic VARCHAR(255);
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS bloom_level VARCHAR(20);
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'id';
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS source VARCHAR(50);
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS topic_id UUID;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS subtopic_id UUID;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS stimulus_id UUID;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS score DECIMAL(5,2) DEFAULT 1.00;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS negative_score DECIMAL(5,2) DEFAULT 0.00;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS estimated_time INT;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS thinking_level VARCHAR(5);

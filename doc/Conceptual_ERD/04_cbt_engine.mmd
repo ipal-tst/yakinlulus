@@ -1,0 +1,56 @@
+# 04_cbt_engine.mmd
+
+```mermaid
+flowchart TD
+
+EX[Exam]
+
+EX --> BP[Exam Blueprint]
+
+EX --> CFG[Exam Configuration]
+
+EX --> SNAP[Exam Question Snapshot]
+
+EX --> SES[Exam Session]
+
+SES --> ATT[Exam Attempt]
+
+ATT --> ANS[User Answer]
+
+ATT --> NAV[Navigation Log]
+
+ATT --> FLAG[Question Flag]
+
+ATT --> TIME[Time Tracking]
+
+ATT --> SCORE[Scoring]
+
+SCORE --> RES[Exam Result]
+
+RES --> RANK[Ranking]
+
+RES --> CERT[Certificate]
+```
+
+
+Struktur yang saya rekomendasikan
+Exam
+│
+├── Blueprint
+├── Configuration
+├── Snapshot
+├── Session
+│
+└── Attempt
+      │
+      ├── Attempt Question
+      │      ├── Answer
+      │      ├── Time Tracking
+      │      ├── Navigation State
+      │      └── Flag
+      │
+      ├── Scoring
+      │
+      └── Result
+              ├── Ranking
+              └── Certificate
