@@ -18,10 +18,10 @@ describe("htmlToStagingRows", () => {
     `;
     const rows = htmlToStagingRows(html, defaults);
     expect(rows).toHaveLength(2);
-    expect(rows[0].content).toContain("Berapakah hasil dari 2 + 3?");
-    expect(rows[0].options.map(o => o.label)).toEqual(["A", "B", "C", "D"]);
-    expect(rows[0].options.every(o => !o.is_correct)).toBe(true);
-    expect(rows[0].has_image).toBe(false);
+    expect(rows[0]!.content).toContain("Berapakah hasil dari 2 + 3?");
+    expect(rows[0]!.options.map(o => o.label)).toEqual(["A", "B", "C", "D"]);
+    expect(rows[0]!.options.every(o => !o.is_correct)).toBe(true);
+    expect(rows[0]!.has_image).toBe(false);
   });
 
   it("mengkonversi tabel menjadi markdown table", () => {
@@ -35,7 +35,7 @@ describe("htmlToStagingRows", () => {
       <p>B. 5</p>
     `;
     const rows = htmlToStagingRows(html, defaults);
-    expect(rows[0].content).toContain("| x | 1 | 2 |");
+    expect(rows[0]!.content).toContain("| x | 1 | 2 |");
   });
 
   it("menyisipkan data URI gambar sebagai placeholder markdown", () => {
@@ -46,7 +46,7 @@ describe("htmlToStagingRows", () => {
       <p>B. 2</p>
     `;
     const rows = htmlToStagingRows(html, defaults);
-    expect(rows[0].content).toContain("![grafik](data:image/png;base64,");
-    expect(rows[0].has_image).toBe(true);
+    expect(rows[0]!.content).toContain("![grafik](data:image/png;base64,");
+    expect(rows[0]!.has_image).toBe(true);
   });
 });
