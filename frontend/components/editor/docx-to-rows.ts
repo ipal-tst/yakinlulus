@@ -45,6 +45,12 @@ export function renderBlockToMarkdown(el: Element): string {
     const alt = el.getAttribute("alt") || "gambar";
     return `![${alt}](${src})`;
   }
+  const img = el.querySelector("img");
+  if (img) {
+    const text = (el.textContent || "").trim();
+    const md = renderBlockToMarkdown(img);
+    return text ? `${text}\n\n${md}` : md;
+  }
   if (el.tagName === "H1" || el.tagName === "H2") {
     return `## ${el.textContent || ""}`.trim();
   }
@@ -70,16 +76,28 @@ export function htmlToStagingRows(html: string, defaults: Defaults): StagingQues
   const blocks: Element[] = Array.from(doc.body.children);
 
   const blocksByQuestion: Element[][] = [];
+  let pendingImages: Element[] = [];
   let current: Element[] = [];
 
   for (const el of blocks) {
     const text = (el.textContent || "").trim();
+    const isImageOnly = el.tagName !== "TABLE" && el.querySelector("img") !== null && !text;
+    if (isImageOnly) {
+      if (current.length === 0) pendingImages.push(el);
+      else current.push(el);
+      continue;
+    }
     if ((el.tagName === "P" || el.tagName === "H3") && isQuestionStart(text) && current.length > 0) {
       blocksByQuestion.push(current);
       current = [];
+      if (pendingImages.length > 0) {
+        current = current.concat(pendingImages);
+        pendingImages = [];
+      }
     }
     current.push(el);
   }
+  if (pendingImages.length > 0) current = current.concat(pendingImages);
   if (current.length > 0) blocksByQuestion.push(current);
 
   const rows: StagingQuestionRow[] = [];
@@ -97,6 +115,11 @@ export function htmlToStagingRows(html: string, defaults: Defaults): StagingQues
         continue;
       }
       if (el.tagName === "TABLE") {
+        contentParts.push(renderBlockToMarkdown(el));
+        continue;
+      }
+      if (el.querySelector("img") !== null) {
+        hasImage = true;
         contentParts.push(renderBlockToMarkdown(el));
         continue;
       }
@@ -182,19 +205,23 @@ export async function uploadDataUriImages(content: string): Promise<string> {
   const token = localStorage.getItem("token");
   let updated = content;
   for (const img of images) {
-    const blob = await (await fetch(img.uri)).blob();
-    const formData = new FormData();
-    formData.append("file", blob, `docx-${Date.now()}-${images.indexOf(img)}.png`);
-    formData.append("entity_type", "QUESTION");
-    const res = await fetch("/api/v1/media/upload", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    const json = await res.json();
-    const url = json.data?.url;
-    if (!json.success || !url) throw new Error(json.message || "Upload gambar gagal");
-    updated = updated.replace(`![${img.alt}](${img.uri})`, `![${img.alt}](${url})`);
+    try {
+      const blob = await (await fetch(img.uri)).blob();
+      const formData = new FormData();
+      formData.append("file", blob, `docx-${Date.now()}-${images.indexOf(img)}.png`);
+      formData.append("entity_type", "QUESTION");
+      const res = await fetch("/api/v1/media/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const json = await res.json();
+      const url = json.data?.url;
+      if (!json.success || !url) continue;
+      updated = updated.replace(`![${img.alt}](${img.uri})`, `![${img.alt}](${url})`);
+    } catch {
+      continue;
+    }
   }
   return updated;
 }

@@ -49,6 +49,26 @@ describe("htmlToStagingRows", () => {
     expect(rows[0]!.content).toContain("![grafik](data:image/png;base64,");
     expect(rows[0]!.has_image).toBe(true);
   });
+
+  it("mendeteksi gambar bersarang di dalam <p> dan tidak membuat baris hantu", () => {
+    const html = `
+      <p>1. Perhatikan grafik:</p>
+      <p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="grafik"/></p>
+      <p>A. 1</p>
+      <p>B. 2</p>
+      <p>2. Soal kedua tanpa gambar</p>
+      <p>A. 3</p>
+      <p>B. 4</p>
+    `;
+    const rows = htmlToStagingRows(html, defaults);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.has_image).toBe(true);
+    expect(rows[0]!.content).toContain("![grafik](data:image/png;base64,");
+    expect(rows[0]!.content).toContain("Perhatikan grafik:");
+    expect(rows[0]!.content).not.toMatch(/Soal\s+1/);
+    expect(rows[1]!.has_image).toBe(false);
+    expect(rows[1]!.content).toContain("Soal kedua tanpa gambar");
+  });
 });
 
 describe("uploadDataUriImages", () => {
