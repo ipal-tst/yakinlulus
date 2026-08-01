@@ -137,7 +137,6 @@ func main() {
 	contentRepo := content.NewRepository(pool)
 	contentHandler := content.NewHandler(contentRepo, cfg.JWT.Secret)
 	qbSvc := question_bank.NewService(qbRepo, contentRepo)
-	qbHandler := question_bank.NewHandler(qbSvc, cfg.JWT.Secret)
 
 	examSvc := cbt_engine.NewService(contentRepo)
 	examHandler := cbt_engine.NewHandler(examSvc, cfg.JWT.Secret)
@@ -153,6 +152,8 @@ func main() {
 	mediaRepo := media.NewRepository(pool)
 	mediaSvc := media.NewService(mediaRepo, nil)
 	mediaHandler := media.NewHandler(mediaSvc, cfg.JWT.Secret)
+
+	qbHandler := question_bank.NewHandler(qbSvc, cfg.JWT.Secret)
 
 	analyticsRepo := analytics.NewRepository(pool)
 	analyticsSvc := analytics.NewService(analyticsRepo)
@@ -185,7 +186,7 @@ func main() {
 	var storageClient *storage.Client
 	if cfg.Storage.Endpoint != "" {
 		var stErr error
-		storageClient, stErr = storage.NewClient(cfg.Storage.Endpoint, cfg.Storage.AccessKey, cfg.Storage.SecretKey, cfg.Storage.Bucket, cfg.Storage.UseSSL)
+		storageClient, stErr = storage.NewClient(cfg.Storage.Endpoint, cfg.Storage.AccessKey, cfg.Storage.Bucket, cfg.Storage.PublicBaseURL)
 		if stErr != nil {
 			slog.Warn("MinIO client init failed, file upload will skip storage", "error", stErr)
 		} else {
@@ -208,7 +209,7 @@ func main() {
 
 	// Practice module
 	practiceRepo := practice.NewRepository(pool)
-	practiceSvc := practice.NewService(practiceRepo)
+	practiceSvc := practice.NewService(practiceRepo, contentRepo)
 	practiceHandler := practice.NewHandler(practiceSvc, cfg.JWT.Secret)
 
 	// Gamification module

@@ -4,53 +4,77 @@ import (
 	"context"
 	"fmt"
 	"io"
-
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"net/http"
+	"strings"
 )
 
+// Client uploads files to Supabase Storage via its REST API.
+// Supabase S3-compatible endpoint carries a URL path (/storage/v1/s3),
+// which the minio-go client rejects, so we talk REST directly.
 type Client struct {
-	mc     *minio.Client
-	bucket string
+	httpClient    *http.Client
+	baseURL       string // e.g. https://<project>.supabase.co/storage/v1
+	apikey        string
+	bucket        string
+	publicBaseURL string
 }
 
-func NewClient(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*Client, error) {
-	mc, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("minio client: %w", err)
+func NewClient(endpoint, accessKey, bucket, publicBaseURL string) (*Client, error) {
+	baseURL := strings.TrimSuffix(endpoint, "/")
+	if !strings.Contains(baseURL, "/storage") {
+		baseURL += "/storage/v1"
 	}
-
-	// Create bucket if not exists
-	ctx := context.Background()
-	exists, err := mc.BucketExists(ctx, bucket)
-	if err != nil {
-		return nil, fmt.Errorf("minio bucket check: %w", err)
-	}
-	if !exists {
-		if err := mc.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
-			return nil, fmt.Errorf("minio create bucket: %w", err)
-		}
-	}
-
-	return &Client{mc: mc, bucket: bucket}, nil
+	return &Client{
+		httpClient:    &http.Client{},
+		baseURL:       baseURL,
+		apikey:        accessKey,
+		bucket:        bucket,
+		publicBaseURL: publicBaseURL,
+	}, nil
 }
 
 func (c *Client) Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) (string, error) {
-	_, err := c.mc.PutObject(ctx, c.bucket, objectName, reader, size, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/object/%s/%s", c.baseURL, c.bucket, objectName), reader)
 	if err != nil {
-		return "", fmt.Errorf("minio upload: %w", err)
+		return "", fmt.Errorf("storage request: %w", err)
 	}
-	// Return public URL — adjust scheme if needed
+	req.Header.Set("Authorization", "Bearer "+c.apikey)
+	req.Header.Set("x-upsert", "true")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("storage upload: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("storage upload failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	if c.publicBaseURL != "" {
+		return fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(c.publicBaseURL, "/"), c.bucket, objectName), nil
+	}
 	return fmt.Sprintf("/api/v1/media/serve/%s", objectName), nil
 }
 
 func (c *Client) Delete(ctx context.Context, objectName string) error {
-	return c.mc.RemoveObject(ctx, c.bucket, objectName, minio.RemoveObjectOptions{})
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("%s/object/%s/%s", c.baseURL, c.bucket, objectName), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apikey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("storage delete failed (%d)", resp.StatusCode)
+	}
+	return nil
 }
 
 func (c *Client) GetBucket() string {

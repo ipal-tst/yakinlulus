@@ -47,11 +47,10 @@ type JWTConfig struct {
 }
 
 type StorageConfig struct {
-	Endpoint  string `yaml:"endpoint"`
-	AccessKey string `yaml:"access_key"`
-	SecretKey string `yaml:"secret_key"`
-	Bucket    string `yaml:"bucket"`
-	UseSSL    bool   `yaml:"use_ssl"`
+	Endpoint      string `yaml:"endpoint"`
+	AccessKey     string `yaml:"access_key"`
+	Bucket        string `yaml:"bucket"`
+	PublicBaseURL string `yaml:"public_base_url"`
 }
 
 type CORSConfig struct {
@@ -97,6 +96,18 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("AI_MODEL"); v != "" {
 		cfg.AI.Model = v
+	}
+	if v := os.Getenv("STORAGE_ENDPOINT"); v != "" {
+		cfg.Storage.Endpoint = v
+	}
+	if v := os.Getenv("STORAGE_ACCESS_KEY"); v != "" {
+		cfg.Storage.AccessKey = v
+	}
+	if v := os.Getenv("STORAGE_BUCKET"); v != "" {
+		cfg.Storage.Bucket = v
+	}
+	if v := os.Getenv("STORAGE_PUBLIC_BASE_URL"); v != "" {
+		cfg.Storage.PublicBaseURL = v
 	}
 
 	return cfg, nil

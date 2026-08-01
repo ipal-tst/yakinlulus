@@ -25,11 +25,10 @@ jwt:
   access_expiry: 15m
   refresh_expiry: 168h
 storage:
-  endpoint: s3.amazonaws.com
-  access_key: AKID
-  secret_key: secretkey
-  bucket: mybucket
-  use_ssl: true
+  endpoint: https://x.supabase.co/storage/v1
+  access_key: service-role-key
+  bucket: media
+  public_base_url: https://x.supabase.co/storage/v1/object/public
 cors:
   allowed_origins:
     - http://localhost:3000
@@ -45,7 +44,7 @@ ai:
   model: gpt-4
 `
 
-	for _, e := range []string{"DB_URL", "REDIS_URL", "JWT_SECRET", "AI_API_KEY", "AI_ENDPOINT", "AI_MODEL"} {
+	for _, e := range []string{"DB_URL", "REDIS_URL", "JWT_SECRET", "AI_API_KEY", "AI_ENDPOINT", "AI_MODEL", "STORAGE_ENDPOINT", "STORAGE_ACCESS_KEY", "STORAGE_BUCKET", "STORAGE_PUBLIC_BASE_URL"} {
 		t.Setenv(e, "")
 	}
 
@@ -68,11 +67,10 @@ ai:
 	assert.Equal(t, 15*time.Minute, cfg.JWT.AccessExpiry)
 	assert.Equal(t, 168*time.Hour, cfg.JWT.RefreshExpiry)
 
-	assert.Equal(t, "s3.amazonaws.com", cfg.Storage.Endpoint)
-	assert.Equal(t, "AKID", cfg.Storage.AccessKey)
-	assert.Equal(t, "secretkey", cfg.Storage.SecretKey)
-	assert.Equal(t, "mybucket", cfg.Storage.Bucket)
-	assert.True(t, cfg.Storage.UseSSL)
+	assert.Equal(t, "https://x.supabase.co/storage/v1", cfg.Storage.Endpoint)
+	assert.Equal(t, "service-role-key", cfg.Storage.AccessKey)
+	assert.Equal(t, "media", cfg.Storage.Bucket)
+	assert.Equal(t, "https://x.supabase.co/storage/v1/object/public", cfg.Storage.PublicBaseURL)
 
 	assert.Equal(t, []string{"http://localhost:3000"}, cfg.CORS.AllowedOrigins)
 	assert.Equal(t, 60, cfg.RateLimit.RequestsPerMinute)
@@ -91,7 +89,7 @@ app:
   env: test
 `
 
-	for _, e := range []string{"DB_URL", "REDIS_URL", "JWT_SECRET", "AI_API_KEY", "AI_ENDPOINT", "AI_MODEL"} {
+	for _, e := range []string{"DB_URL", "REDIS_URL", "JWT_SECRET", "AI_API_KEY", "AI_ENDPOINT", "AI_MODEL", "STORAGE_ENDPOINT", "STORAGE_ACCESS_KEY", "STORAGE_BUCKET", "STORAGE_PUBLIC_BASE_URL"} {
 		t.Setenv(e, "")
 	}
 
