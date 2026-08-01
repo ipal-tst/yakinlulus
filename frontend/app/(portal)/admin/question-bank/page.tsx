@@ -401,7 +401,7 @@ export default function QuestionBankAdminPage() {
                         const img = optImg[i] || "";
                         if (!text && !img) return;
                         const content = img ? `${text} ![gambar](${img})` : text;
-                        optionsList.push({ label, content, is_correct: correctOptStr.includes(label) });
+                        optionsList.push({ label, content, is_correct: correctOptStr.includes(label) || correctOptStr === String(i + 1) });
                     });
 
                     const score = parseFloat(r["Skor"]) || 1;

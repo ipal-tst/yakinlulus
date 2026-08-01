@@ -72,7 +72,12 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
     update({ options });
   };
   const toggleCorrect = (optIndex: number) => {
-    const options = row.options.map((o, i) => ({ ...o, is_correct: i === optIndex }));
+    const isMultiple = row.question_type === "MULTIPLE_CHOICE";
+    const options = row.options.map((o, i) => {
+      if (i !== optIndex) return o;
+      if (isMultiple) return { ...o, is_correct: !o.is_correct };
+      return { ...o, is_correct: true };
+    });
     update({ options });
   };
   const handleAddOption = () => update({ options: relabel(addOption(row.options)) });
@@ -137,7 +142,7 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
               {row.options.map((opt, optIdx) => (
                 <div key={opt.label + optIdx} className="flex items-center gap-2">
                   <input
-                    type="radio"
+                    type={row.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
                     name={`correct-${row.rowNum}`}
                     checked={opt.is_correct}
                     onChange={() => toggleCorrect(optIdx)}
