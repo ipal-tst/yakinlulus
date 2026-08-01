@@ -89,14 +89,14 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 p-3">
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Ciutkan" : "Perluas"}>
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Ciutkan" : "Perluas"}>
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
         <span className="font-mono text-xs font-bold text-muted-foreground shrink-0">#{row.rowNum}</span>
         <span className="text-xs font-medium truncate flex-1 min-w-0">{row.content || "(kosong)"}</span>
         <Badge variant="outline" className="text-[10px] shrink-0">{row.difficulty}</Badge>
         <Badge variant="outline" className="text-[10px] shrink-0">{row.options.length} opsi · {correctLabel}</Badge>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-destructive" onClick={onDelete} aria-label="Hapus soal">
+        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-destructive" onClick={onDelete} aria-label="Hapus soal">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -149,6 +149,7 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
                     type="text"
                     value={opt.content}
                     onChange={e => updateOption(optIdx, { content: e.target.value })}
+                    aria-label={`Opsi ${opt.label}`}
                     className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border bg-background min-w-0"
                   />
                   <MediaPicker onInsert={insertMedia(optIdx)} entityType="QUESTION">
