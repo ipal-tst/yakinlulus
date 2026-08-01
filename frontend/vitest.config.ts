@@ -7,6 +7,9 @@ export default defineConfig({
         globals: true,
         include: ["**/*.test.{ts,tsx}"],
     },
+    oxc: {
+        jsx: { runtime: "automatic" },
+    },
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "."),

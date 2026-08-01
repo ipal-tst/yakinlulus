@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { StudentShell } from "@/components/layout/StudentShell";
 import { usePathname } from "next/navigation";
 
 export default function PortalLayout({
@@ -23,6 +24,15 @@ export default function PortalLayout({
             : pathname.startsWith("/teacher")
                 ? "teacher"
                 : "student";
+
+    // Student role uses the mobile-first StudentShell; other roles keep the desktop portal shell
+    if (role === "student") {
+        return (
+            <AuthProvider>
+                <StudentShell>{children}</StudentShell>
+            </AuthProvider>
+        );
+    }
 
     const handleToggleMobileNav = () => {
         setIsMobileOpen((prev) => !prev);

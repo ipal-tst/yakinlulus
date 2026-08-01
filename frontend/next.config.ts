@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
     experimental: {
         optimizePackageImports: ["lucide-react", "@phosphor-icons/react", "katex"],
     },
+    transpilePackages: ["pdfjs-dist"],
     async rewrites() {
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
         return [
