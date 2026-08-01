@@ -134,12 +134,43 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pilihan Jawaban</label>
-              <Button type="button" variant="outline" size="sm" onClick={handleAddOption} className="text-[10px] h-7">
-                <Plus className="mr-1 h-3 w-3" /> Tambah Opsi
-              </Button>
+              {row.question_type !== "TRUE_FALSE" && (
+                <Button type="button" variant="outline" size="sm" onClick={handleAddOption} className="text-[10px] h-7">
+                  <Plus className="mr-1 h-3 w-3" /> Tambah Opsi
+                </Button>
+              )}
             </div>
             <div className="space-y-1.5">
-              {row.options.map((opt, optIdx) => (
+              {row.question_type === "TRUE_FALSE" ? (
+                <>
+                  {["Benar", "Salah"].map((tf, tfIdx) => (
+                    <div key={tf} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`correct-${row.rowNum}`}
+                        checked={!!row.options[tfIdx]?.is_correct}
+                        onChange={() => {
+                          const options = [
+                            { label: "A", content: "Benar", is_correct: tfIdx === 0 },
+                            { label: "B", content: "Salah", is_correct: tfIdx === 1 },
+                          ];
+                          update({ options });
+                        }}
+                        className="h-4 w-4 cursor-pointer"
+                        aria-label={`Kunci ${tf}`}
+                      />
+                      <span className={`font-bold text-xs w-5 shrink-0 ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>
+                        {row.options[tfIdx]?.label || (tfIdx === 0 ? "A" : "B")}.
+                      </span>
+                      <span className={`text-xs font-semibold ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>{tf}</span>
+                      {!!row.options[tfIdx]?.is_correct && (
+                        <Badge variant="success" className="text-[9px]">Kunci</Badge>
+                      )}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                row.options.map((opt, optIdx) => (
                 <div key={opt.label + optIdx} className="flex items-center gap-2">
                   <input
                     type={row.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
@@ -174,7 +205,8 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 

@@ -32,6 +32,34 @@ describe("StagingQuestionCard preview", () => {
     expect(container.textContent).toContain("Berapa hasil 2 + 2?");
     expect(container.textContent).toContain("Kunci");
   });
+
+  it("TRUE_FALSE menampilkan opsi Benar/Salah tetap, bukan input editable", () => {
+    const row = {
+      rowNum: 4,
+      content: "Bumi berbentuk bulat sempurna.",
+      difficulty: "EASY",
+      question_type: "TRUE_FALSE",
+      subject_id: "s",
+      explanation: "",
+      options: [
+        { label: "A", content: "Benar", is_correct: false },
+        { label: "B", content: "Salah", is_correct: true },
+      ],
+    };
+    const { container, getByLabelText, queryByLabelText } = render(
+      <StagingQuestionCard
+        row={row as any}
+        index={0}
+        onChange={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    fireEvent.click(getByLabelText("Perluas"));
+    expect(container.textContent).toContain("Benar");
+    expect(container.textContent).toContain("Salah");
+    expect(queryByLabelText("Tambah Opsi")).toBeNull();
+    expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
+  });
 });
 
 describe("nextOptionLabel", () => {
