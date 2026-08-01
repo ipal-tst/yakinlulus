@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
 import { AIPDFImportModal } from "@/components/admin/AIPDFImportModal";
 import MediaPicker from "@/components/media-picker";
+import { StagingQuestionCard } from "@/components/admin/StagingQuestionCard";
 import {
     useQuestions,
     useCreateQuestion,
@@ -120,6 +121,15 @@ export default function QuestionBankAdminPage() {
     // Bulk Import State
     const [importFile, setImportFile] = React.useState<File | null>(null);
     const [parsedImportRows, setParsedImportRows] = React.useState<any[]>([]);
+
+    const handleUpdateImportRow = (idx: number, updated: any) => {
+        setParsedImportRows(prev => prev.map((r, i) => (i === idx ? updated : r)));
+    };
+
+    const handleRemoveImportRow = (idx: number) => {
+        setParsedImportRows(prev => prev.filter((_, i) => i !== idx));
+    };
+
     const [importing, setImporting] = React.useState(false);
     const [importResult, setImportResult] = React.useState<{ created: number; failed: number; errors: string[] } | null>(null);
 
@@ -361,12 +371,15 @@ export default function QuestionBankAdminPage() {
                 const defaultSubjectId = subjectsList.length > 0 ? subjectsList[0].id : "";
 
                 const mapped = rawRows.map((r: any, idx: number) => {
-                    const content = r["Teks Soal"] || r["soal"] || r["content"] || r["Question"] || "";
+                    const contentBase = r["Teks Soal"] || r["soal"] || r["content"] || r["Question"] || "";
+                    const imgQ = r["Gambar Soal (URL)"] || "";
+                    const content = imgQ ? `${contentBase}\n\n![gambar soal](${imgQ})` : contentBase;
                     const difficulty = (r["Kesulitan"] || r["difficulty"] || "MEDIUM").toString().toUpperCase();
                     const questionType = (r["Tipe Soal"] || r["question_type"] || "SINGLE_CHOICE").toString().toUpperCase();
-                    const explanation = r["Pembahasan"] || r["explanation"] || "";
+                    const explanationBase = r["Pembahasan"] || r["explanation"] || "";
+                    const imgP = r["Gambar Pembahasan (URL)"] || "";
+                    const explanation = imgP ? `${explanationBase}\n\n![gambar pembahasan](${imgP})` : explanationBase;
 
-                    // Find subject ID by matching name or fallback to default
                     const subjInput = (r["Mata Pelajaran ID"] || r["subject_id"] || r["Mata Pelajaran"] || "").toString().trim();
                     let matchedSubjId = defaultSubjectId;
                     if (subjInput) {
@@ -374,32 +387,42 @@ export default function QuestionBankAdminPage() {
                             (s) => s.id.toLowerCase() === subjInput.toLowerCase() || s.name.toLowerCase() === subjInput.toLowerCase()
                         );
                         if (matchByName) matchedSubjId = matchByName.id;
-                        else if (subjInput.length > 20) matchedSubjId = subjInput; // assuming UUID
+                        else if (subjInput.length > 20) matchedSubjId = subjInput;
                     }
 
-                    // Options parsing
                     const correctOptStr = (r["Jawaban Benar"] || r["correct_option"] || r["Jawaban"] || "A").toString().toUpperCase().trim();
-                    const optA = r["Opsi A"] || r["option_a"] || r["A"] || "";
-                    const optB = r["Opsi B"] || r["option_b"] || r["B"] || "";
-                    const optC = r["Opsi C"] || r["option_c"] || r["C"] || "";
-                    const optD = r["Opsi D"] || r["option_d"] || r["D"] || "";
-                    const optE = r["Opsi E"] || r["option_e"] || r["E"] || "";
+                    const labels = ["A", "B", "C", "D", "E"];
+                    const optText = [r["Opsi A"], r["Opsi B"], r["Opsi C"], r["Opsi D"], r["Opsi E"]];
+                    const optImg = [r["Gambar A (URL)"], r["Gambar B (URL)"], r["Gambar C (URL)"], r["Gambar D (URL)"], r["Gambar E (URL)"]];
 
-                    const optionsList = [];
-                    if (optA) optionsList.push({ label: "A", content: String(optA), is_correct: correctOptStr.includes("A") || correctOptStr === "1" });
-                    if (optB) optionsList.push({ label: "B", content: String(optB), is_correct: correctOptStr.includes("B") || correctOptStr === "2" });
-                    if (optC) optionsList.push({ label: "C", content: String(optC), is_correct: correctOptStr.includes("C") || correctOptStr === "3" });
-                    if (optD) optionsList.push({ label: "D", content: String(optD), is_correct: correctOptStr.includes("D") || correctOptStr === "4" });
-                    if (optE) optionsList.push({ label: "E", content: String(optE), is_correct: correctOptStr.includes("E") || correctOptStr === "5" });
+                    const optionsList: any[] = [];
+                    labels.forEach((label, i) => {
+                        const text = optText[i] || "";
+                        const img = optImg[i] || "";
+                        if (!text && !img) return;
+                        const content = img ? `${text} ![gambar](${img})` : text;
+                        optionsList.push({ label, content, is_correct: correctOptStr.includes(label) });
+                    });
+
+                    const score = parseFloat(r["Skor"]) || 1;
+                    const negScore = parseFloat(r["Skor Negatif"]) || 0;
+                    const estTime = parseInt(r["Estimasi Waktu (detik)"]) || 60;
+                    const bloom = r["Level Kognitif"] || "";
+                    const source = r["Sumber"] || "MANUAL";
 
                     return {
                         rowNum: idx + 2,
                         content: String(content),
                         difficulty: ["EASY", "MEDIUM", "HARD"].includes(difficulty) ? difficulty : "MEDIUM",
-                        question_type: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE"].includes(questionType) ? questionType : "SINGLE_CHOICE",
+                        question_type: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "ESSAY", "SHORT_ANSWER"].includes(questionType) ? questionType : "SINGLE_CHOICE",
                         subject_id: matchedSubjId,
                         explanation: String(explanation),
                         options: optionsList,
+                        score,
+                        negative_score: negScore,
+                        estimated_time: estTime,
+                        bloom_level: bloom || undefined,
+                        source: source || undefined,
                     };
                 });
 
@@ -438,40 +461,181 @@ export default function QuestionBankAdminPage() {
         const sampleSubj = subjectsList.length > 0 ? subjectsList[0].name : "Penalaran Umum";
         const sampleSubjId = subjectsList.length > 0 ? subjectsList[0].id : "UUID-SUBJECT-ID";
 
+        // Sheet 1: Template Data with comprehensive examples
         const sampleData = [
             {
+                "Tipe Soal": "SINGLE_CHOICE",
                 "Teks Soal": "Berapakah hasil dari 2^3 + 4^2?",
+                "Gambar Soal (URL)": "",
                 "Mata Pelajaran": sampleSubj,
                 "Mata Pelajaran ID": sampleSubjId,
+                "Bab ID": "",
+                "Topik ID": "",
                 "Kesulitan": "MEDIUM",
-                "Tipe Soal": "SINGLE_CHOICE",
+                "Level Kognitif": "C3",
+                "Skor": 1,
+                "Skor Negatif": 0,
+                "Estimasi Waktu (detik)": 60,
+                "Sumber": "MANUAL",
                 "Opsi A": "20",
+                "Gambar A (URL)": "",
                 "Opsi B": "24",
+                "Gambar B (URL)": "",
                 "Opsi C": "28",
+                "Gambar C (URL)": "",
                 "Opsi D": "32",
+                "Gambar D (URL)": "",
                 "Opsi E": "36",
+                "Gambar E (URL)": "",
                 "Jawaban Benar": "B",
                 "Pembahasan": "2^3 = 8 dan 4^2 = 16. Maka 8 + 16 = 24.",
+                "Gambar Pembahasan (URL)": "",
             },
             {
-                "Teks Soal": "Manakah senyawa di bawah ini yang merupakan asam kuat?",
+                "Tipe Soal": "MULTIPLE_CHOICE",
+                "Teks Soal": "Manakah dari berikut ini yang termasuk bilangan prima?",
+                "Gambar Soal (URL)": "",
                 "Mata Pelajaran": sampleSubj,
                 "Mata Pelajaran ID": sampleSubjId,
+                "Bab ID": "",
+                "Topik ID": "",
                 "Kesulitan": "EASY",
-                "Tipe Soal": "SINGLE_CHOICE",
-                "Opsi A": "CH3COOH",
-                "Opsi B": "HCl",
-                "Opsi C": "NH3",
-                "Opsi D": "H2CO3",
-                "Opsi E": "H2O",
+                "Level Kognitif": "C1",
+                "Skor": 1,
+                "Skor Negatif": 0,
+                "Estimasi Waktu (detik)": 45,
+                "Sumber": "MANUAL",
+                "Opsi A": "2",
+                "Gambar A (URL)": "",
+                "Opsi B": "4",
+                "Gambar B (URL)": "",
+                "Opsi C": "7",
+                "Gambar C (URL)": "",
+                "Opsi D": "9",
+                "Gambar D (URL)": "",
+                "Opsi E": "11",
+                "Gambar E (URL)": "",
+                "Jawaban Benar": "A,C,E",
+                "Pembahasan": "Bilangan prima: 2, 3, 5, 7, 11, 13, ...",
+                "Gambar Pembahasan (URL)": "",
+            },
+            {
+                "Tipe Soal": "TRUE_FALSE",
+                "Teks Soal": "Bumi berbentuk bulat sempurna.",
+                "Gambar Soal (URL)": "https://cdn.example.com/globe.png",
+                "Mata Pelajaran": sampleSubj,
+                "Mata Pelajaran ID": sampleSubjId,
+                "Bab ID": "",
+                "Topik ID": "",
+                "Kesulitan": "EASY",
+                "Level Kognitif": "C1",
+                "Skor": 1,
+                "Skor Negatif": 0,
+                "Estimasi Waktu (detik)": 30,
+                "Sumber": "MANUAL",
+                "Opsi A": "Benar",
+                "Gambar A (URL)": "",
+                "Opsi B": "Salah",
+                "Gambar B (URL)": "",
+                "Opsi C": "",
+                "Gambar C (URL)": "",
+                "Opsi D": "",
+                "Gambar D (URL)": "",
+                "Opsi E": "",
+                "Gambar E (URL)": "",
                 "Jawaban Benar": "B",
-                "Pembahasan": "HCl (Asam Klorida) terionisasi sempurna dalam air sehingga termasuk asam kuat.",
+                "Pembahasan": "Bumi berbentuk ellipsoid (geoid), tidak bulat sempurna karena pipih di kutub.",
+                "Gambar Pembahasan (URL)": "",
+            },
+            {
+                "Tipe Soal": "ESSAY",
+                "Teks Soal": "Jelaskan proses fotosintesis pada tumbuhan!",
+                "Gambar Soal (URL)": "",
+                "Mata Pelajaran": sampleSubj,
+                "Mata Pelajaran ID": sampleSubjId,
+                "Bab ID": "",
+                "Topik ID": "",
+                "Kesulitan": "HARD",
+                "Level Kognitif": "C4",
+                "Skor": 5,
+                "Skor Negatif": 0,
+                "Estimasi Waktu (detik)": 300,
+                "Sumber": "MANUAL",
+                "Opsi A": "",
+                "Gambar A (URL)": "",
+                "Opsi B": "",
+                "Gambar B (URL)": "",
+                "Opsi C": "",
+                "Gambar C (URL)": "",
+                "Opsi D": "",
+                "Gambar D (URL)": "",
+                "Opsi E": "",
+                "Gambar E (URL)": "",
+                "Jawaban Benar": "",
+                "Pembahasan": "Fotosintesis: 6CO2 + 6H2O → C6H12O6 + 6O2",
+                "Gambar Pembahasan (URL)": "",
             },
         ];
 
         const ws = XLSX.utils.json_to_sheet(sampleData);
+        ws['!cols'] = [
+            { wch: 18 }, { wch: 50 }, { wch: 40 }, { wch: 20 }, { wch: 20 },
+            { wch: 48 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 8 },
+            { wch: 10 }, { wch: 12 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+            { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+            { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+        ];
+
+        // Sheet 2: Instructions
+        const instructionsData = [
+            { "Petunjuk": "TEMPLATE IMPORT BANK SOAL YAKINLULUS.ID" },
+            { "Petunjuk": "" },
+            { "Petunjuk": "TIPE SOAL:" },
+            { "Petunjuk": "  SINGLE_CHOICE   → satu jawaban benar. Isi Jawaban Benar dengan huruf opsi (A/B/C/D/E)" },
+            { "Petunjuk": "  MULTIPLE_CHOICE → lebih dari satu jawaban benar. Isi Jawaban Benar dengan huruf dipisah koma (A,C,E)" },
+            { "Petunjuk": "  TRUE_FALSE      → pernyataan benar/salah. Opsi A = Benar, Opsi B = Salah. Jawaban Benar = A atau B" },
+            { "Petunjuk": "  ESSAY           → jawaban uraian. Opsional: isi Opsi A dengan kata kunci. Jawaban Benar dikosongkan" },
+            { "Petunjuk": "  SHORT_ANSWER    → jawaban singkat. Opsi A = kata kunci. Jawaban Benar dikosongkan" },
+            { "Petunjuk": "" },
+            { "Petunjuk": "KOLOM LAINNYA:" },
+            { "Petunjuk": "  Kesulitan: EASY | MEDIUM | HARD" },
+            { "Petunjuk": "  Level Kognitif (Bloom): C1 | C2 | C3 | C4 | C5 | C6" },
+            { "Petunjuk": "  Sumber: MANUAL | AI_GENERATED | IMPORTED" },
+            { "Petunjuk": "  Skor: bobot nilai soal (default 1)" },
+            { "Petunjuk": "  Skor Negatif: pengurangan nilai jika salah (default 0)" },
+            { "Petunjuk": "" },
+            { "Petunjuk": "CARA INPUT GAMBAR (Supabase Storage):" },
+            { "Petunjuk": "  1. Buka menu Media Manager di form soal → Upload gambar → otomatis tersimpan di Supabase Storage bucket 'media'." },
+            { "Petunjuk": "  2. Klik gambar → disisipkan sebagai markdown: ![nama](https://.../object/public/media/uploads/xxx.png)" },
+            { "Petunjuk": "  3. ATAU upload manual ke Supabase → Storage → bucket 'media' → copy public URL." },
+            { "Petunjuk": "  4. Tempel URL ke kolom 'Gambar Soal (URL)' / 'Gambar A (URL)' / 'Gambar Pembahasan (URL)'." },
+            { "Petunjuk": "  5. Gambar juga bisa ditulis LANGSUNG di 'Teks Soal' / 'Pembahasan' / teks opsi dalam format markdown:" },
+            { "Petunjuk": "     ![deskripsi](https://...supabase.co/storage/v1/object/public/media/uploads/soal1.png)" },
+            { "Petunjuk": "     Format ini menampilkan gambar DI TENGAH teks pada posisi yang diinginkan." },
+            { "Petunjuk": "" },
+            { "Petunjuk": "FORMAT MARKDOWN & RUMUS (didukung di Teks Soal, Pembahasan, dan teks opsi):" },
+            { "Petunjuk": "  Rumus inline:  $x^2 + 5x - 6 = 0$  → dirender rapi oleh KaTeX" },
+            { "Petunjuk": "  Rumus blok:    $$E = mc^2$$" },
+            { "Petunjuk": "  Gambar tengah:  teks...  ![grafik](URL)  ...teks" },
+            { "Petunjuk": "  Tabel / list / bold: gunakan sintaks markdown standar" },
+            { "Petunjuk": "" },
+            { "Petunjuk": "CATATAN: Kolom 'Gambar X (URL)' hanya mendukung SATU gambar per kolom." },
+            { "Petunjuk": "Jika butuh banyak gambar di posisi berbeda, tulis markdown langsung di kolom teks." },
+        ];
+        const ws2 = XLSX.utils.json_to_sheet(instructionsData);
+        ws2['!cols'] = [{ wch: 120 }];
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template Bank Soal");
+        XLSX.utils.book_append_sheet(wb, ws2, "Petunjuk");
+
+        // Bold header row
+        const headerRange = XLSX.utils.decode_range(ws['!ref'] || "A1:Y1");
+        for (let c = headerRange.s.c; c <= headerRange.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r: 0, c });
+            if (ws[addr]) ws[addr].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1565C0" } } };
+        }
+
         XLSX.writeFile(wb, "Template_Import_Bank_Soal_YakinLulus.xlsx");
     };
 
@@ -1234,7 +1398,7 @@ export default function QuestionBankAdminPage() {
                     {/* File Dropzone */}
                     <div>
                         <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                            Pilih File Spreadsheet (.xlsx, .xls, .csv)
+                            Pilih File Spreadsheet (.xlsx, .xls, .csv) — pratinjau bisa diedit sebelum import
                         </label>
                         <input
                             type="file"
@@ -1265,44 +1429,26 @@ export default function QuestionBankAdminPage() {
                         </div>
                     )}
 
-                    {/* Parsed Preview Table */}
+                    {/* Parsed Preview: editable question cards */}
                     {parsedImportRows.length > 0 && (
                         <div className="space-y-2 border-t pt-3">
                             <span className="text-xs font-bold text-foreground block">
-                                Pratinjau Data File ({parsedImportRows.length} soal terdeteksi)
+                                Pratinjau & Edit Data ({parsedImportRows.length} soal terdeteksi)
                             </span>
-                            <div className="max-h-48 overflow-y-auto border rounded-xl">
-                                <table className="w-full text-left text-[11px]">
-                                    <thead className="bg-muted text-muted-foreground sticky top-0">
-                                        <tr>
-                                            <th className="p-2">#</th>
-                                            <th className="p-2">Teks Soal</th>
-                                            <th className="p-2">Kesulitan</th>
-                                            <th className="p-2">Opsi</th>
-                                            <th className="p-2">Jawaban</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {parsedImportRows.slice(0, 10).map((row, idx) => {
-                                            const correctOpt = row.options.find((o: any) => o.is_correct)?.label || "A";
-                                            return (
-                                                <tr key={idx} className="hover:bg-muted/40">
-                                                    <td className="p-2 font-mono">{row.rowNum}</td>
-                                                    <td className="p-2 font-mono truncate max-w-[180px]">{row.content}</td>
-                                                    <td className="p-2">{row.difficulty}</td>
-                                                    <td className="p-2">{row.options.length} opsi</td>
-                                                    <td className="p-2 font-bold text-emerald-700">{correctOpt}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                            <div className="max-h-[45vh] overflow-y-auto pr-1 space-y-2">
+                                {parsedImportRows.map((row, idx) => (
+                                    <StagingQuestionCard
+                                        key={row.rowNum}
+                                        row={row}
+                                        index={idx}
+                                        onChange={(updated) => handleUpdateImportRow(idx, updated)}
+                                        onDelete={() => handleRemoveImportRow(idx)}
+                                    />
+                                ))}
                             </div>
-                            {parsedImportRows.length > 10 && (
-                                <p className="text-[10px] text-muted-foreground italic">
-                                    ...dan {parsedImportRows.length - 10} baris soal lainnya.
-                                </p>
-                            )}
+                            <p className="text-[10px] text-muted-foreground italic">
+                                Klik soal untuk edit. Tandai kunci jawaban lewat radio, tambah/hapus opsi, sisipkan gambar, lalu Import.
+                            </p>
                         </div>
                     )}
                 </div>
