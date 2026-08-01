@@ -218,6 +218,41 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
               </select>
             </div>
           </div>
+
+          {/* Preview tampilan ujian */}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-primary block">Pratinjau Tampilan Ujian</span>
+            <div className="rounded-lg bg-card border border-border p-3">
+              <div className="text-xs text-muted-foreground font-mono mb-1">Soal No. {index + 1}</div>
+              <MathKaTeXPreview content={row.content || "(soal kosong)"} />
+            </div>
+            <div className="space-y-1.5">
+              {row.options.map((opt, optIdx) => (
+                <div
+                  key={opt.label + optIdx}
+                  className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${opt.is_correct
+                    ? "border-emerald-400 bg-emerald-50"
+                    : "border-border bg-card"}`}
+                >
+                  <span className={`font-bold shrink-0 ${opt.is_correct ? "text-emerald-600" : "text-muted-foreground"}`}>
+                    {opt.label}.
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <MathKaTeXPreview content={opt.content || "(kosong)"} />
+                  </div>
+                  {opt.is_correct && (
+                    <Badge variant="success" className="text-[9px] shrink-0">Kunci</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+            {row.explanation && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <span className="text-[10px] font-bold text-amber-700 block mb-1">Pembahasan:</span>
+                <MathKaTeXPreview content={row.explanation} />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
