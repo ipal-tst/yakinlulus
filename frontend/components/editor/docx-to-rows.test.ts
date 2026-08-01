@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { htmlToStagingRows } from "./docx-to-rows";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { htmlToStagingRows, uploadDataUriImages } from "./docx-to-rows";
 
 const defaults = { source: "UTBK", subject_id: "subj-1", chapter_id: "" };
 
@@ -48,5 +48,34 @@ describe("htmlToStagingRows", () => {
     const rows = htmlToStagingRows(html, defaults);
     expect(rows[0]!.content).toContain("![grafik](data:image/png;base64,");
     expect(rows[0]!.has_image).toBe(true);
+  });
+});
+
+describe("uploadDataUriImages", () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(["x"], { type: "image/png" }),
+      json: async () => ({ success: true, data: { url: "https://supabase/media/abc.png" } }),
+    }) as any;
+    localStorage.setItem("token", "test-token");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("mengupload data URI dan mengganti dengan URL Supabase", async () => {
+    const content = "Perhatikan:\n\n![gambar](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==)";
+    const result = await uploadDataUriImages(content);
+    expect(result).toContain("![gambar](https://supabase/media/abc.png)");
+    expect(result).not.toContain("data:image");
+  });
+
+  it("tidak menyentuh konten tanpa data URI", async () => {
+    const content = "Teks biasa tanpa gambar";
+    const result = await uploadDataUriImages(content);
+    expect(result).toBe(content);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

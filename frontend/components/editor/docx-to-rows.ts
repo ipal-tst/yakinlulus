@@ -149,3 +149,63 @@ export function htmlToStagingRows(html: string, defaults: Defaults): StagingQues
 
   return rows;
 }
+
+async function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return file.arrayBuffer();
+}
+
+export async function docxFileToHtml(file: File): Promise<string> {
+  const mammoth = await import("mammoth/mammoth.browser");
+  const buffer = await fileToArrayBuffer(file);
+  const result = await mammoth.convertToHtml(
+    { arrayBuffer: buffer },
+    {
+      convertImage: mammoth.images.imgElement(function (image: any) {
+        return image.read("base64").then(function (imageBuffer: string) {
+          return { src: "data:" + image.contentType + ";base64," + imageBuffer };
+        });
+      }),
+    }
+  );
+  return result.value;
+}
+
+export async function uploadDataUriImages(content: string): Promise<string> {
+  const dataUriRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g;
+  const images: { alt: string; uri: string }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = dataUriRegex.exec(content)) !== null) {
+    images.push({ alt: match[1]!, uri: match[2]! });
+  }
+  if (images.length === 0) return content;
+
+  const token = localStorage.getItem("token");
+  let updated = content;
+  for (const img of images) {
+    const blob = await (await fetch(img.uri)).blob();
+    const formData = new FormData();
+    formData.append("file", blob, `docx-${Date.now()}-${images.indexOf(img)}.png`);
+    formData.append("entity_type", "QUESTION");
+    const res = await fetch("/api/v1/media/upload", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || "Upload gambar gagal");
+    const url = json.data?.url;
+    updated = updated.replace(`![${img.alt}](${img.uri})`, `![${img.alt}](${url})`);
+  }
+  return updated;
+}
+
+export async function docxToStagingRows(file: File, defaults: Defaults): Promise<StagingQuestionRow[]> {
+  const html = await docxFileToHtml(file);
+  const rows = htmlToStagingRows(html, defaults);
+  for (const row of rows) {
+    if (row.has_image) {
+      row.content = await uploadDataUriImages(row.content);
+    }
+  }
+  return rows;
+}
