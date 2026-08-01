@@ -192,8 +192,8 @@ export async function uploadDataUriImages(content: string): Promise<string> {
       body: formData,
     });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || "Upload gambar gagal");
     const url = json.data?.url;
+    if (!json.success || !url) throw new Error(json.message || "Upload gambar gagal");
     updated = updated.replace(`![${img.alt}](${img.uri})`, `![${img.alt}](${url})`);
   }
   return updated;

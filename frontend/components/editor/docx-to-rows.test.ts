@@ -70,6 +70,16 @@ describe("uploadDataUriImages", () => {
     const result = await uploadDataUriImages(content);
     expect(result).toContain("![gambar](https://supabase/media/abc.png)");
     expect(result).not.toContain("data:image");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/media/upload",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer test-token" },
+      })
+    );
+    const formData = (fetch as any).mock.calls.find((c: any[]) => c[0] === "/api/v1/media/upload")[1].body;
+    expect(formData.get("entity_type")).toBe("QUESTION");
+    expect(formData.get("file")).toBeInstanceOf(Blob);
   });
 
   it("tidak menyentuh konten tanpa data URI", async () => {
