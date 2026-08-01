@@ -43,12 +43,13 @@ export function renderBlockToMarkdown(el: Element): string {
   if (el.tagName === "IMG") {
     const src = el.getAttribute("src") || "";
     const alt = el.getAttribute("alt") || "gambar";
-    return `![${alt}](${src})`;
+    return src ? `![${alt}](${src})` : "";
   }
   const img = el.querySelector("img");
   if (img) {
-    const text = (el.textContent || "").trim();
     const md = renderBlockToMarkdown(img);
+    if (!md) return (el.textContent || "").trim();
+    const text = (el.textContent || "").trim();
     return text ? `${text}\n\n${md}` : md;
   }
   if (el.tagName === "H1" || el.tagName === "H2") {
@@ -71,61 +72,116 @@ function detectOptionLine(text: string): { label: string; text: string } | null 
   return { label: m[1]!.toUpperCase(), text: m[2]! };
 }
 
-export function htmlToStagingRows(html: string, defaults: Defaults): StagingQuestionRow[] {
+interface Line {
+  type: "text" | "image" | "table" | "heading";
+  value: string;
+}
+
+const BLOCK_TAGS = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "OL", "UL", "DIV", "BLOCKQUOTE", "SECTION"]);
+
+/**
+ * Flattens mammoth HTML into a sequence of text/image/table lines so that
+ * Word auto-numbering (<ol>/<li>) and in-paragraph line breaks (<br/>) are
+ * handled correctly instead of being merged into a single block.
+ */
+function flattenToLines(html: string): Line[] {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const blocks: Element[] = Array.from(doc.body.children);
+  const lines: Line[] = [];
+  let buffer = "";
 
-  const blocksByQuestion: Element[][] = [];
-  let pendingImages: Element[] = [];
-  let current: Element[] = [];
+  const flush = () => {
+    const t = buffer.trim();
+    if (t) lines.push({ type: "text", value: t });
+    buffer = "";
+  };
 
-  for (const el of blocks) {
-    const text = (el.textContent || "").trim();
-    const isImageOnly = el.tagName !== "TABLE" && el.querySelector("img") !== null && !text;
-    if (isImageOnly) {
-      if (current.length === 0) pendingImages.push(el);
-      else current.push(el);
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      buffer += node.textContent || "";
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as Element;
+    if (el.tagName === "BR") {
+      flush();
+      return;
+    }
+    if (el.tagName === "IMG") {
+      flush();
+      lines.push({ type: "image", value: renderBlockToMarkdown(el) });
+      return;
+    }
+    if (el.tagName === "TABLE") {
+      flush();
+      lines.push({ type: "table", value: renderBlockToMarkdown(el) });
+      return;
+    }
+    if (BLOCK_TAGS.has(el.tagName)) {
+      if (el.tagName === "H1" || el.tagName === "H2") {
+        flush();
+        const t = (el.textContent || "").trim();
+        if (t) lines.push({ type: "heading", value: t });
+        return;
+      }
+      flush();
+      for (const child of Array.from(el.childNodes)) walk(child);
+      flush();
+      return;
+    }
+    for (const child of Array.from(el.childNodes)) walk(child);
+  };
+
+  walk(doc.body);
+  flush();
+  return lines;
+}
+
+export function htmlToStagingRows(html: string, defaults: Defaults): StagingQuestionRow[] {
+  const lines = flattenToLines(html);
+
+  const groups: Line[][] = [];
+  let pendingImages: Line[] = [];
+  let current: Line[] = [];
+
+  for (const line of lines) {
+    if (line.type === "heading") continue;
+    if (line.type === "image") {
+      if (current.length === 0) pendingImages.push(line);
+      else current.push(line);
       continue;
     }
-    if ((el.tagName === "P" || el.tagName === "H3") && isQuestionStart(text) && current.length > 0) {
-      blocksByQuestion.push(current);
+    if (line.type === "text" && isQuestionStart(line.value) && current.length > 0) {
+      groups.push(current);
       current = [];
       if (pendingImages.length > 0) {
         current = current.concat(pendingImages);
         pendingImages = [];
       }
     }
-    current.push(el);
+    current.push(line);
   }
   if (pendingImages.length > 0) current = current.concat(pendingImages);
-  if (current.length > 0) blocksByQuestion.push(current);
+  if (current.length > 0) groups.push(current);
 
   const rows: StagingQuestionRow[] = [];
 
-  blocksByQuestion.forEach((blockEls, idx) => {
+  groups.forEach((blockLines, idx) => {
     let contentParts: string[] = [];
     let explanation = "";
     let hasImage = false;
     const options: DocxOption[] = [];
 
-    for (const el of blockEls) {
-      if (el.tagName === "IMG") {
+    for (const line of blockLines) {
+      if (line.type === "image") {
         hasImage = true;
-        contentParts.push(renderBlockToMarkdown(el));
+        contentParts.push(line.value);
         continue;
       }
-      if (el.tagName === "TABLE") {
-        contentParts.push(renderBlockToMarkdown(el));
+      if (line.type === "table") {
+        contentParts.push(line.value);
         continue;
       }
-      if (el.querySelector("img") !== null) {
-        hasImage = true;
-        contentParts.push(renderBlockToMarkdown(el));
-        continue;
-      }
-      if (el.tagName === "H1" || el.tagName === "H2") continue;
-
-      const text = (el.textContent || "").trim();
+      const text = line.value;
       if (!text) continue;
 
       const opt = detectOptionLine(text);

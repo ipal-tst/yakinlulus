@@ -69,6 +69,39 @@ describe("htmlToStagingRows", () => {
     expect(rows[1]!.has_image).toBe(false);
     expect(rows[1]!.content).toContain("Soal kedua tanpa gambar");
   });
+
+  it("memecah soal yang digabung dalam satu <p> dengan <br/> (Shift+Enter di Word)", () => {
+    const html = `
+      <p>1. Berapakah hasil dari 2 + 3?<br />A. 5<br />B. 6<br />C. 7<br />D. 8</p>
+      <p>2. Manakah bilangan prima?<br />A. 4<br />B. 7<br />C. 9</p>
+    `;
+    const rows = htmlToStagingRows(html, defaults);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.content).toContain("Berapakah hasil dari 2 + 3?");
+    expect(rows[0]!.options.map(o => o.label)).toEqual(["A", "B", "C", "D"]);
+    expect(rows[1]!.content).toContain("Manakah bilangan prima?");
+    expect(rows[1]!.options.map(o => o.label)).toEqual(["A", "B", "C"]);
+  });
+
+  it("memecah soal yang berada dalam <ol>/<li> (Word auto-numbering dengan angka literal)", () => {
+    const html = `
+      <h1>Bank Soal</h1>
+      <ol>
+        <li>1. Berapakah hasil dari 2 + 3?</li>
+        <li>A. 5</li>
+        <li>B. 6</li>
+        <li>C. 7</li>
+        <li>2. Manakah bilangan prima?</li>
+        <li>A. 4</li>
+        <li>B. 7</li>
+        <li>C. 9</li>
+      </ol>
+    `;
+    const rows = htmlToStagingRows(html, defaults);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.content).toContain("Berapakah hasil dari 2 + 3?");
+    expect(rows[1]!.options.map(o => o.label)).toEqual(["A", "B", "C"]);
+  });
 });
 
 describe("uploadDataUriImages", () => {
