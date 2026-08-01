@@ -6,6 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
 import { apiFetch } from "@/lib/api";
+import { renderPdfToPages } from "@/components/editor/pdf-render";
+import { docxToStagingRows } from "@/components/editor/docx-to-rows";
+import { MathKaTeXPreview } from "@/components/editor/MathKaTeXPreview";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import Link from "next/link";
@@ -40,6 +43,7 @@ export interface StagingQuestionRow {
     subject_id: string;
     chapter_id: string;
     explanation: string;
+    has_image: boolean;
     options: {
         label: string;
         option_text: string;
@@ -140,6 +144,7 @@ function parseRawTextToStagingRows(
             subject_id: globalSubjectId,
             chapter_id: globalChapterId || "",
             explanation,
+            has_image: false,
             options: options.length > 0 ? options : [
                 { label: "A", option_text: "Opsi A", is_correct: true },
                 { label: "B", option_text: "Opsi B", is_correct: false },
@@ -191,6 +196,11 @@ export function AIPDFImportModal({
     const [stagingQuestions, setStagingQuestions] = React.useState<StagingQuestionRow[]>([]);
     const [editingRowId, setEditingRowId] = React.useState<string | null>(null);
     const [katexPreviewMath, setKatexPreviewMath] = React.useState<string | null>(null);
+
+    // PDF page rendering (pdf.js) for validation reference
+    const [pdfPages, setPdfPages] = React.useState<string[]>([]);
+    const [activePdfPage, setActivePdfPage] = React.useState(0);
+    const [isRenderingPdf, setIsRenderingPdf] = React.useState(false);
 
     const fetchAIConfig = async () => {
         try {
@@ -244,6 +254,17 @@ export function AIPDFImportModal({
     const handleFileChange = (selectedFile: File | null) => {
         if (!selectedFile) return;
         setFile(selectedFile);
+        setPdfPages([]);
+        setActivePdfPage(0);
+
+        const ext = selectedFile.name.split(".").pop()?.toLowerCase();
+        if (ext === "pdf") {
+            setIsRenderingPdf(true);
+            renderPdfToPages(selectedFile)
+                .then(pages => setPdfPages(pages))
+                .catch(err => console.warn("PDF render failed", err))
+                .finally(() => setIsRenderingPdf(false));
+        }
     };
 
     // Process File with AI or Spreadsheet Parser
@@ -303,6 +324,7 @@ export function AIPDFImportModal({
                                 subject_id: globalSubjectId,
                                 chapter_id: globalChapterId || "",
                                 explanation: String(explanation),
+                                has_image: false,
                                 options: options.length > 0 ? options : [
                                     { label: "A", option_text: "Opsi A", is_correct: true },
                                     { label: "B", option_text: "Opsi B", is_correct: false },
@@ -319,6 +341,25 @@ export function AIPDFImportModal({
                     }
                 };
                 reader.readAsBinaryString(file);
+            } else if (fileExt === "docx") {
+                // DOCX parsing via mammoth
+                try {
+                    const rows = await docxToStagingRows(file, {
+                        source: globalSource,
+                        subject_id: globalSubjectId,
+                        chapter_id: globalChapterId,
+                    });
+                    if (rows.length === 0) {
+                        alert("Tidak menemukan format soal di dokumen. Pastikan soal bernomor (1. atau Soal 1).");
+                    }
+                    setStagingQuestions(rows);
+                    setActiveTab("staging");
+                } catch (err: any) {
+                    alert("Gagal mengurai file .docx: " + (err.message || err));
+                } finally {
+                    setIsParsing(false);
+                }
+                return;
             } else {
                 // Image / PDF Multi-Modal AI parsing call
                 const reader = new FileReader();
@@ -349,6 +390,7 @@ export function AIPDFImportModal({
                                     subject_id: globalSubjectId,
                                     chapter_id: globalChapterId || "",
                                     explanation: "Faktorkan persamaan $x^2 - 4x + 3 = 0$ menjadi $(x-1)(x-3) = 0$. Maka $x_1 = 1$ dan $x_2 = 3$. Titik potong $(1,0)$ dan $(3,0)$.",
+                                    has_image: false,
                                     options: [
                                         { label: "A", option_text: "$(1,0)$ dan $(3,0)$", is_correct: true },
                                         { label: "B", option_text: "$(2,0)$ dan $(4,0)$", is_correct: false },
@@ -370,6 +412,7 @@ export function AIPDFImportModal({
                                 subject_id: globalSubjectId,
                                 chapter_id: globalChapterId || "",
                                 explanation: q.explanation || "",
+                                has_image: Boolean(q.has_image),
                                 options: (q.options || []).map((o: any) => ({
                                     label: o.label || "A",
                                     option_text: o.option_text || o.text || "",
@@ -391,6 +434,7 @@ export function AIPDFImportModal({
                                 subject_id: globalSubjectId,
                                 chapter_id: globalChapterId || "",
                                 explanation: "Faktorkan $2x^2 + 5x - 3 = (2x-1)(x+3) = 0$. Diperoleh $x = 1/2$ atau $x = -3$.",
+                                has_image: false,
                                 options: [
                                     { label: "A", option_text: "$x = 1/2$ atau $x = -3$", is_correct: true },
                                     { label: "B", option_text: "$x = -1/2$ atau $x = 3$", is_correct: false },
@@ -464,6 +508,36 @@ export function AIPDFImportModal({
                 "explanation",
                 `Langkah Pembahasan (AI): Menganalisis pertanyaan '${q.content.substring(0, 40)}...'. Jawaban terbenar diperoleh dengan mensubstitusikan variabel yang diketahui ke dalam formula standar.`
             );
+        }
+    };
+
+    // Insert a rendered PDF page into the question content as markdown image
+    const handleInsertPdfPage = async (rowId: string, pageDataUrl: string, pageNum: number) => {
+        const q = stagingQuestions.find(row => row.id === rowId);
+        if (!q) return;
+        try {
+            const blob = await (await fetch(pageDataUrl)).blob();
+            const formData = new FormData();
+            formData.append("file", blob, `pdf-halaman-${pageNum}.jpg`);
+            formData.append("entity_type", "QUESTION");
+
+            const token = localStorage.getItem("token");
+            const res = await fetch("/api/v1/media/upload", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message || "Upload gagal");
+            const url = json.data?.url;
+
+            const md = url.startsWith("http")
+                ? `![Halaman ${pageNum}](${url})`
+                : `![Halaman ${pageNum}](https://${new URL(window.location.href).host}${url.startsWith("/") ? url : "/" + url})`;
+            handleUpdateRowField(rowId, "content", `${q.content}\n\n${md}`);
+            handleUpdateRowField(rowId, "has_image", true);
+        } catch (err: any) {
+            alert("Gagal mengupload halaman PDF: " + (err.message || err));
         }
     };
 
@@ -783,7 +857,7 @@ export function AIPDFImportModal({
                             <input
                                 id="ai-file-input"
                                 type="file"
-                                accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv"
+                                accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv,.docx"
                                 className="hidden"
                                 onChange={e => handleFileChange(e.target.files?.[0] || null)}
                             />
@@ -797,7 +871,7 @@ export function AIPDFImportModal({
                                     {file ? file.name : "Klik atau Geser Berkas ke Sini"}
                                 </h3>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Mendukung format <b>.pdf</b>, <b>.png</b>, <b>.jpg</b>, <b>.xlsx</b>, dan <b>.csv</b> (Maks 25MB).
+                                    Mendukung format <b>.pdf</b>, <b>.png</b>, <b>.jpg</b>, <b>.xlsx</b>, <b>.csv</b>, dan <b>.docx</b> (Maks 25MB).
                                 </p>
                             </div>
                         </div>
@@ -898,6 +972,56 @@ export function AIPDFImportModal({
                             </Button>
                         </div>
 
+                        {/* PDF PAGE VIEWER — validation reference with original images */}
+                        {pdfPages.length > 0 && (
+                            <Card className="p-4 border-indigo-200 bg-indigo-50/40 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                                        <FileText className="h-4 w-4 text-indigo-600" /> Halaman PDF Asli ({pdfPages.length} halaman)
+                                    </h4>
+                                    <Badge variant="outline" className="text-[10px] text-indigo-700 border-indigo-300">
+                                        Referensi Validasi
+                                    </Badge>
+                                </div>
+                                <p className="text-[11px] text-indigo-800/80">
+                                    Cocokkan hasil ekstraksi dengan halaman asli. Klik halaman untuk memilih, lalu gunakan tombol <b>"📄 Sisipkan Halaman ini"</b> di tiap soal untuk menempelkan gambar ke soal.
+                                </p>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-72 overflow-y-auto pr-1">
+                                    {pdfPages.map((page, idx) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => setActivePdfPage(idx)}
+                                            className={`relative rounded-lg border-2 overflow-hidden bg-white transition-all cursor-pointer ${activePdfPage === idx ? "border-indigo-600 ring-2 ring-indigo-300" : "border-indigo-200 hover:border-indigo-400"}`}
+                                        >
+                                            <img src={page} alt={`Halaman ${idx + 1}`} className="w-full object-cover" />
+                                            <span className="absolute bottom-0 inset-x-0 bg-indigo-900/80 text-white text-[9px] font-bold text-center py-0.5">
+                                                Hal {idx + 1}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                                {activePdfPage >= 0 && activePdfPage < pdfPages.length && pdfPages[activePdfPage] && (
+                                    <div className="border-t border-indigo-200 pt-2">
+                                        <p className="text-[10px] font-bold text-indigo-800 mb-1">
+                                            Halaman terpilih: #{activePdfPage + 1} — gunakan tombol sisip di soal untuk menempelkannya
+                                        </p>
+                                        <img
+                                            src={pdfPages[activePdfPage] as string}
+                                            alt={`Halaman ${activePdfPage + 1} diperbesar`}
+                                            className="max-h-96 w-auto mx-auto rounded-lg border border-indigo-300 shadow-sm"
+                                        />
+                                    </div>
+                                )}
+                            </Card>
+                        )}
+
+                        {isRenderingPdf && (
+                            <div className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 p-3 rounded-xl flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Merender halaman PDF...
+                            </div>
+                        )}
+
                         {/* Interactive Table */}
                         <div className="space-y-4">
                             {stagingQuestions.map((q, idx) => (
@@ -939,6 +1063,21 @@ export function AIPDFImportModal({
                                         </div>
 
                                         <div className="flex items-center gap-1.5">
+                                            {q.has_image && (
+                                                <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                                                    <AlertCircle className="mr-1 h-3 w-3" /> Ada Gambar
+                                                </Badge>
+                                            )}
+                                            {pdfPages.length > 0 && activePdfPage >= 0 && activePdfPage < pdfPages.length && pdfPages[activePdfPage] && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleInsertPdfPage(q.id, pdfPages[activePdfPage] as string, activePdfPage + 1)}
+                                                    className="text-[10px] h-7 border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                                                >
+                                                    <ImageIcon className="mr-1 h-3 w-3 text-indigo-600" /> Sisipkan Hal {activePdfPage + 1}
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -979,6 +1118,12 @@ export function AIPDFImportModal({
                                             rows={3}
                                             className="w-full p-2.5 text-xs rounded-xl border bg-background font-mono focus:ring-1 focus:ring-primary"
                                         />
+                                        {q.content.includes("![") || q.content.includes("$") ? (
+                                            <div className="mt-1.5 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                                                <span className="text-[10px] font-bold text-emerald-700 block mb-1">Pratinjau Render:</span>
+                                                <MathKaTeXPreview content={q.content} />
+                                            </div>
+                                        ) : null}
                                     </div>
 
                                     {/* Options Editor */}
