@@ -101,7 +101,7 @@ func (r *Repository) GetUserLevelCode(ctx context.Context, userID uuid.UUID) (st
 
 func (r *Repository) ListTargets(ctx context.Context, userID uuid.UUID) ([]StudentTarget, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, choice, target_type, target_school_id, COALESCE(school_name,''),
+		`SELECT id, choice, COALESCE(target_type,''), target_school_id, COALESCE(school_name,''),
 		   major, passing_score_irt, created_at, updated_at
 		 FROM student_targets WHERE user_id = $1 ORDER BY choice`, userID)
 	if err != nil {
@@ -142,7 +142,8 @@ func (r *Repository) UpsertTargets(ctx context.Context, userID uuid.UUID, target
 			`INSERT INTO student_targets (user_id, choice, target_type, target_school_id, school_name, major, passing_score_irt)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7)
 			 ON CONFLICT (user_id, choice)
-			 DO UPDATE SET target_school_id = EXCLUDED.target_school_id,
+			 DO UPDATE SET target_type = EXCLUDED.target_type,
+			   target_school_id = EXCLUDED.target_school_id,
 			   school_name = EXCLUDED.school_name,
 			   major = EXCLUDED.major,
 			   passing_score_irt = EXCLUDED.passing_score_irt,
