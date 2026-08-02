@@ -159,6 +159,10 @@ export const queryKeys = {
     list: (params?: Record<string, string>) => ['materials', 'list', params] as const,
     detail: (id: string) => ['materials', 'detail', id] as const,
   },
+  profile: {
+    targets: ['profile', 'targets'] as const,
+    certificates: ['profile', 'certificates'] as const,
+  },
 };
 
 // Auth Hooks
@@ -167,6 +171,22 @@ export function useAuth() {
     queryKey: queryKeys.auth.me,
     queryFn: () => apiFetch('/auth/me'),
     retry: false,
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { full_name?: string; avatar_url?: string }) =>
+      apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.auth.me }),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: ({ current_password, new_password }: { current_password: string; new_password: string }) =>
+      apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ current_password, new_password }) }),
   });
 }
 
@@ -635,6 +655,185 @@ export function useLeaderboard(limit = 20, period = 'all') {
   return useQuery({
     queryKey: queryKeys.gamification.leaderboard(period),
     queryFn: () => apiFetch(`/gamification/leaderboard?limit=${limit}&period=${period}`),
+  });
+}
+
+// Student Profile Hooks
+export interface TargetSchool {
+  id: string;
+  name: string;
+  level: "SMP" | "SMA" | "UNIVERSITY";
+  min_score?: number;
+  max_score?: number;
+  max_total_score: number;
+  subjects: string[];
+  academic_year?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnrichedTarget {
+  id: string;
+  choice: number;
+  target_type: "SMP" | "SMA" | "UNIVERSITY";
+  target_school_id?: string;
+  school_name: string;
+  major?: string;
+  passing_score_irt?: number;
+  min_score?: number;
+  max_score?: number;
+  max_total_score: number;
+  subjects: string[];
+  student_score: number;
+  progress_pct: number;
+  has_score_data: boolean;
+  threshold_state: "PENDING" | "PASSED" | "BELOW";
+  motivational: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveTargetInput {
+  choice: number;
+  target_school_id?: string;
+  school_name?: string;
+  major?: string;
+  passing_score_irt?: number;
+}
+
+export interface Certificate {
+  id: string;
+  title: string;
+  exam_id: string;
+  score: number;
+  max_score: number;
+  percent: number;
+  rank: number;
+  total: number;
+  date: string;
+}
+
+export function useAchievements() {
+  return useQuery({
+    queryKey: ['gamification', 'achievements'],
+    queryFn: () => apiFetch('/gamification/achievements'),
+  });
+}
+
+export function useMyTargets() {
+  return useQuery<EnrichedTarget[]>({
+    queryKey: queryKeys.profile.targets,
+    queryFn: () => apiFetch<EnrichedTarget[]>('/profile/targets'),
+  });
+}
+
+export function useSaveTargets() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (targets: SaveTargetInput[]) =>
+      apiFetch('/profile/targets', { method: 'PUT', body: JSON.stringify({ targets }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.profile.targets }),
+  });
+}
+
+export function useTargetSchools(level: string) {
+  return useQuery<TargetSchool[]>({
+    queryKey: ['target-schools', level],
+    queryFn: () => apiFetch<TargetSchool[]>(`/target-schools${level ? `?level=${level}` : ''}`),
+    enabled: !!level,
+  });
+}
+
+export function useCreateTargetSchool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<TargetSchool>) => apiFetch('/target-schools', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['target-schools'] }),
+  });
+}
+
+export function useUpdateTargetSchool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<TargetSchool> }) =>
+      apiFetch(`/target-schools/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['target-schools'] }),
+  });
+}
+
+export function useDeleteTargetSchool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/target-schools/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['target-schools'] }),
+  });
+}
+
+export function useMyCertificates() {
+  return useQuery<Certificate[]>({
+    queryKey: queryKeys.profile.certificates,
+    queryFn: () => apiFetch<Certificate[]>('/profile/certificates'),
+  });
+}
+
+// Notification Hooks
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  channel: string;
+  status: string;
+  reference_type?: string;
+  reference_id?: string;
+  created_at: string;
+  read_at?: string;
+}
+
+export interface NotificationPreference {
+  id: string;
+  user_id: string;
+  channel: string;
+  enabled: boolean;
+}
+
+export function useNotifications(page = 1, limit = 20) {
+  return useQuery<NotificationItem[]>({
+    queryKey: ['notifications', 'list', page, limit],
+    queryFn: () => apiFetch(`/notifications?page=${page}&limit=${limit}`),
+  });
+}
+
+export function useNotificationPreferences() {
+  return useQuery<NotificationPreference[]>({
+    queryKey: ['notifications', 'preferences'],
+    queryFn: () => apiFetch('/notifications/preferences'),
+  });
+}
+
+export function useUpdateNotificationPreference() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ channel, enabled }: { channel: string; enabled: boolean }) =>
+      apiFetch(`/notifications/preferences/${channel}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', 'preferences'] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch('/notifications/read-all', { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/notifications/${id}/read`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }
 

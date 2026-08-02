@@ -1,10 +1,33 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { apiClient } from "@/lib/api-client";
+import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
+import { useAuth } from "@/providers/AuthProvider";
+import {
+    useAchievements,
+    useMyTargets,
+    useSaveTargets,
+    useMyCertificates,
+    useNotifications,
+    useNotificationPreferences,
+    useUpdateNotificationPreference,
+    useMarkAllNotificationsRead,
+    useMarkNotificationRead,
+    useChangePassword,
+    useUpdateProfile,
+    useTargetSchools,
+    type TargetSchool,
+    type EnrichedTarget,
+    type SaveTargetInput,
+    type Certificate,
+    type NotificationItem,
+    type NotificationPreference,
+} from "@/lib/api";
 import {
     Target,
     Award,
@@ -20,72 +43,54 @@ import {
     Medal,
     FileSpreadsheet,
     TrendingUp,
+    Mail,
+    X,
+    Loader2,
 } from "lucide-react";
 
-interface UserProfile {
-    id: string;
-    email: string;
-    full_name: string;
-    role: string;
-    is_active: boolean;
-    avatar_url?: string;
-    created_at: string;
-}
-
-const STATS = [
-    { icon: Medal, value: "#12", label: "Peringkat Nasional" },
-    { icon: FileSpreadsheet, value: "8", label: "Tryout Selesai" },
-    { icon: TrendingUp, value: "690", label: "Skor IRT" },
-];
-
-const SETTINGS = [
-    { icon: Bell, label: "Notifikasi & Pengingat", danger: false },
-    { icon: KeyRound, label: "Ubah Kata Sandi", danger: false },
-    { icon: Target, label: "Target & Prioritas", danger: false },
-    { icon: LogOut, label: "Keluar", danger: true },
-];
+const CHANNEL_LABELS: Record<string, string> = {
+    in_app: "Notifikasi Dalam Aplikasi",
+    email: "Email",
+    whatsapp: "WhatsApp",
+    push: "Push Notification",
+};
 
 export default function StudentProfilePage() {
-    const [user, setUser] = React.useState<UserProfile | null>(null);
-    const [loading, setLoading] = React.useState(true);
+    const router = useRouter();
+    const { user, logout } = useAuth();
 
-    React.useEffect(() => {
-        async function fetchMe() {
-            try {
-                const res = await apiClient.auth.getMe();
-                if (res.success && res.data && typeof res.data === "object") {
-                    setUser(res.data as UserProfile);
-                } else {
-                    // Fallback profile matching database seed
-                    setUser({
-                        id: "usr-student-01",
-                        email: "murid@yakinlulus.id",
-                        full_name: "Murid Belajar",
-                        role: "STUDENT",
-                        is_active: true,
-                        created_at: new Date().toISOString(),
-                    });
-                }
-            } catch {
-                setUser({
-                    id: "usr-student-01",
-                    email: "murid@yakinlulus.id",
-                    full_name: "Murid Belajar",
-                    role: "STUDENT",
-                    is_active: true,
-                    created_at: new Date().toISOString(),
-                });
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchMe();
-    }, []);
+    const achievements = useAchievements();
+    const targetsQuery = useMyTargets();
+    const certsQuery = useMyCertificates();
+
+    const [activeDialog, setActiveDialog] = React.useState<
+        null | "edit" | "password" | "targets" | "notifications" | "certificates"
+    >(null);
 
     const fullName = user?.full_name || "Murid Belajar";
     const email = user?.email || "murid@yakinlulus.id";
     const role = user?.role || "STUDENT";
     const initial = fullName.charAt(0).toUpperCase();
+
+    // Stats with real data + fallback
+    const targets = targetsQuery.data ?? [];
+    const certs = certsQuery.data ?? [];
+
+    const ach = achievements.data as any;
+    const rank = ach?.rank ?? 12;
+    const examsDone = ach?.exams_completed ?? 8;
+    const bestPct = certs.length > 0 ? Math.max(...certs.map((c) => c.percent)) : 0;
+    const ertScore = bestPct > 0 ? Math.round(bestPct * 10) : 690;
+    const stats = [
+        { icon: Medal, value: `#${rank}`, label: "Peringkat Nasional" },
+        { icon: FileSpreadsheet, value: `${examsDone}`, label: "Tryout Selesai" },
+        { icon: TrendingUp, value: `${ertScore}`, label: "Skor IRT" },
+    ];
+
+    const handleLogout = async () => {
+        await logout();
+        router.push("/login");
+    };
 
     return (
         <div className="space-y-6">
@@ -98,7 +103,7 @@ export default function StudentProfilePage() {
                         Kelola data akun, target PTN, dan sertifikat Tryout-mu.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs font-semibold shrink-0">
+                <Button variant="outline" size="sm" className="text-xs font-semibold shrink-0" onClick={() => setActiveDialog("edit")}>
                     <Settings className="mr-2 h-3.5 w-3.5" /> Pengaturan
                 </Button>
             </div>
@@ -106,9 +111,14 @@ export default function StudentProfilePage() {
             {/* Identitas + stat */}
             <Card className="p-5 space-y-5">
                 <div className="flex items-center gap-4">
-                    <div className="h-20 w-20 rounded-full bg-primary/10 text-primary font-black text-3xl flex items-center justify-center shrink-0">
-                        {loading ? <UserIcon className="h-9 w-9 animate-pulse" /> : initial}
-                    </div>
+                    {user?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.avatar_url} alt={fullName} className="h-20 w-20 rounded-full object-cover shrink-0" />
+                    ) : (
+                        <div className="h-20 w-20 rounded-full bg-primary/10 text-primary font-black text-3xl flex items-center justify-center shrink-0">
+                            {initial}
+                        </div>
+                    )}
                     <div className="min-w-0 flex-1">
                         <h2 className="text-lg md:text-xl font-extrabold truncate">{fullName}</h2>
                         <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{email}</p>
@@ -121,7 +131,7 @@ export default function StudentProfilePage() {
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 bg-muted/60 rounded-xl p-3 text-center">
-                    {STATS.map((stat) => (
+                    {stats.map((stat) => (
                         <div key={stat.label} className="flex flex-col items-center">
                             <stat.icon className="h-4 w-4 text-primary mb-1" />
                             <span className="text-base font-extrabold">{stat.value}</span>
@@ -134,29 +144,61 @@ export default function StudentProfilePage() {
             {/* Target belajar + status akses */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="p-5 space-y-4 md:col-span-2">
-                    <h3 className="font-bold text-sm flex items-center gap-1.5">
-                        <Target className="h-4 w-4 text-primary" /> Target Sekolah & Jurusan Impian
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl border bg-primary/5 border-primary/20 space-y-2">
-                            <Badge variant="default" className="text-[10px]">PILIHAN 1 (UTAMA)</Badge>
-                            <h4 className="font-extrabold text-sm text-foreground">Institut Teknologi Bandung (ITB)</h4>
-                            <p className="text-xs text-muted-foreground">Teknik Informatika • Passing Grade IRT: 710</p>
-                            <div className="pt-2 border-t flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground">Skor IRT Saat Ini:</span>
-                                <span className="font-black text-primary">690 (Selisih -20)</span>
-                            </div>
-                        </div>
-                        <div className="p-4 rounded-xl border space-y-2">
-                            <Badge variant="outline" className="text-[10px]">PILIHAN 2</Badge>
-                            <h4 className="font-extrabold text-sm text-foreground">Universitas Padjadjaran (UNPAD)</h4>
-                            <p className="text-xs text-muted-foreground">Teknik Informatika • Passing Grade IRT: 650</p>
-                            <div className="pt-2 border-t flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground">Status IRT Saat Ini:</span>
-                                <span className="font-black text-success">LULUS (+40 Poin)</span>
-                            </div>
-                        </div>
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-sm flex items-center gap-1.5">
+                            <Target className="h-4 w-4 text-primary" /> Target Sekolah & Jurusan Impian
+                        </h3>
+                        <Button variant="outline" size="sm" className="text-xs font-semibold" onClick={() => setActiveDialog("targets")}>
+                            <Settings className="mr-1.5 h-3.5 w-3.5" /> Ubah
+                        </Button>
                     </div>
+                    {targets.length === 0 ? (
+                        <div className="text-sm text-muted-foreground bg-muted/50 rounded-xl p-4">
+                            Belum ada target. Klik <span className="font-semibold text-primary">Ubah</span> untuk menambahkan target sekolah & jurusan impianmu.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {targets.map((t) => {
+                                const pct = t.has_score_data ? Math.min(100, Math.round(t.progress_pct)) : 0;
+                                return (
+                                    <div key={t.id} className={`p-4 rounded-xl border space-y-2 ${t.choice === 1 ? "bg-primary/5 border-primary/20" : ""}`}>
+                                        <div className="flex items-center justify-between">
+                                            <Badge variant={t.choice === 1 ? "default" : "outline"} className="text-[10px]">
+                                                {t.choice === 1 ? "PILIHAN 1 (UTAMA)" : "PILIHAN 2"} • {t.target_type}
+                                            </Badge>
+                                            <Badge variant={t.threshold_state === "PASSED" ? "success" : t.threshold_state === "BELOW" ? "warning" : "secondary"} className="text-[10px]">
+                                                {t.threshold_state === "PASSED" ? "LULUS" : t.threshold_state === "BELOW" ? "KURANG" : "BELUM"}
+                                            </Badge>
+                                        </div>
+                                        <h4 className="font-extrabold text-sm text-foreground">{t.school_name}</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t.major || (t.subjects.length ? t.subjects.join(" • ") : "")}
+                                            {t.max_score ? ` • Ambang: ${t.min_score}-${t.max_score}` : ""}
+                                        </p>
+                                        {t.has_score_data ? (
+                                            <>
+                                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full ${t.threshold_state === "PASSED" ? "bg-success" : "bg-primary"}`}
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between text-[11px] font-semibold">
+                                                    <span className="text-muted-foreground">Nilai kamu: {t.student_score}</span>
+                                                    <span className={t.threshold_state === "PASSED" ? "text-success" : "text-primary"}>{pct}%</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-md px-2 py-1.5">{t.motivational}</p>
+                                        )}
+                                        <p className={`text-xs font-semibold ${t.threshold_state === "PASSED" ? "text-success" : t.threshold_state === "BELOW" ? "text-warning-foreground" : "text-muted-foreground"}`}>
+                                            {t.motivational}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </Card>
 
                 <div className="space-y-6">
@@ -179,10 +221,16 @@ export default function StudentProfilePage() {
                         <h3 className="font-bold text-xs flex items-center gap-1.5">
                             <Award className="h-4 w-4 text-primary" /> Sertifikat Kelulusan Tryout
                         </h3>
-                        <Button variant="outline" size="sm" className="w-full justify-between text-xs font-semibold">
-                            <span>Sertifikat Tryout #03 SNBT</span>
-                            <Download className="h-3.5 w-3.5 text-primary" />
-                        </Button>
+                        {certs.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Belum ada sertifikat. Selesaikan tryout untuk mendapatkannya.</p>
+                        ) : (
+                            <>
+                                <Button variant="outline" size="sm" className="w-full justify-between text-xs font-semibold" onClick={() => setActiveDialog("certificates")}>
+                                    <span>{certs.length} Sertifikat Tersedia</span>
+                                    <Download className="h-3.5 w-3.5 text-primary" />
+                                </Button>
+                            </>
+                        )}
                     </Card>
                 </div>
             </div>
@@ -190,21 +238,356 @@ export default function StudentProfilePage() {
             {/* Pengaturan */}
             <Card className="p-2">
                 <div className="divide-y divide-border px-2">
-                    {SETTINGS.map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            className="w-full flex justify-between items-center py-3 text-left"
-                        >
-                            <span className={`flex items-center gap-3 text-sm font-semibold ${item.danger ? "text-danger" : ""}`}>
-                                <item.icon className={`h-4 w-4 ${item.danger ? "text-danger" : "text-primary"}`} />
-                                {item.label}
-                            </span>
-                            <ChevronRight className={`h-4 w-4 ${item.danger ? "text-danger/50" : "text-muted-foreground"}`} />
-                        </button>
-                    ))}
+                    <SettingRow icon={Bell} label="Notifikasi & Pengingat" onClick={() => setActiveDialog("notifications")} />
+                    <SettingRow icon={KeyRound} label="Ubah Kata Sandi" onClick={() => setActiveDialog("password")} />
+                    <SettingRow icon={Target} label="Target & Prioritas" onClick={() => setActiveDialog("targets")} />
+                    <SettingRow icon={LogOut} label="Keluar" danger onClick={handleLogout} />
                 </div>
             </Card>
+
+            <EditProfileDialog isOpen={activeDialog === "edit"} onClose={() => setActiveDialog(null)} />
+            <ChangePasswordDialog isOpen={activeDialog === "password"} onClose={() => setActiveDialog(null)} />
+            <TargetsDialog isOpen={activeDialog === "targets"} onClose={() => setActiveDialog(null)} targets={targets} />
+            <NotificationsDialog isOpen={activeDialog === "notifications"} onClose={() => setActiveDialog(null)} />
+            <CertificatesDialog isOpen={activeDialog === "certificates"} onClose={() => setActiveDialog(null)} certificates={certs} />
         </div>
+    );
+}
+
+function SettingRow({ icon: Icon, label, danger, onClick }: { icon: any; label: string; danger?: boolean; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="w-full flex justify-between items-center py-3 text-left cursor-pointer"
+        >
+            <span className={`flex items-center gap-3 text-sm font-semibold ${danger ? "text-danger" : ""}`}>
+                <Icon className={`h-4 w-4 ${danger ? "text-danger" : "text-primary"}`} />
+                {label}
+            </span>
+            <ChevronRight className={`h-4 w-4 ${danger ? "text-danger/50" : "text-muted-foreground"}`} />
+        </button>
+    );
+}
+
+function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const { user, refetch } = useAuth();
+    const updateProfile = useUpdateProfile();
+    const [fullName, setFullName] = React.useState(user?.full_name || "");
+    const [avatarUrl, setAvatarUrl] = React.useState(user?.avatar_url || "");
+    const [error, setError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        setFullName(user?.full_name || "");
+        setAvatarUrl(user?.avatar_url || "");
+    }, [user, isOpen]);
+
+    const submit = async () => {
+        setError(null);
+        try {
+            await updateProfile.mutateAsync({ full_name: fullName, avatar_url: avatarUrl });
+            await refetch();
+            onClose();
+        } catch (e: any) {
+            setError(e.message || "Gagal menyimpan profil");
+        }
+    };
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title="Edit Profil" description="Perbarui nama dan foto profilmu.">
+            <div className="space-y-3">
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nama Lengkap</label>
+                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nama lengkap" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">URL Foto Profil (opsional)</label>
+                    <Input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://..." />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Email</label>
+                    <Input value={user?.email || ""} disabled />
+                </div>
+                {error && <p className="text-xs text-danger">{error}</p>}
+                <Button size="sm" className="w-full" onClick={submit} disabled={updateProfile.isPending}>
+                    {updateProfile.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Simpan Perubahan
+                </Button>
+            </div>
+        </Dialog>
+    );
+}
+
+function ChangePasswordDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const changePassword = useChangePassword();
+    const [current, setCurrent] = React.useState("");
+    const [next, setNext] = React.useState("");
+    const [confirm, setConfirm] = React.useState("");
+    const [error, setError] = React.useState<string | null>(null);
+    const [success, setSuccess] = React.useState(false);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setCurrent(""); setNext(""); setConfirm(""); setError(null); setSuccess(false);
+        }
+    }, [isOpen]);
+
+    const submit = async () => {
+        setError(null);
+        if (next.length < 10) return setError("Kata sandi baru minimal 10 karakter");
+        if (next !== confirm) return setError("Konfirmasi kata sandi tidak cocok");
+        try {
+            await changePassword.mutateAsync({ current_password: current, new_password: next });
+            setSuccess(true);
+            setTimeout(onClose, 1200);
+        } catch (e: any) {
+            setError(e.message || "Gagal mengubah kata sandi");
+        }
+    };
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title="Ubah Kata Sandi" description="Masukkan kata sandi saat ini dan kata sandi baru.">
+            <div className="space-y-3">
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Kata Sandi Saat Ini</label>
+                    <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="••••••••••" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Kata Sandi Baru</label>
+                    <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Min. 10 karakter, ada huruf besar, angka & simbol" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Konfirmasi Kata Sandi Baru</label>
+                    <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Ulangi kata sandi baru" />
+                </div>
+                {error && <p className="text-xs text-danger">{error}</p>}
+                {success && <p className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Kata sandi berhasil diubah</p>}
+                <Button size="sm" className="w-full" onClick={submit} disabled={changePassword.isPending}>
+                    {changePassword.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+                    Ubah Kata Sandi
+                </Button>
+            </div>
+        </Dialog>
+    );
+}
+
+function TargetsDialog({ isOpen, onClose, targets }: { isOpen: boolean; onClose: () => void; targets: EnrichedTarget[] }) {
+    const targetType: "SMP" | "SMA" | "UNIVERSITY" = targets[0]?.target_type || "UNIVERSITY";
+    const schoolsQuery = useTargetSchools(targetType);
+    const schools: TargetSchool[] = schoolsQuery.data ?? [];
+    const saveTargets = useSaveTargets();
+
+    const [choices, setChoices] = React.useState<Array<{ choice: number; schoolId: string; schoolName: string; major: string; passing: string }>>([
+        { choice: 1, schoolId: "", schoolName: "", major: "", passing: "" },
+        { choice: 2, schoolId: "", schoolName: "", major: "", passing: "" },
+    ]);
+    const [error, setError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setChoices([1, 2].map((c) => {
+                const found = targets.find((t) => t.choice === c);
+                return {
+                    choice: c,
+                    schoolId: found?.target_school_id || "",
+                    schoolName: found?.school_name || "",
+                    major: found?.major || "",
+                    passing: found?.passing_score_irt ? String(found.passing_score_irt) : "",
+                };
+            }));
+        }
+    }, [isOpen, targets]);
+
+    const setField = (index: number, field: keyof typeof choices[number], value: string) =>
+        setChoices((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
+
+    const selectSchool = (index: number, schoolId: string) => {
+        const school = schools.find((s) => s.id === schoolId);
+        setChoices((prev) => prev.map((c, i) =>
+            i === index ? { ...c, schoolId, schoolName: school?.name || "" } : c));
+    };
+
+    const submit = async () => {
+        setError(null);
+        const valid = choices.filter((c) => c.schoolId || c.schoolName.trim());
+        if (valid.length === 0) return setError("Pilih minimal satu sekolah");
+        try {
+            await saveTargets.mutateAsync(
+                valid.map((c) => {
+                    const item: SaveTargetInput = {
+                        choice: c.choice,
+                        school_name: c.schoolName.trim(),
+                    };
+                    if (c.schoolId) item.target_school_id = c.schoolId;
+                    if (targetType === "UNIVERSITY") {
+                        if (c.major.trim()) item.major = c.major.trim();
+                        if (c.passing) item.passing_score_irt = Number(c.passing);
+                    }
+                    return item;
+                })
+            );
+            onClose();
+        } catch (e: any) {
+            setError(e.message || "Gagal menyimpan target");
+        }
+    };
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title="Target Sekolah & Jurusan" description={`Jenjang target: ${targetType === "UNIVERSITY" ? "Universitas" : targetType}`}>
+            <div className="space-y-4">
+                <div className="rounded-xl border bg-primary/5 border-primary/20 p-3">
+                    <p className="text-xs font-semibold text-primary">Jenjang target kamu: {targetType === "UNIVERSITY" ? "Universitas (PTN)" : `Sekolah ${targetType}`}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Diturunkan otomatis dari kelasmu. Pilih sekolah & jurusan impian dari daftar.</p>
+                </div>
+                {choices.map((c, i) => {
+                    const selectedSchool = schools.find((s) => s.id === c.schoolId);
+                    return (
+                        <div key={c.choice} className="space-y-2 rounded-xl border p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                                {c.choice === 1 ? "Pilihan 1 (Utama)" : "Pilihan 2"}
+                            </p>
+                            <select
+                                value={c.schoolId}
+                                onChange={(e) => selectSchool(i, e.target.value)}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                                <option value="">Pilih sekolah...</option>
+                                {schools.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name} {s.max_score ? `(${s.min_score}-${s.max_score})` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                            {selectedSchool && (
+                                <p className="text-[11px] text-muted-foreground">
+                                    Ambang nilai: {selectedSchool.min_score ?? "-"} - {selectedSchool.max_score ?? "-"}
+                                </p>
+                            )}
+                            {targetType === "UNIVERSITY" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Input value={c.major} onChange={(e) => setField(i, "major", e.target.value)} placeholder="Jurusan" />
+                                    <Input value={c.passing} onChange={(e) => setField(i, "passing", e.target.value)} placeholder="Passing grade IRT" type="number" />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                {error && <p className="text-xs text-danger">{error}</p>}
+                <Button size="sm" className="w-full" onClick={submit} disabled={saveTargets.isPending}>
+                    {saveTargets.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />}
+                    Simpan Target
+                </Button>
+            </div>
+        </Dialog>
+    );
+}
+
+function NotificationsDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const notifsQuery = useNotifications();
+    const prefsQuery = useNotificationPreferences();
+    const updatePref = useUpdateNotificationPreference();
+    const markAllRead = useMarkAllNotificationsRead();
+    const markRead = useMarkNotificationRead();
+
+    const notifs: NotificationItem[] = notifsQuery.data ?? [];
+    const prefs: NotificationPreference[] = prefsQuery.data ?? [];
+
+    const unread = notifs.filter((n) => n.status === "UNREAD").length;
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title="Notifikasi & Pengingat" description={`${unread} belum dibaca`}>
+            <div className="space-y-4">
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Saluran Pengingat</p>
+                        {unread > 0 && (
+                            <button className="text-[11px] font-semibold text-primary cursor-pointer" onClick={() => markAllRead.mutate()}>
+                                Tandai semua dibaca
+                            </button>
+                        )}
+                    </div>
+                    <div className="space-y-1.5">
+                        {(prefs.length > 0
+                            ? prefs
+                            : ["in_app", "email", "push"].map((ch) => ({ id: ch, channel: ch, enabled: true, user_id: "" }))
+                        ).map((p) => (
+                            <div key={p.channel} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                                <span className="flex items-center gap-2 text-xs font-semibold">
+                                    <Mail className="h-3.5 w-3.5 text-primary" /> {CHANNEL_LABELS[p.channel] || p.channel}
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-pressed={p.enabled}
+                                    onClick={() => updatePref.mutate({ channel: p.channel, enabled: !p.enabled })}
+                                    className={`relative h-5 w-9 rounded-full transition-colors ${p.enabled ? "bg-primary" : "bg-muted"} cursor-pointer`}
+                                >
+                                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${p.enabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Pesan Masuk</p>
+                    {notifs.length === 0 ? (
+                        <p className="text-xs text-muted-foreground bg-muted/50 rounded-xl p-4">Belum ada notifikasi.</p>
+                    ) : (
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {notifs.map((n) => (
+                                <button
+                                    key={n.id}
+                                    type="button"
+                                    onClick={() => markRead.mutate(n.id)}
+                                    className={`w-full text-left rounded-xl border p-3 cursor-pointer ${n.status === "UNREAD" ? "bg-primary/5 border-primary/20" : "bg-card"}`}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <p className="text-xs font-bold">{n.title}</p>
+                                        {n.status === "UNREAD" && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-0.5" />}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                                    <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                        {new Date(n.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Dialog>
+    );
+}
+
+function CertificatesDialog({ isOpen, onClose, certificates }: { isOpen: boolean; onClose: () => void; certificates: Certificate[] }) {
+    const download = (id: string) => {
+        window.open(`/api/v1/profile/certificates/${id}/download`, "_blank");
+    };
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title="Sertifikat Tryout" description="Unduh sertifikat untuk dicetak atau disimpan sebagai PDF.">
+            <div className="space-y-2">
+                {certificates.length === 0 ? (
+                    <p className="text-sm text-muted-foreground bg-muted/50 rounded-xl p-4">
+                        Belum ada sertifikat. Selesaikan tryout CBT untuk mendapatkan sertifikat pencapaian.
+                    </p>
+                ) : (
+                    certificates.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between rounded-xl border p-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold truncate">{c.title}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Skor {c.percent.toFixed(1)}% • Peringkat #{c.rank} dari {c.total} •{" "}
+                                    {new Date(c.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                                </p>
+                            </div>
+                            <Button variant="outline" size="sm" className="ml-3 shrink-0 text-xs font-semibold" onClick={() => download(c.id)}>
+                                <Download className="h-3.5 w-3.5" /> Unduh
+                            </Button>
+                        </div>
+                    ))
+                )}
+            </div>
+        </Dialog>
     );
 }

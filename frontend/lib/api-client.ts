@@ -146,6 +146,22 @@ class ApiClient {
         register: async (payload: any) => this.request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
         getMe: async () => this.request("/auth/me", { method: "GET" }),
         updateProfile: async (payload: any) => this.request("/auth/profile", { method: "PUT", body: JSON.stringify(payload) }),
+        changePassword: async (current_password: string, new_password: string) => this.request("/auth/change-password", { method: "POST", body: JSON.stringify({ current_password, new_password }) }),
+    };
+
+    // --- 1b. Student Profile API ---
+    public profile = {
+        getTargets: async () => this.request("/profile/targets", { method: "GET" }),
+        saveTargets: async (targets: any[]) => this.request("/profile/targets", { method: "PUT", body: JSON.stringify({ targets }) }),
+        getCertificates: async () => this.request("/profile/certificates", { method: "GET" }),
+    };
+
+    // --- 1c. Target Schools API ---
+    public targetSchools = {
+        list: async (level?: string) => this.request(`/target-schools${level ? `?level=${level}` : ""}`, { method: "GET" }),
+        create: async (payload: any) => this.request("/target-schools", { method: "POST", body: JSON.stringify(payload) }),
+        update: async (id: string, payload: any) => this.request(`/target-schools/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+        remove: async (id: string) => this.request(`/target-schools/${id}`, { method: "DELETE" }),
     };
 
     // --- 2. Admin User Management API ---
