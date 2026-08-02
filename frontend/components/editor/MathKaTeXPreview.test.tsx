@@ -29,4 +29,9 @@ describe("MathKaTeXPreview", () => {
         expect(document.querySelector("img")).toBeNull();
         expect(document.querySelector("script")).toBeNull();
     });
+
+    it("does not render img with empty src", () => {
+        render(<MathKaTeXPreview content={"teks\n\n![](  )\n\n![x]()\n\nisi"} />);
+        expect(document.querySelector("img")).toBeNull();
+    });
 });

@@ -1,12 +1,9 @@
-"use client";
-
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
-import { apiClient } from "@/lib/api-client";
 import { useLevels } from "@/lib/api";
 import {
     School,
@@ -32,13 +29,6 @@ interface LevelItem {
     description: string;
     active_students_count: number;
 }
-
-const INITIAL_LEVELS: LevelItem[] = [
-    { id: "lvl-1", code: "SMA-12", name: "Kelas 12 SMA / MA", stage: "SMA", grade_number: 12, description: "Tingkat akhir persiapan intensif SNBT & Mandiri PTN", active_students_count: 850 },
-    { id: "lvl-2", code: "SMA-11", name: "Kelas 11 SMA / MA", stage: "SMA", grade_number: 11, description: "Fondasi konsep penalaran & fondasi TPS", active_students_count: 620 },
-    { id: "lvl-3", code: "SMA-10", name: "Kelas 10 SMA / MA", stage: "SMA", grade_number: 10, description: "Pengenalan kurikulum merdeka & orientasi bakat", active_students_count: 450 },
-    { id: "lvl-4", code: "ALUMNI", name: "Alumni / Gap Year", stage: "ALUMNI", grade_number: 13, description: "Program khusus alumni persaingan ketat PTN favorit", active_students_count: 980 },
-];
 
 const GRADE_OPTIONS_MAP: Record<LevelItem["stage"], { value: string; label: string }[]> = {
     SMA: [

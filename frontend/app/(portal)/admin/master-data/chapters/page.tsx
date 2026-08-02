@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
 import { apiClient } from "@/lib/api-client";
-import { useChapters, useSubjects } from "@/lib/api";
+import { useChapters, useSubjects, useDeleteChapter } from "@/lib/api";
 import {
     Layers,
     Plus,
@@ -121,19 +121,23 @@ export default function MasterDataChaptersPage() {
     };
 
     // CONFIRM DELETE
-    const handleConfirmDelete = async () => {
-        if (!deletingItem) return;
-        try {
-            await apiClient.academic.deleteChapter(deletingItem.id);
-        } catch (e) { }
+    const deleteChapterMutation = useDeleteChapter();
 
-        refetch();
-        setModalFeedback(`Bab ${deletingItem.name} berhasil dihapus!`);
-        setTimeout(() => {
-            setModalFeedback(null);
-            setIsDeleteModalOpen(false);
-            setDeletingItem(null);
-        }, 800);
+    const handleConfirmDelete = () => {
+        if (!deletingItem) return;
+        deleteChapterMutation.mutate(deletingItem.id, {
+            onSuccess: () => {
+                setModalFeedback(`Bab ${deletingItem.name} berhasil dihapus!`);
+                setTimeout(() => {
+                    setModalFeedback(null);
+                    setIsDeleteModalOpen(false);
+                    setDeletingItem(null);
+                }, 800);
+            },
+            onError: (err) => {
+                alert("Gagal menghapus: " + err.message);
+            }
+        });
     };
 
     const filtered = chapters.filter(

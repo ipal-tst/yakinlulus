@@ -279,6 +279,14 @@ func (h *Handler) ListExams(c *fiber.Ctx) error {
 		EndTime:   parseTime(c.Query("end_time")),
 	}
 
+	if filter.GradeID == nil && c.Locals("role") == "STUDENT" {
+		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
+			if gid, err := h.svc.content.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
+				filter.GradeID = gid
+			}
+		}
+	}
+
 	if status := c.Query("status"); status != "" {
 		s := content.ContentStatus(status)
 		filter.Status = &s

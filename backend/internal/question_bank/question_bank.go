@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"yakinlulus.id/backend/internal/content" // New import
+	"yakinlulus.id/backend/internal/content"
 	"yakinlulus.id/backend/internal/middleware"
 	"yakinlulus.id/backend/internal/shared"
 )
@@ -110,10 +110,15 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 		return err
 	}
 
+	title := q.Content
+	if len(title) > 500 {
+		title = title[:500]
+	}
+
 	_, err = tx.Exec(ctx,
 		`INSERT INTO contents (id, content_type, grade_id, subject_id, chapter_id, topic_id, title, body, status, created_by, created_at, updated_at)
 		 VALUES ($1, 'QUESTION', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		q.ID, gradeID, q.SubjectID, q.ChapterID, q.TopicID, q.Content, q.Content, q.Status, q.CreatedBy, q.CreatedAt, q.UpdatedAt)
+		q.ID, gradeID, q.SubjectID, q.ChapterID, q.TopicID, title, q.Content, q.Status, q.CreatedBy, q.CreatedAt, q.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -150,9 +155,14 @@ func (r *Repository) Update(ctx context.Context, q *Question) error {
 	}
 	defer tx.Rollback(ctx)
 
+	title := q.Content
+	if len(title) > 500 {
+		title = title[:500]
+	}
+
 	_, err = tx.Exec(ctx,
-		`UPDATE contents SET subject_id=$1, chapter_id=$2, topic_id=$3, title=$4, body=$4, updated_at=$5 WHERE id=$6`,
-		q.SubjectID, q.ChapterID, q.TopicID, q.Content, q.UpdatedAt, q.ID)
+		`UPDATE contents SET subject_id=$1, chapter_id=$2, topic_id=$3, title=$4, body=$5, updated_at=$6 WHERE id=$7`,
+		q.SubjectID, q.ChapterID, q.TopicID, title, q.Content, q.UpdatedAt, q.ID)
 	if err != nil {
 		return err
 	}
@@ -592,7 +602,7 @@ func (s *Service) List(ctx context.Context, subjectID *uuid.UUID, gradeID *uuid.
 	return s.repo.List(ctx, subjectID, gradeID, difficulty, status, search, limit, (page-1)*limit)
 }
 
-func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateQuestionReq) (*Question, error) {
+func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateQuestionReq, changedBy uuid.UUID) (*Question, error) {
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -654,7 +664,6 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateQuestionRe
 		return nil, err
 	}
 
-	changedBy := uuid.MustParse("00000000-0000-0000-0000-000000000000")
 	changeType := "updated"
 	summary := "content/difficulty updated"
 	if existing.Content != q.Content {
@@ -838,6 +847,13 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		}
 		gradeID = &id
 	}
+	if gradeID == nil && c.Locals("role") == "STUDENT" {
+		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
+			if gid, err := h.svc.content.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
+				gradeID = gid
+			}
+		}
+	}
 
 	difficulty := c.Query("difficulty")
 	if difficulty == "all" || difficulty == "undefined" || difficulty == "null" {
@@ -902,12 +918,21 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
 
-	q, err := h.svc.Update(c.Context(), id, req)
+	userIDStr := c.Locals("user_id")
+	if userIDStr == nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Invalid user ID in token"))
+	}
+
+	q, err := h.svc.Update(c.Context(), id, req, userID)
 	if err != nil {
 		if e, ok := err.(*fiber.Error); ok {
 			return c.Status(e.Code).JSON(shared.Error(shared.ErrorCode(e.Message), e.Message))
 		}
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to update question"))
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to update question: "+err.Error()))
 	}
 	return c.JSON(shared.Success(q))
 }

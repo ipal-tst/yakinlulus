@@ -13,7 +13,11 @@ import {
     useDeleteExam,
     useImportExams,
     useSubjects,
-    useGrades
+    useGrades,
+    useExam,
+    useQuestions,
+    useAddExamQuestion,
+    useRemoveExamQuestion
 } from "@/lib/api";
 import {
     FileSpreadsheet,
@@ -33,7 +37,10 @@ import {
     Layers,
     Activity,
     Check,
-    X
+    X,
+    ListChecks,
+    Eye,
+    Loader2
 } from "lucide-react";
 
 export default function CBTOperationsAdminPage() {
@@ -76,6 +83,7 @@ export default function CBTOperationsAdminPage() {
         max_attempts: 1,
         shuffle_questions: true,
         shuffle_options: true,
+        questions_per_student: 0,
         status: "DRAFT"
     });
 
@@ -103,6 +111,7 @@ export default function CBTOperationsAdminPage() {
     // Open Edit Modal
     const handleOpenEdit = (exam: any) => {
         setActiveExam(exam);
+        const bp = exam.Exam?.Blueprint || exam.blueprint || {};
         setFormData({
             title: exam.Content?.Title || exam.title || "",
             description: exam.Content?.Body || exam.description || "",
@@ -113,6 +122,7 @@ export default function CBTOperationsAdminPage() {
             max_attempts: exam.Exam?.MaxAttempts || exam.max_attempts || 1,
             shuffle_questions: exam.Exam?.ShuffleQuestions ?? exam.shuffle_questions ?? true,
             shuffle_options: exam.Exam?.ShuffleOptions ?? exam.shuffle_options ?? true,
+            questions_per_student: typeof bp === 'object' ? (bp.questions_per_student || 0) : 0,
             status: exam.Content?.Status || exam.status || "DRAFT"
         });
         setIsEditOpen(true);
@@ -131,7 +141,8 @@ export default function CBTOperationsAdminPage() {
                 max_attempts: Number(formData.max_attempts),
                 shuffle_questions: formData.shuffle_questions,
                 shuffle_options: formData.shuffle_options,
-                status: formData.status
+                status: formData.status,
+                blueprint: { questions_per_student: Number(formData.questions_per_student) || 0 }
             });
             setIsCreateOpen(false);
             resetForm();
@@ -156,7 +167,8 @@ export default function CBTOperationsAdminPage() {
                     max_attempts: Number(formData.max_attempts),
                     shuffle_questions: formData.shuffle_questions,
                     shuffle_options: formData.shuffle_options,
-                    status: formData.status
+                    status: formData.status,
+                    blueprint: { questions_per_student: Number(formData.questions_per_student) || 0 }
                 }
             });
             setIsEditOpen(false);
@@ -194,11 +206,53 @@ export default function CBTOperationsAdminPage() {
             max_attempts: 1,
             shuffle_questions: true,
             shuffle_options: true,
+            questions_per_student: 0,
             status: "DRAFT"
         });
     };
 
-    // Dynamic XLSX parsing for Bulk Import
+    // Question management state
+    const [questionsExamId, setQuestionsExamId] = React.useState<string | null>(null);
+    const [isQuestionsOpen, setIsQuestionsOpen] = React.useState(false);
+    const [isPickerOpen, setIsPickerOpen] = React.useState(false);
+    const [questionsPerStudent, setQuestionsPerStudent] = React.useState(0);
+    const [pickerSearch, setPickerSearch] = React.useState("");
+    const [pickerSubject, setPickerSubject] = React.useState("");
+    const [selectedPickIds, setSelectedPickIds] = React.useState<Set<string>>(new Set());
+
+    const { data: questionsExam } = useExam(questionsExamId || "") as any;
+    const { data: allQuestions = [] } = useQuestions(pickerSubject ? { subject_id: pickerSubject } : undefined) as any;
+    const addQuestion = useAddExamQuestion();
+    const removeQuestion = useRemoveExamQuestion();
+
+    const examQuestions: any[] = questionsExam?.questions || [];
+
+    const handleOpenQuestions = (exam: any) => {
+        const id = exam.Content?.ID || exam.id;
+        setQuestionsExamId(id);
+        const bp = exam.Exam?.Blueprint || exam.blueprint || {};
+        setQuestionsPerStudent(bp.questions_per_student || 0);
+        setIsQuestionsOpen(true);
+    };
+
+    const handleAddSelectedQuestions = async () => {
+        if (!questionsExamId) return;
+        for (const qid of selectedPickIds) {
+            try { await addQuestion.mutateAsync({ examId: questionsExamId, questionId: qid }); }
+            catch { /* skip duplicates */ }
+        }
+        setSelectedPickIds(new Set());
+        setIsPickerOpen(false);
+    };
+
+    const handleRemoveQuestion = async (qid: string) => {
+        if (!questionsExamId) return;
+        try { await removeQuestion.mutateAsync({ examId: questionsExamId, questionId: qid }); }
+        catch { alert("Gagal menghapus soal"); }
+    };
+
+    const availableQuestions = Array.isArray(allQuestions) ? allQuestions : [];
+    const existingIds = new Set(examQuestions.map((q: any) => q.question_content_id || q.id));
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -502,14 +556,25 @@ export default function CBTOperationsAdminPage() {
                                 </div>
 
                                 <div className="pt-3 border-t flex items-center justify-between gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleOpenEdit(exam)}
-                                        className="text-xs font-semibold"
-                                    >
-                                        <Edit2 className="mr-1.5 h-3.5 w-3.5 text-primary" /> Edit Ujian
-                                    </Button>
+                                    <div className="flex gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleOpenQuestions(exam)}
+                                            className="text-xs font-semibold"
+                                            title="Atur Soal"
+                                        >
+                                            <ListChecks className="mr-1 h-3.5 w-3.5 text-primary" /> Soal
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleOpenEdit(exam)}
+                                            className="text-xs font-semibold"
+                                        >
+                                            <Edit2 className="mr-1.5 h-3.5 w-3.5 text-primary" /> Edit
+                                        </Button>
+                                    </div>
 
                                     <Button
                                         variant="outline"
@@ -643,6 +708,17 @@ export default function CBTOperationsAdminPage() {
                             <span>Acak Urutan Opsi</span>
                         </label>
                     </div>
+
+                    <div className="pt-2 border-t">
+                        <label className="text-xs font-semibold">Soal per Siswa (0 = semua soal)</label>
+                        <Input
+                            type="number"
+                            min={0}
+                            value={formData.questions_per_student}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, questions_per_student: Number(e.target.value) })}
+                            className="mt-1 text-xs"
+                        />
+                    </div>
                 </div>
             </AdminActionModal>
 
@@ -745,6 +821,17 @@ export default function CBTOperationsAdminPage() {
                             <span>Acak Urutan Opsi</span>
                         </label>
                     </div>
+
+                    <div className="pt-2 border-t">
+                        <label className="text-xs font-semibold">Soal per Siswa (0 = semua soal)</label>
+                        <Input
+                            type="number"
+                            min={0}
+                            value={formData.questions_per_student}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, questions_per_student: Number(e.target.value) })}
+                            className="mt-1 text-xs"
+                        />
+                    </div>
                 </div>
             </AdminActionModal>
 
@@ -841,6 +928,123 @@ export default function CBTOperationsAdminPage() {
                             )}
                         </>
                     )}
+                </div>
+            </AdminActionModal>
+
+            {/* Question Management Modal */}
+            <AdminActionModal
+                isOpen={isQuestionsOpen}
+                onClose={() => setIsQuestionsOpen(false)}
+                title="Atur Soal Ujian"
+                description={questionsExam?.title || "Kelola soal dalam paket ujian ini"}
+                onSubmit={() => setIsQuestionsOpen(false)}
+                submitLabel="Tutup"
+            >
+                <div className="space-y-4 text-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold">Total Soal: {examQuestions.length}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">Soal per Siswa:</span>
+                            <input
+                                type="number"
+                                min={0}
+                                max={examQuestions.length}
+                                value={questionsPerStudent}
+                                onChange={(e) => setQuestionsPerStudent(Number(e.target.value))}
+                                className="w-16 px-2 py-1 border rounded text-center"
+                            />
+                            <span className="text-muted-foreground text-[10px]">(0 = semua)</span>
+                        </div>
+                    </div>
+
+                    <Button
+                        size="sm"
+                        onClick={() => { setSelectedPickIds(new Set()); setIsPickerOpen(true); }}
+                        className="text-xs w-full"
+                    >
+                        <Plus className="mr-1.5 h-3.5 w-3.5" /> Tambah Soal dari Bank Soal
+                    </Button>
+
+                    <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg">
+                        {examQuestions.length === 0 ? (
+                            <div className="p-4 text-center text-muted-foreground">Belum ada soal</div>
+                        ) : (
+                            examQuestions.map((q: any, i: number) => (
+                                <div key={q.id || i} className="flex items-start gap-2 p-2 border-b hover:bg-muted/30">
+                                    <span className="font-mono text-muted-foreground w-6 shrink-0">#{i + 1}</span>
+                                    <span className="flex-1 line-clamp-1">{q.question_title || q.title || "Soal"}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-destructive shrink-0"
+                                        onClick={() => handleRemoveQuestion(q.question_content_id || q.id)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </AdminActionModal>
+
+            {/* Question Picker Modal */}
+            <AdminActionModal
+                isOpen={isPickerOpen}
+                onClose={() => setIsPickerOpen(false)}
+                title="Pilih Soal dari Bank Soal"
+                description="Centang soal yang ingin ditambahkan ke ujian"
+                onSubmit={handleAddSelectedQuestions}
+                submitLabel={`Tambah ${selectedPickIds.size} Soal`}
+            >
+                <div className="space-y-3 text-xs">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Cari soal..."
+                            value={pickerSearch}
+                            onChange={(e) => setPickerSearch(e.target.value)}
+                            className="flex-1 px-3 py-1.5 border rounded-lg bg-background"
+                        />
+                        <select
+                            value={pickerSubject}
+                            onChange={(e) => setPickerSubject(e.target.value)}
+                            className="px-3 py-1.5 border rounded-lg bg-background"
+                        >
+                            <option value="">Semua Mapel</option>
+                            {subjects.map((s: any) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto space-y-1 border rounded-lg">
+                        {availableQuestions
+                            .filter((q: any) => {
+                                const title = (q.title || q.body || "").toLowerCase();
+                                return !pickerSearch || title.includes(pickerSearch.toLowerCase());
+                            })
+                            .filter((q: any) => !existingIds.has(q.id))
+                            .map((q: any) => (
+                                <label key={q.id} className="flex items-start gap-2 p-2 border-b hover:bg-muted/30 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedPickIds.has(q.id)}
+                                        onChange={(e) => {
+                                            const next = new Set(selectedPickIds);
+                                            e.target.checked ? next.add(q.id) : next.delete(q.id);
+                                            setSelectedPickIds(next);
+                                        }}
+                                        className="mt-0.5"
+                                    />
+                                    <span className="flex-1 line-clamp-1">{q.title || q.body || "Soal"}</span>
+                                    <span className="text-muted-foreground shrink-0">{q.difficulty || ""}</span>
+                                </label>
+                            ))}
+                        {availableQuestions.filter((q: any) => !existingIds.has(q.id)).length === 0 && (
+                            <div className="p-4 text-center text-muted-foreground">Semua soal sudah ditambahkan</div>
+                        )}
+                    </div>
                 </div>
             </AdminActionModal>
         </div>

@@ -2,13 +2,14 @@ package practice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"yakinlulus.id/backend/internal/content"
 	"yakinlulus.id/backend/internal/middleware"
 	"yakinlulus.id/backend/internal/shared"
 )
@@ -17,6 +18,7 @@ import (
 
 type StartSessionReq struct {
 	SubjectID     string `json:"subject_id"`
+	GradeID       string `json:"grade_id,omitempty"`
 	QuestionCount int    `json:"question_count"`
 }
 
@@ -110,18 +112,26 @@ type optionRow struct {
 	Content string
 }
 
-func (r *Repository) pickRandomQuestions(ctx context.Context, subjectID *uuid.UUID, limit int) ([]questionRow, error) {
-	var rows pgx.Rows
-	var err error
+func (r *Repository) pickRandomQuestions(ctx context.Context, subjectID, gradeID *uuid.UUID, limit int) ([]questionRow, error) {
+	query := `SELECT c.id, COALESCE(c.title, '') FROM contents c WHERE c.content_type='QUESTION' AND c.status IN ('PUBLISHED','APPROVED')`
+	args := []interface{}{}
+	argN := 1
+
 	if subjectID != nil {
-		rows, err = r.pool.Query(ctx,
-			`SELECT id, title FROM contents WHERE content_type='QUESTION' AND status IN ('PUBLISHED','APPROVED') AND subject_id=$1 ORDER BY RANDOM() LIMIT $2`,
-			*subjectID, limit)
-	} else {
-		rows, err = r.pool.Query(ctx,
-			`SELECT id, title FROM contents WHERE content_type='QUESTION' AND status IN ('PUBLISHED','APPROVED') ORDER BY RANDOM() LIMIT $1`,
-			limit)
+		query += fmt.Sprintf(" AND c.subject_id = $%d", argN)
+		args = append(args, *subjectID)
+		argN++
 	}
+	if gradeID != nil {
+		query += fmt.Sprintf(" AND c.grade_id = $%d", argN)
+		args = append(args, *gradeID)
+		argN++
+	}
+
+	query += fmt.Sprintf(" ORDER BY RANDOM() LIMIT $%d", argN)
+	args = append(args, limit)
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -263,14 +273,15 @@ func (r *Repository) getStats(ctx context.Context, userID uuid.UUID) (*StatsResp
 // --- Service ---
 
 type Service struct {
-	repo *Repository
+	repo    *Repository
+	content content.Repository
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, contentRepo content.Repository) *Service {
+	return &Service{repo: repo, content: contentRepo}
 }
 
-func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID *uuid.UUID, questionCount int) (*StartSessionResp, error) {
+func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID, gradeID *uuid.UUID, questionCount int) (*StartSessionResp, error) {
 	if questionCount <= 0 {
 		questionCount = 10
 	}
@@ -278,7 +289,7 @@ func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID 
 		questionCount = 50
 	}
 
-	qs, err := s.repo.pickRandomQuestions(ctx, subjectID, questionCount)
+	qs, err := s.repo.pickRandomQuestions(ctx, subjectID, gradeID, questionCount)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +404,22 @@ func (h *Handler) StartSession(c *fiber.Ctx) error {
 		subjectID = &id
 	}
 
-	resp, err := h.svc.StartSession(c.Context(), userID, subjectID, req.QuestionCount)
+	var gradeID *uuid.UUID
+	if req.GradeID != "" {
+		id, err := uuid.Parse(req.GradeID)
+		if err == nil {
+			gradeID = &id
+		}
+	}
+	if gradeID == nil && c.Locals("role") == "STUDENT" {
+		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
+			if gid, err := h.svc.content.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
+				gradeID = gid
+			}
+		}
+	}
+
+	resp, err := h.svc.StartSession(c.Context(), userID, subjectID, gradeID, req.QuestionCount)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))

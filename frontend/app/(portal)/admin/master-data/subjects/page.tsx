@@ -96,19 +96,23 @@ export default function MasterDataSubjectsPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
     const [deletingItem, setDeletingItem] = React.useState<SubjectItem | null>(null);
 
-    // Auto-generate subject code: abbreviation-grade
+    // Auto-generate subject code: 3-huruf-mapel-kelas
     const generateSubjectCode = (name: string, gradeId: string) => {
         if (!name || !gradeId) return "";
         const grade = apiGrades.find((g: any) => g.id === gradeId);
         if (!grade) return "";
 
-        // Create abbreviation from subject name (first letters of each word, uppercase)
         const words = name.trim().split(/\s+/);
-        const abbreviation = words.map(w => w.charAt(0).toUpperCase()).join('');
+        let abbreviation: string;
+        if (words.length >= 3) {
+            // "Ilmu Pengetahuan Alam" → "IPA"
+            abbreviation = words.map(w => w.charAt(0).toUpperCase()).join('');
+        } else {
+            // "Matematika" → "MAT", "Biologi" → "BIO"
+            abbreviation = name.trim().substring(0, 3).toUpperCase();
+        }
 
-        // Get grade name/alias (e.g., "10", "11", "12", "7", "8", "9", "1", "2", etc.)
         const gradeName = grade.alias || grade.name;
-
         return `${abbreviation}-${gradeName}`;
     };
 

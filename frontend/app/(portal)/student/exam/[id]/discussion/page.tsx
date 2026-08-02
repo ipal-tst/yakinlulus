@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, CheckCircle2, XCircle, HelpCircle, Loader2, AlertCircle,
+  ArrowLeft, CheckCircle2, XCircle, HelpCircle,
   BookOpen, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useExam, apiFetch } from "@/lib/api";
@@ -78,11 +78,22 @@ export default function ExamDiscussionPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6 pb-16">
-        <Card className="p-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
-          <p className="text-muted-foreground">Memuat pembahasan soal...</p>
-        </Card>
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="h-8 w-40 animate-pulse bg-muted rounded-lg" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse bg-muted rounded-xl" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {[0, 1].map((i) => (
+            <div key={i} className="bg-card rounded-2xl border p-5 space-y-3">
+              <div className="h-4 w-1/3 animate-pulse bg-muted rounded-lg" />
+              <div className="h-4 w-full animate-pulse bg-muted rounded-lg" />
+              <div className="h-4 w-2/3 animate-pulse bg-muted rounded-lg" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -169,34 +180,34 @@ export default function ExamDiscussionPage() {
   });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-6 pb-16">
-      <div className="flex items-center gap-4">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
         <Link href={`/student/exam/${id}/result`}>
           <Button variant="outline" size="sm" className="h-9 w-9 p-0"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div>
           <Badge variant="outline" className="text-xs bg-background">Pembahasan Soal</Badge>
-          <h1 className="text-2xl font-bold tracking-tight mt-1">{review.exam_title}</h1>
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-1">{review.exam_title}</h1>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-3 text-center bg-emerald-50 border-emerald-200">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
           <div className="text-xs text-emerald-700 font-semibold">Benar</div>
-          <div className="text-2xl font-black text-emerald-600">{review.correct_count}</div>
-        </Card>
-        <Card className="p-3 text-center bg-destructive/5 border-destructive/20">
+          <div className="text-2xl font-black text-success">{review.correct_count}</div>
+        </div>
+        <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 text-center">
           <div className="text-xs text-destructive font-semibold">Salah</div>
           <div className="text-2xl font-black text-destructive">{review.wrong_count}</div>
-        </Card>
-        <Card className="p-3 text-center bg-muted/30">
+        </div>
+        <div className="bg-muted/60 rounded-xl p-4 text-center">
           <div className="text-xs text-muted-foreground font-semibold">Tidak Dijawab</div>
           <div className="text-2xl font-black">{review.unanswered_count}</div>
-        </Card>
-        <Card className="p-3 text-center bg-primary/5 border-primary/20">
+        </div>
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-center">
           <div className="text-xs text-primary font-semibold">Skor</div>
           <div className="text-2xl font-black text-primary">{(review.score || 0).toFixed(1)}</div>
-        </Card>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -209,10 +220,10 @@ export default function ExamDiscussionPage() {
 
       <div className="space-y-4">
         {filteredQuestions.length === 0 ? (
-          <Card className="p-12 text-center text-muted-foreground">
-            <HelpCircle className="h-8 w-8 mx-auto mb-2" />
-            <p>Tidak ada soal dengan filter ini</p>
-          </Card>
+          <div className="bg-card rounded-2xl border border-dashed p-10 text-center text-muted-foreground space-y-2">
+            <HelpCircle className="h-8 w-8 mx-auto" />
+            <p className="text-sm">Tidak ada soal dengan filter ini</p>
+          </div>
         ) : (
           filteredQuestions.map((q, idx) => {
             const isExpanded = expandedIndex === idx;
@@ -220,14 +231,17 @@ export default function ExamDiscussionPage() {
             const selectedLabel = options.find((o) => o.id === q.selected_option_id)?.label;
 
             return (
-              <Card key={q.exam_question_id} className={`border-l-4 ${q.is_correct === true ? "border-l-emerald-500" : q.is_correct === false ? "border-l-destructive" : "border-l-muted-foreground/30"}`}>
+              <Card
+                key={q.exam_question_id}
+                className={`rounded-2xl border shadow-sm ${q.is_correct === true ? "border-l-4 border-l-emerald-500" : q.is_correct === false ? "border-l-4 border-l-destructive" : "border-l-4 border-l-muted-foreground/30"}`}
+              >
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground font-bold">Soal #{q.display_order}</span>
                         <Badge variant="outline" className="text-[10px]">{q.difficulty}</Badge>
-                        {q.is_correct === true && <Badge variant="default" className="text-[10px] bg-emerald-600"><CheckCircle2 className="mr-0.5 h-3 w-3" /> Benar</Badge>}
+                        {q.is_correct === true && <Badge variant="success" className="text-[10px]"><CheckCircle2 className="mr-0.5 h-3 w-3" /> Benar</Badge>}
                         {q.is_correct === false && <Badge variant="destructive" className="text-[10px]"><XCircle className="mr-0.5 h-3 w-3" /> Salah</Badge>}
                         {q.selected_option_id == null && <Badge variant="secondary" className="text-[10px]">Tidak Dijawab</Badge>}
                         {q.is_doubtful && <Badge variant="secondary" className="text-[10px]">Ragu-ragu</Badge>}
@@ -251,9 +265,9 @@ export default function ExamDiscussionPage() {
                             {opt.label}
                           </span>
                           <span className="flex-1">{opt.text}</span>
-                          {isSelected && opt.is_correct && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
+                          {isSelected && opt.is_correct && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
                           {isSelected && !opt.is_correct && <XCircle className="h-4 w-4 text-destructive shrink-0" />}
-                          {!isSelected && opt.is_correct && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                          {!isSelected && opt.is_correct && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
                         </div>
                       );
                     })}
@@ -272,7 +286,7 @@ export default function ExamDiscussionPage() {
                         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </Button>
                       {isExpanded && (
-                        <div className="mt-3 p-4 rounded-lg bg-muted/30 border text-sm leading-relaxed">
+                        <div className="mt-3 p-4 rounded-lg bg-muted/40 border border-border text-sm leading-relaxed">
                           <strong className="text-xs text-muted-foreground">Pembahasan:</strong>
                           <div className="mt-1">{q.explanation}</div>
                         </div>
@@ -286,7 +300,7 @@ export default function ExamDiscussionPage() {
         )}
       </div>
 
-      <div className="flex justify-center gap-4 p-4 border-t">
+      <div className="flex flex-wrap justify-center gap-4 p-4 rounded-2xl border bg-card shadow-sm">
         <Link href={`/student/exam/${id}/result`}>
           <Button variant="outline"><ArrowLeft className="mr-1.5 h-4 w-4" /> Kembali ke Hasil</Button>
         </Link>

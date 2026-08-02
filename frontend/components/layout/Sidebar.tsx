@@ -20,10 +20,11 @@ import {
     BarChart3,
     Image as ImageIcon,
     ShieldAlert,
+    Terminal,
     Trophy,
     UserCheck,
-    Terminal,
     X,
+    ChevronDown,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ interface SidebarProps {
 export function Sidebar({ role = "student", isMobileOpen = false, onMobileClose }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const [openMenus, setOpenMenus] = React.useState<Record<string, boolean>>({});
 
     // Persist & restore collapse state on desktop
     React.useEffect(() => {
@@ -94,12 +96,15 @@ export function Sidebar({ role = "student", isMobileOpen = false, onMobileClose 
         { label: "CBT Exam Operations", href: "/admin/cbt", icon: FileSpreadsheet },
         { label: "Sekolah Mitra & Quota", href: "/admin/schools", icon: Building2 },
         { label: "Paket & Revenue MRR", href: "/admin/subscriptions", icon: CreditCard },
-        { label: "Analytics & Reports", href: "/admin/analytics", icon: BarChart3 },
-        { label: "Konten & Banner CMS", href: "/admin/content", icon: ImageIcon },
-        { label: "AI Tutor Companion", href: "/admin/ai-tutor", icon: Bot },
-        { label: "API Documentation", href: "/admin/docs", icon: Terminal },
-        { label: "Audit & Security Log", href: "/admin/audit-logs", icon: ShieldAlert },
-        { label: "Pengaturan Sistem", href: "/admin/settings", icon: Settings },
+        {
+            label: "Pengaturan Sistem", icon: Settings, children: [
+                { label: "Analytics & Reports", href: "/admin/analytics", icon: BarChart3 },
+                { label: "Konten & Banner CMS", href: "/admin/content", icon: ImageIcon },
+                { label: "AI Tutor Companion", href: "/admin/ai-tutor", icon: Bot },
+                { label: "API Documentation", href: "/admin/docs", icon: Terminal },
+                { label: "Audit & Security Log", href: "/admin/audit-logs", icon: ShieldAlert },
+            ]
+        },
     ];
 
     const navItems =
@@ -137,9 +142,57 @@ export function Sidebar({ role = "student", isMobileOpen = false, onMobileClose 
 
                 {/* Nav Links */}
                 <nav className="flex-1 space-y-1 p-3">
-                    {navItems.map((item) => {
+                    {navItems.map((item: any) => {
                         const Icon = item.icon;
-                        const isActive = pathname === item.href || (item.href !== "/admin" && item.href !== "/teacher" && item.href !== "/student" && pathname.startsWith(item.href));
+                        const isActive = item.href && (pathname === item.href || (item.href !== "/admin" && item.href !== "/teacher" && item.href !== "/student" && pathname.startsWith(item.href)));
+                        const hasChildren = item.children && item.children.length > 0;
+                        const childActive = hasChildren && item.children.some((c: any) => pathname.startsWith(c.href));
+                        const isOpen = openMenus[item.label] ?? childActive;
+
+                        if (hasChildren) {
+                            return (
+                                <div key={item.label} className="space-y-0.5">
+                                    <button
+                                        onClick={() => setOpenMenus(prev => ({ ...prev, [item.label]: !(prev[item.label] ?? childActive) }))}
+                                        className={cn(
+                                            "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground group relative",
+                                            childActive ? "bg-accent text-accent-foreground font-semibold" : "text-muted-foreground"
+                                        )}
+                                        title={isCollapsed ? item.label : undefined}
+                                    >
+                                        <Icon className="h-4 w-4 shrink-0" />
+                                        {(!isCollapsed || isMobileOpen) && (
+                                            <>
+                                                <span className="flex-1 text-left truncate">{item.label}</span>
+                                                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
+                                            </>
+                                        )}
+                                    </button>
+                                    {(!isCollapsed || isMobileOpen) && isOpen && (
+                                        <div className="ml-2 pl-3 border-l space-y-0.5">
+                                            {item.children.map((child: any) => {
+                                                const ChildIcon = child.icon;
+                                                const isChildActive = pathname.startsWith(child.href);
+                                                return (
+                                                    <Link
+                                                        key={child.href}
+                                                        href={child.href}
+                                                        prefetch={false}
+                                                        className={cn(
+                                                            "flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                                                            isChildActive ? "bg-primary text-primary-foreground font-semibold hover:bg-primary/90 hover:text-primary-foreground shadow-xs" : "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">{child.label}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
 
                         return (
                             <Link

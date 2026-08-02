@@ -13,7 +13,9 @@ import {
     useDeleteMaterial,
     usePublishMaterial,
     useSubjects,
-    useChapters
+    useChapters,
+    useTopics,
+    apiFetch
 } from "@/lib/api";
 import {
     BookOpen,
@@ -53,12 +55,19 @@ export default function LearningMaterialsAdminPage() {
     const [formData, setFormData] = React.useState({
         subject_id: "",
         chapter_id: "",
+        topic_id: "",
         title: "",
         content_format: "MARKDOWN",
         estimated_duration: 15,
         content: "",
         status: "PUBLISHED"
     });
+
+    // Inline create state
+    const [showNewChapter, setShowNewChapter] = React.useState(false);
+    const [newChapterName, setNewChapterName] = React.useState("");
+    const [showNewTopic, setShowNewTopic] = React.useState(false);
+    const [newTopicName, setNewTopicName] = React.useState("");
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const insertMedia = (html: string) => {
         if (textareaRef.current) {
@@ -76,16 +85,46 @@ export default function LearningMaterialsAdminPage() {
     const { data: materialsList = [], isLoading, refetch } = useMaterials() as any;
     const { data: subjects = [] } = useSubjects() as any;
     const { data: allChapters = [] } = useChapters() as any;
+    const { data: topics = [], refetch: refetchTopics } = useTopics(formData.chapter_id) as any;
 
     const createMutation = useCreateMaterial();
     const updateMutation = useUpdateMaterial();
     const deleteMutation = useDeleteMaterial();
     const publishMutation = usePublishMaterial();
 
+    const handleCreateChapter = async () => {
+        if (!newChapterName.trim() || !formData.subject_id) return;
+        try {
+            const res = await apiFetch('/academic/chapters', {
+                method: 'POST',
+                body: JSON.stringify({ subject_id: formData.subject_id, name: newChapterName.trim() })
+            });
+            setFormData(prev => ({ ...prev, chapter_id: (res as any)?.id || (res as any)?.chapter_id || "" }));
+            setNewChapterName("");
+            setShowNewChapter(false);
+            refetchTopics();
+        } catch { alert("Gagal membuat bab baru"); }
+    };
+
+    const handleCreateTopic = async () => {
+        if (!newTopicName.trim() || !formData.chapter_id) return;
+        try {
+            const res = await apiFetch('/academic/topics', {
+                method: 'POST',
+                body: JSON.stringify({ chapter_id: formData.chapter_id, name: newTopicName.trim() })
+            });
+            setFormData(prev => ({ ...prev, topic_id: (res as any)?.id || (res as any)?.topic_id || "" }));
+            setNewTopicName("");
+            setShowNewTopic(false);
+            refetchTopics();
+        } catch { alert("Gagal membuat sub topik baru"); }
+    };
+
     const handleOpenCreate = () => {
         setFormData({
             subject_id: (Array.isArray(subjects) && subjects.length > 0) ? subjects[0].id : "",
             chapter_id: "",
+            topic_id: "",
             title: "",
             content_format: "MARKDOWN",
             estimated_duration: 15,
@@ -100,6 +139,7 @@ export default function LearningMaterialsAdminPage() {
         setFormData({
             subject_id: m.subject_id || m.subjectId || "",
             chapter_id: m.chapter_id || m.chapterId || "",
+            topic_id: m.topic_id || m.topicId || "",
             title: m.title || "",
             content_format: m.content_format || m.contentFormat || "MARKDOWN",
             estimated_duration: m.estimated_duration || m.estimatedDuration || 15,
@@ -413,7 +453,7 @@ export default function LearningMaterialsAdminPage() {
                             <label className="font-semibold block mb-1">Mata Pelajaran *</label>
                             <select
                                 value={formData.subject_id}
-                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value, chapter_id: "" })}
+                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value, chapter_id: "", topic_id: "" })}
                                 className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                             >
                                 {Array.isArray(subjects) && subjects.map((s: any) => (
@@ -427,19 +467,87 @@ export default function LearningMaterialsAdminPage() {
 
                         <div>
                             <label className="font-semibold block mb-1">Bab / Chapter</label>
-                            <select
-                                value={formData.chapter_id}
-                                onChange={(e) => setFormData({ ...formData, chapter_id: e.target.value })}
-                                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
-                            >
-                                <option value="">-- Pilih Bab (Opsional) --</option>
-                                {Array.isArray(allChapters) && allChapters
-                                    .filter((ch: any) => !formData.subject_id || ch.subject_id === formData.subject_id)
-                                    .map((ch: any) => (
-                                        <option key={ch.id} value={ch.id}>{ch.subject_name ? `${ch.subject_name} - ` : ""}{ch.name}</option>
-                                    ))}
-                            </select>
+                            <div className="flex gap-2">
+                                <select
+                                    value={formData.chapter_id}
+                                    onChange={(e) => setFormData({ ...formData, chapter_id: e.target.value, topic_id: "" })}
+                                    className="flex-1 px-3 py-2 border rounded-lg bg-background text-foreground"
+                                >
+                                    <option value="">-- Pilih Bab --</option>
+                                    {Array.isArray(allChapters) && allChapters
+                                        .filter((ch: any) => !formData.subject_id || ch.subject_id === formData.subject_id)
+                                        .map((ch: any) => (
+                                            <option key={ch.id} value={ch.id}>{ch.name}</option>
+                                        ))}
+                                </select>
+                                {formData.subject_id && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowNewChapter(!showNewChapter)}
+                                        className="shrink-0 text-xs cursor-pointer"
+                                    >
+                                        + Bab
+                                    </Button>
+                                )}
+                            </div>
+                            {showNewChapter && (
+                                <div className="mt-2 flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Nama bab baru..."
+                                        value={newChapterName}
+                                        onChange={(e) => setNewChapterName(e.target.value)}
+                                        className="flex-1 px-3 py-1.5 text-xs border rounded-lg bg-background"
+                                        autoFocus
+                                    />
+                                    <Button type="button" size="sm" onClick={handleCreateChapter} className="text-xs cursor-pointer">Simpan</Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => { setShowNewChapter(false); setNewChapterName(""); }} className="text-xs cursor-pointer">Batal</Button>
+                                </div>
+                            )}
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="font-semibold block mb-1">Sub Topik (Opsional)</label>
+                        <div className="flex gap-2">
+                            <select
+                                value={formData.topic_id}
+                                onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
+                                className="flex-1 px-3 py-2 border rounded-lg bg-background text-foreground"
+                            >
+                                <option value="">-- Pilih Sub Topik --</option>
+                                {Array.isArray(topics) && topics.map((t: any) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            {formData.chapter_id && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowNewTopic(!showNewTopic)}
+                                    className="shrink-0 text-xs cursor-pointer"
+                                >
+                                    + Sub Topik
+                                </Button>
+                            )}
+                        </div>
+                        {showNewTopic && (
+                            <div className="mt-2 flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Nama sub topik baru..."
+                                    value={newTopicName}
+                                    onChange={(e) => setNewTopicName(e.target.value)}
+                                    className="flex-1 px-3 py-1.5 text-xs border rounded-lg bg-background"
+                                    autoFocus
+                                />
+                                <Button type="button" size="sm" onClick={handleCreateTopic} className="text-xs cursor-pointer">Simpan</Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowNewTopic(false); setNewTopicName(""); }} className="text-xs cursor-pointer">Batal</Button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

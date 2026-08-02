@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   full_name: string;
@@ -11,7 +11,7 @@ interface User {
   is_active: boolean;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;

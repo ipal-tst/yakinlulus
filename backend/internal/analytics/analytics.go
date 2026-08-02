@@ -52,18 +52,20 @@ type StudentAnalytics struct {
 type SubjectBreakdown struct {
 	SubjectID      uuid.UUID `json:"subject_id"`
 	SubjectName    string    `json:"subject_name"`
-	TotalQuestions int       `json:"total_questions"`
+	QuestionsCount int       `json:"questions_count"`
 	CorrectCount   int       `json:"correct_count"`
 	WrongCount     int       `json:"wrong_count"`
-	Accuracy       float64   `json:"accuracy"`
+	TotalScore     float64   `json:"total_score"`
+	MaxScore       float64   `json:"max_score"`
+	Percentage     float64   `json:"percentage"`
 }
 
 type RecentResult struct {
-	ExamID    uuid.UUID `json:"exam_id"`
-	Title     string    `json:"title"`
-	Score     float64   `json:"score"`
-	IsPassed  bool      `json:"is_passed"`
-	CreatedAt time.Time `json:"created_at"`
+	ExamContentID uuid.UUID `json:"exam_content_id"`
+	ExamTitle     string    `json:"exam_title"`
+	Score         float64   `json:"score"`
+	IsPassed      bool      `json:"is_passed"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type QuestionAnalyticsDetail struct {
@@ -171,11 +173,11 @@ func (r *Repository) GetExamAnalytics(ctx context.Context, examID uuid.UUID) (*E
 		`SELECT cq.content_id, c.title,
 		 COUNT(aa.attempt_id) AS total_attempts,
 		 COUNT(*) FILTER (WHERE aa.is_correct = true) AS correct_count,
-		 COUNT(*) FILTER (WHERE aa.is_correct = false AND aa.selected_option_id IS NOT NULL) AS wrong_count
+		 COUNT(*) FILTER (WHERE aa.is_correct = false) AS wrong_count
 		 FROM content_exam_questions eq
 		 JOIN content_questions cq ON cq.content_id = eq.question_content_id
 		 JOIN contents c ON c.id = cq.content_id
-		 LEFT JOIN content_exam_attempt_answers aa ON aa.question_content_id = cq.content_id
+		 LEFT JOIN content_exam_answers aa ON aa.question_content_id = cq.content_id
 		 WHERE eq.exam_content_id = $1
 		 GROUP BY cq.content_id, c.title
 		 ORDER BY total_attempts DESC`, examID)
@@ -202,16 +204,35 @@ func (r *Repository) GetStudentAnalytics(ctx context.Context, studentID uuid.UUI
 
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1`, studentID).Scan(&a.TotalExamsTaken)
 	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score),0) FROM content_exam_attempts WHERE user_id=$1`, studentID).Scan(&a.AverageScore)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND is_passed=true`, studentID).Scan(&a.TotalPassed)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND is_passed=false`, studentID).Scan(&a.TotalFailed)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts a JOIN content_exams ce ON ce.content_id = a.exam_content_id WHERE a.user_id=$1 AND a.total_score >= ce.passing_score`, studentID).Scan(&a.TotalPassed)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND total_score IS NOT NULL`, studentID).Scan(new(int))
 
-	// Subject breakdown for this student
+	// TotalQuestions, TotalCorrect, TotalWrong, TotalUnanswered, Accuracy
+	r.pool.QueryRow(ctx,
+		`SELECT COALESCE(COUNT(*), 0),
+		        COALESCE(COUNT(*) FILTER (WHERE is_correct = true), 0),
+		        COALESCE(COUNT(*) FILTER (WHERE is_correct = false), 0),
+		        COALESCE(COUNT(*) FILTER (WHERE is_correct IS NULL), 0)
+		 FROM content_exam_answers aa
+		 JOIN content_exam_attempts a ON a.id = aa.attempt_id
+		 WHERE a.user_id = $1`, studentID,
+	).Scan(&a.TotalQuestions, &a.TotalCorrect, &a.TotalWrong, &a.TotalUnanswered)
+	if a.TotalCorrect+a.TotalWrong > 0 {
+		a.Accuracy = float64(a.TotalCorrect) / float64(a.TotalCorrect+a.TotalWrong) * 100
+	}
+
+	// TotalFailed = took exam with score < passing
+	var totalWithScore int
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND total_score IS NOT NULL`, studentID).Scan(&totalWithScore)
+	a.TotalFailed = totalWithScore - a.TotalPassed
+
+	// Subject breakdown
 	sRows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name,
 		 COUNT(aa.attempt_id) AS total,
 		 COUNT(*) FILTER (WHERE aa.is_correct = true) AS correct,
-		 COUNT(*) FILTER (WHERE aa.is_correct = false AND aa.selected_option_id IS NOT NULL) AS wrong
-		 FROM content_exam_attempt_answers aa
+		 COUNT(*) FILTER (WHERE aa.is_correct = false) AS wrong
+		 FROM content_exam_answers aa
 		 JOIN content_exam_questions eq ON eq.question_content_id = aa.question_content_id
 		 JOIN contents q ON q.id = eq.question_content_id
 		 JOIN subjects s ON s.id = q.subject_id
@@ -223,11 +244,13 @@ func (r *Repository) GetStudentAnalytics(ctx context.Context, studentID uuid.UUI
 		defer sRows.Close()
 		for sRows.Next() {
 			var sb SubjectBreakdown
-			if err := sRows.Scan(&sb.SubjectID, &sb.SubjectName, &sb.TotalQuestions, &sb.CorrectCount, &sb.WrongCount); err != nil {
+			if err := sRows.Scan(&sb.SubjectID, &sb.SubjectName, &sb.QuestionsCount, &sb.CorrectCount, &sb.WrongCount); err != nil {
 				continue
 			}
-			if sb.TotalQuestions > 0 {
-				sb.Accuracy = float64(sb.CorrectCount) / float64(sb.TotalQuestions) * 100
+			if sb.QuestionsCount > 0 {
+				sb.Percentage = float64(sb.CorrectCount) / float64(sb.QuestionsCount) * 100
+				sb.TotalScore = float64(sb.CorrectCount) * 1.0
+				sb.MaxScore = float64(sb.QuestionsCount) * 1.0
 			}
 			a.Subjects = append(a.Subjects, sb)
 		}
@@ -235,16 +258,18 @@ func (r *Repository) GetStudentAnalytics(ctx context.Context, studentID uuid.UUI
 
 	// Recent results
 	rRows, err := r.pool.Query(ctx,
-		`SELECT a.exam_content_id, c.title, COALESCE(a.total_score, 0), COALESCE(a.is_passed, false), a.created_at
+		`SELECT a.exam_content_id, c.title, COALESCE(a.total_score, 0),
+		        COALESCE(a.total_score >= ce.passing_score, false), a.created_at
 		 FROM content_exam_attempts a
 		 JOIN contents c ON c.id = a.exam_content_id
+		 LEFT JOIN content_exams ce ON ce.content_id = a.exam_content_id
 		 WHERE a.user_id = $1
 		 ORDER BY a.created_at DESC LIMIT 10`, studentID)
 	if err == nil {
 		defer rRows.Close()
 		for rRows.Next() {
 			var rr RecentResult
-			if err := rRows.Scan(&rr.ExamID, &rr.Title, &rr.Score, &rr.IsPassed, &rr.CreatedAt); err != nil {
+			if err := rRows.Scan(&rr.ExamContentID, &rr.ExamTitle, &rr.Score, &rr.IsPassed, &rr.CreatedAt); err != nil {
 				continue
 			}
 			a.RecentResults = append(a.RecentResults, rr)
@@ -260,8 +285,8 @@ func (r *Repository) GetQuestionAnalytics(ctx context.Context, questionID uuid.U
 	r.pool.QueryRow(ctx,
 		`SELECT COUNT(*),
 		 COUNT(*) FILTER (WHERE is_correct = true),
-		 COUNT(*) FILTER (WHERE is_correct = false AND selected_option_id IS NOT NULL)
-		 FROM content_exam_attempt_answers WHERE question_content_id=$1`, questionID).Scan(&a.TotalAttempts, &a.CorrectCount, &a.WrongCount)
+		 COUNT(*) FILTER (WHERE is_correct = false)
+		 FROM content_exam_answers WHERE question_content_id=$1`, questionID).Scan(&a.TotalAttempts, &a.CorrectCount, &a.WrongCount)
 	total := a.CorrectCount + a.WrongCount
 	if total > 0 {
 		a.Accuracy = float64(a.CorrectCount) / float64(total) * 100
@@ -271,8 +296,8 @@ func (r *Repository) GetQuestionAnalytics(ctx context.Context, questionID uuid.U
 
 	oRows, err := r.pool.Query(ctx,
 		`SELECT o.id, o.option_text,
-		 (SELECT COUNT(*) FROM content_exam_attempt_answers aa WHERE aa.question_content_id = $1 AND aa.selected_option_id = o.id) AS picked
-		 FROM content_question_options o WHERE o.question_content_id = $1
+		 (SELECT COUNT(*) FROM content_exam_answers aa WHERE aa.question_content_id = $1 AND o.id = ANY(aa.selected_options)) AS picked
+		 FROM content_question_options o WHERE o.content_id = $1
 		 ORDER BY o.display_order`, questionID)
 	if err == nil {
 		defer oRows.Close()
@@ -386,7 +411,7 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_participants`).Scan(&ov.TotalParticipants)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM'`).Scan(&ov.TotalExams)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions`).Scan(&ov.TotalQuestions)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempt_answers`).Scan(&ov.TotalAnswers)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_answers`).Scan(&ov.TotalAnswers)
 
 	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score), 0) FROM content_exam_attempts WHERE status IN ('FINISHED','SUBMITTED','GRADED')`).Scan(&ov.AverageScore)
 
@@ -401,7 +426,7 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 
 	// Calculate Item Fit Index (Item Discrimination) from attempt answers ratio
 	var totalAnsCount, correctAnsCount int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE is_correct = true) FROM content_exam_attempt_answers`).Scan(&totalAnsCount, &correctAnsCount)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE is_correct = true) FROM content_exam_answers`).Scan(&totalAnsCount, &correctAnsCount)
 	if totalAnsCount > 0 {
 		ov.ItemFitIndex = float64(correctAnsCount) / float64(totalAnsCount)
 	} else {

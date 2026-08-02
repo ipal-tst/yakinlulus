@@ -3,25 +3,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Play,
-  Award,
   Search,
   Layers,
   Clock,
-  BookOpen,
-  RotateCcw,
+  FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
-  BarChart3,
-  HelpCircle,
-  Users,
-  Sparkles,
   ArrowRight,
-  TrendingUp,
+  Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { useExams, apiFetch } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -70,7 +64,7 @@ export default function StudentExamPage() {
     return sessionMap.get(examId)?.id;
   };
 
-  const availableCount = exams.length;
+  const availableCount = exams.filter((e) => getExamStatus(e.id) === "NOT_STARTED").length;
   const inProgressCount = exams.filter((e) => getExamStatus(e.id) === "IN_PROGRESS").length;
   const completedCount = exams.filter((e) => getExamStatus(e.id) === "COMPLETED").length;
 
@@ -93,95 +87,97 @@ export default function StudentExamPage() {
   const featuredSessionId = featuredExam ? getSessionId(featuredExam.id) : null;
   const score = featuredExam && featuredSessionId ? sessionMap.get(featuredExam.id)?.score : null;
 
+  const statusLabel = (s: string) =>
+    s === "COMPLETED" ? "Selesai" : s === "IN_PROGRESS" ? "Berjalan" : "Tersedia";
+
   return (
-    <div className="space-y-6 p-6 pb-16">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-5">
-        <div>
-          <Badge variant="default" className="text-[10px] font-bold">EXAM & TRYOUT HUB</Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight mt-1">Ujian & Tryout</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Simulasi ujian berstandar nasional dan tryout CBT
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <section>
+        <Badge variant="default" className="text-[10px] font-bold">EXAM & TRYOUT HUB</Badge>
+        <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-2">Ujian & Tryout</h1>
+        <p className="text-xs text-muted-foreground mt-1">Simulasi ujian berstandar nasional dan tryout CBT</p>
+      </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 border-primary/30 bg-primary/5 cursor-default">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-semibold">Tersedia</span>
-            <Layers className="h-4 w-4 text-primary" />
-          </div>
-          <div className="text-2xl font-black mt-2">{availableCount} Paket</div>
-        </Card>
-
-        <Card
+      <section className="grid grid-cols-3 gap-3">
+        <button
+          onClick={() => setFilterStatus("NOT_STARTED")}
+          className="bg-muted/60 rounded-xl p-4 flex flex-col items-center text-center cursor-pointer"
+        >
+          <Layers className="h-5 w-5 text-primary mb-1.5" />
+          <span className="text-xl font-extrabold">{availableCount}</span>
+          <span className="text-xs text-muted-foreground">Tersedia</span>
+        </button>
+        <button
           onClick={() => setFilterStatus(filterStatus === "IN_PROGRESS" ? "ALL" : "IN_PROGRESS")}
-          className={`p-4 cursor-pointer border ${filterStatus === "IN_PROGRESS" ? "border-amber-500 bg-amber-50" : "hover:border-amber-400"}`}
+          className="bg-muted/60 rounded-xl p-4 flex flex-col items-center text-center cursor-pointer"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-amber-700 font-semibold">Sedang Dikerjakan</span>
-            <RotateCcw className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="text-2xl font-black mt-2">{inProgressCount} Ujian</div>
-        </Card>
-
-        <Card
+          <RotateCcw className="h-5 w-5 text-warning mb-1.5" />
+          <span className="text-xl font-extrabold">{inProgressCount}</span>
+          <span className="text-xs text-muted-foreground">Dikerjakan</span>
+        </button>
+        <button
           onClick={() => setFilterStatus(filterStatus === "COMPLETED" ? "ALL" : "COMPLETED")}
-          className={`p-4 cursor-pointer border ${filterStatus === "COMPLETED" ? "border-emerald-500 bg-emerald-50" : "hover:border-emerald-400"}`}
+          className="bg-muted/60 rounded-xl p-4 flex flex-col items-center text-center cursor-pointer"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-700 font-semibold">Riwayat Selesai</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-          </div>
-          <div className="text-2xl font-black mt-2">{completedCount} Tryout</div>
-        </Card>
-      </div>
+          <CheckCircle2 className="h-5 w-5 text-success mb-1.5" />
+          <span className="text-xl font-extrabold">{completedCount}</span>
+          <span className="text-xs text-muted-foreground">Selesai</span>
+        </button>
+      </section>
 
       {featuredExam && (featuredStatus === "NOT_STARTED" || featuredStatus === "IN_PROGRESS") && (
-        <Card className="p-6 bg-gradient-to-r from-primary/10 via-card to-indigo-500/10 border-primary/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
-          <div className="space-y-2 max-w-xl">
-            <Badge variant="default" className="text-[10px] bg-rose-600 animate-pulse">
-              {featuredStatus === "IN_PROGRESS" ? "BELUM SELESAI" : "SEDANG BERLANGSUNG"}
-            </Badge>
-            <h2 className="text-xl font-black">{featuredExam.title}</h2>
-            <p className="text-xs text-muted-foreground">
-              Durasi: {featuredExam.duration_minutes || 120} Menit
+        <section className="bg-primary rounded-2xl p-6 text-primary-foreground relative overflow-hidden shadow-lg shadow-primary/20">
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="text-[11px] font-bold uppercase tracking-widest opacity-90">
+                {featuredStatus === "IN_PROGRESS" ? "Lanjutkan Ujian" : "Ujian Unggulan"}
+              </span>
+            </div>
+            <h2 className="text-lg font-bold mb-1">{featuredExam.title}</h2>
+            <p className="text-xs opacity-90 mb-4 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" /> {featuredExam.duration_minutes || 120} Menit · {featuredExam.total_questions || "—"} Soal
             </p>
+            <Link
+              href={featuredStatus === "IN_PROGRESS" ? `/exam/${featuredExam.id}` : `/student/exam/${featuredExam.id}/info`}
+              className="inline-block"
+            >
+              <Button size="sm" className="bg-white text-primary hover:bg-white/90 text-xs font-bold shadow-sm">
+                {featuredStatus === "IN_PROGRESS" ? "Lanjutkan" : "Mulai Ujian"}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
-          <Link href={featuredStatus === "IN_PROGRESS" ? `/exam/${featuredExam.id}` : `/student/exam/${featuredExam.id}/info`}>
-            <Button size="lg" className="text-xs font-bold shadow-lg shadow-primary/25">
-              {featuredStatus === "IN_PROGRESS" ? "Lanjutkan Ujian" : "Mulai Ujian"} <Play className="ml-1.5 h-4 w-4 fill-primary-foreground" />
-            </Button>
-          </Link>
-        </Card>
+          <div className="absolute right-[-20px] top-[-20px] opacity-10">
+            <FileSpreadsheet className="h-40 w-40" />
+          </div>
+        </section>
       )}
 
       {featuredExam && featuredStatus === "COMPLETED" && score !== null && (
-        <Card className="p-6 bg-gradient-to-r from-emerald-500/10 via-card to-teal-500/10 border-emerald-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+        <section className="bg-card rounded-2xl p-6 border border-emerald-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-xl">
-            <Badge variant="default" className="text-[10px] bg-emerald-600">TERAKHIR DIKERJAKAN</Badge>
-            <h2 className="text-xl font-black">{featuredExam.title}</h2>
+            <Badge variant="success" className="text-[10px]">TERAKHIR DIKERJAKAN</Badge>
+            <h2 className="text-lg font-bold">{featuredExam.title}</h2>
             <div className="flex items-center gap-3 text-sm">
-              <span className="font-bold text-emerald-600">Skor: {score?.toFixed(1) ?? "—"}</span>
+              <span className="font-bold text-success">Skor: {score?.toFixed(1) ?? "—"}</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            {featuredSessionId && (
-              <>
-                <Link href={`/student/exam/${featuredExam.id}/result`}>
-                  <Button variant="outline" size="lg" className="text-xs font-bold">Lihat Hasil</Button>
-                </Link>
-                <Link href={`/student/exam/${featuredExam.id}/discussion`}>
-                  <Button size="lg" className="text-xs font-bold">Pembahasan Soal</Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </Card>
+          {featuredSessionId && (
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/student/exam/${featuredExam.id}/result`}>
+                <Button variant="outline" size="sm" className="text-xs font-bold">Lihat Hasil</Button>
+              </Link>
+              <Link href={`/student/exam/${featuredExam.id}/discussion`}>
+                <Button size="sm" className="text-xs font-bold">Pembahasan Soal</Button>
+              </Link>
+            </div>
+          )}
+        </section>
       )}
 
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-card p-3 rounded-2xl border shadow-xs">
+      <section className="space-y-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-card p-3 rounded-2xl border shadow-sm">
           <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
             {["ALL", "NOT_STARTED", "IN_PROGRESS", "COMPLETED"].map((s) => (
               <Button
@@ -191,7 +187,7 @@ export default function StudentExamPage() {
                 onClick={() => setFilterStatus(s)}
                 className="text-xs h-8"
               >
-                {s === "ALL" ? "Semua" : s === "NOT_STARTED" ? "Belum" : s === "IN_PROGRESS" ? "Berjalan" : "Selesai"}
+                {s === "ALL" ? "Semua" : statusLabel(s)}
               </Button>
             ))}
           </div>
@@ -207,56 +203,63 @@ export default function StudentExamPage() {
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground">Memuat daftar ujian...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-card rounded-2xl border p-5 space-y-3">
+                <div className="h-4 w-24 animate-pulse bg-muted rounded-lg" />
+                <div className="h-5 w-3/4 animate-pulse bg-muted rounded-lg" />
+                <div className="h-3 w-full animate-pulse bg-muted rounded-lg" />
+                <div className="h-9 w-full animate-pulse bg-muted rounded-lg" />
+              </div>
+            ))}
+          </div>
         ) : filteredExams.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredExams.map((exam: any) => {
               const status = getExamStatus(exam.id);
               const sessionId = getSessionId(exam.id);
               const s = sessionId ? sessionMap.get(exam.id) : null;
               return (
-                <Card key={exam.id} className="p-5 flex flex-col justify-between hover:border-primary/40 transition-all space-y-4 shadow-xs">
+                <div key={exam.id} className="bg-card rounded-2xl border p-5 flex flex-col justify-between gap-4 hover:border-primary/40 hover:shadow-md transition-all">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="font-mono text-[10px]">
                         {exam.code || exam.id?.substring(0, 8)}
                       </Badge>
                       <Badge
-                        variant={status === "COMPLETED" ? "default" : status === "IN_PROGRESS" ? "secondary" : "outline"}
-                        className={`text-[10px] ${status === "COMPLETED" ? "bg-emerald-600" : ""}`}
+                        variant={status === "COMPLETED" ? "success" : status === "IN_PROGRESS" ? "warning" : "outline"}
+                        className="text-[10px]"
                       >
-                        {status === "COMPLETED" ? "SELESAI" : status === "IN_PROGRESS" ? "BERJALAN" : "TERSEDIA"}
+                        {statusLabel(status).toUpperCase()}
                       </Badge>
                     </div>
                     <h4 className="font-extrabold text-sm leading-snug">{exam.title}</h4>
-                    <p className="text-xs text-muted-foreground">{exam.description || ""}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{exam.description || ""}</p>
                   </div>
 
-                  <div className="p-3 rounded-xl border bg-muted/20 space-y-1.5 text-xs">
+                  <div className="bg-muted/40 rounded-xl p-3 space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Durasi</span>
                       <span className="font-bold">{exam.duration_minutes || 120} Menit</span>
                     </div>
                     {s?.score !== null && s?.score !== undefined && (
-                      <div className="flex justify-between pt-1 border-t">
+                      <div className="flex justify-between pt-1 border-t border-border">
                         <span className="text-muted-foreground">Skor</span>
                         <span className="font-bold text-primary">{s!.score!.toFixed(1)}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="pt-2 border-t flex gap-2">
+                  <div className="pt-2 border-t border-border flex gap-2">
                     {status === "NOT_STARTED" && (
                       <Link href={`/student/exam/${exam.id}/info`} className="w-full">
                         <Button size="sm" className="w-full text-xs font-bold">Mulai <Play className="ml-1.5 h-3.5 w-3.5 fill-current" /></Button>
                       </Link>
                     )}
                     {status === "IN_PROGRESS" && (
-                      <>
-                        <Link href={`/exam/${exam.id}`} className="flex-1">
-                          <Button size="sm" variant="warning" className="w-full text-xs font-bold">Lanjutkan</Button>
-                        </Link>
-                      </>
+                      <Link href={`/exam/${exam.id}`} className="w-full">
+                        <Button size="sm" variant="warning" className="w-full text-xs font-bold">Lanjutkan</Button>
+                      </Link>
                     )}
                     {status === "COMPLETED" && sessionId && (
                       <>
@@ -269,20 +272,20 @@ export default function StudentExamPage() {
                       </>
                     )}
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
         ) : (
-          <Card className="p-12 text-center space-y-3 bg-muted/10 border-dashed">
+          <div className="bg-card rounded-2xl border border-dashed p-10 text-center space-y-3">
             <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
             <h4 className="font-bold text-base">Belum Ada Paket Ujian</h4>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               Administrator dapat membuat paket ujian melalui Dashboard Admin
             </p>
-          </Card>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

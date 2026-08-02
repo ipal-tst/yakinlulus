@@ -171,6 +171,9 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Service) UploadFile(ctx context.Context, fileName string, reader io.Reader, size int64, contentType string) (string, string, error) {
+	if s.st == nil {
+		return "", "", fmt.Errorf("storage not configured")
+	}
 	objectName := fmt.Sprintf("uploads/%s_%s", uuid.New().String(), fileName)
 	url, err := s.st.Upload(ctx, objectName, reader, size, contentType)
 	if err != nil {

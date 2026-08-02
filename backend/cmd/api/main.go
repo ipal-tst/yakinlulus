@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"yakinlulus.id/backend/internal/academic"
+	"yakinlulus.id/backend/internal/admin"
 	"yakinlulus.id/backend/internal/ai"
 	"yakinlulus.id/backend/internal/analytics"
 	"yakinlulus.id/backend/internal/audit"
@@ -207,6 +208,11 @@ func main() {
 	auditSvc := audit.NewService(auditRepo)
 	auditHandler := audit.NewHandler(auditSvc, cfg.JWT.Secret)
 
+	// Admin module
+	adminRepo := admin.NewRepository(pool)
+	adminSvc := admin.NewService(adminRepo)
+	adminHandler := admin.NewHandler(adminSvc, cfg.JWT.Secret)
+
 	// Practice module
 	practiceRepo := practice.NewRepository(pool)
 	practiceSvc := practice.NewService(practiceRepo, contentRepo)
@@ -244,6 +250,7 @@ func main() {
 	notifHandler.RegisterRoutes(api)
 	aiHandler.RegisterRoutes(api)
 	auditHandler.RegisterRoutes(api)
+	adminHandler.RegisterRoutes(api)
 	wsHandler.RegisterRoutes(api)
 	gamiHandler.RegisterRoutes(api)
 

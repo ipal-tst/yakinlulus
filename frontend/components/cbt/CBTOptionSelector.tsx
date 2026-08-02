@@ -87,7 +87,7 @@ export function CBTOptionSelector({
                                                 {rowLabel}
                                             </td>
                                             <td className="p-3 text-[#1E293B] border-r border-[#CBD5E1] font-medium leading-relaxed">
-                                                <MathKaTeXPreview content={opt.text} />
+                                                <MathKaTeXPreview content={opt.text} invertDark={false} />
                                             </td>
                                             <td className="p-3 text-center border-r border-[#CBD5E1] bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
@@ -128,7 +128,7 @@ export function CBTOptionSelector({
                                                 {rowLabel}
                                             </td>
                                             <td className="p-3 text-[#1E293B] border-r border-[#CBD5E1] font-medium leading-relaxed">
-                                                <MathKaTeXPreview content={stmt.statement} />
+                                                <MathKaTeXPreview content={stmt.statement} invertDark={false} />
                                             </td>
                                             <td className="p-3 text-center border-r border-[#CBD5E1] bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
@@ -228,7 +228,7 @@ export function CBTOptionSelector({
                                 <div className="flex items-start gap-2 flex-1">
                                     <span className="font-bold text-[#1E293B] shrink-0">{displayNumLabel}</span>
                                     <div className="flex-1">
-                                        <MathKaTeXPreview content={opt.text} />
+                                        <MathKaTeXPreview content={opt.text} invertDark={false} />
                                     </div>
                                 </div>
                             </button>
@@ -277,7 +277,7 @@ export function CBTOptionSelector({
                         </div>
 
                         <div className="flex-1 pt-0.5">
-                            <MathKaTeXPreview content={opt.text} />
+                            <MathKaTeXPreview content={opt.text} invertDark={false} />
                         </div>
                     </button>
                 );

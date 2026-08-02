@@ -118,15 +118,15 @@ export default function MediaPicker({ onInsert, entityType, entityId, children }
 
     const handleSelect = (media: MediaItem) => {
         const type = getMediaTypeLabel(media.mime_type);
-        let html = "";
+        let md = "";
         if (type === "image") {
-            html = `<figure><img src="${media.url}" alt="${media.original_name}" /><figcaption>${media.original_name}</figcaption></figure>`;
+            md = `![${media.original_name}](${media.url})`;
         } else if (type === "video") {
-            html = `<video controls src="${media.url}" title="${media.original_name}"></video>`;
+            md = `[📺 ${media.original_name}](${media.url})`;
         } else {
-            html = `<a href="${media.url}" target="_blank" rel="noopener noreferrer">${media.original_name}</a>`;
+            md = `[${media.original_name}](${media.url})`;
         }
-        onInsert(html);
+        onInsert(md);
         setIsOpen(false);
         setSelectedId(null);
     };

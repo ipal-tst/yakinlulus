@@ -54,7 +54,7 @@ func (r *Repository) GetLeaderboardBySubject(ctx context.Context, subjectID uuid
 		SELECT u.id, u.full_name,
 			COALESCE(COUNT(*) FILTER (WHERE aa.is_correct = true)::float8 / NULLIF(COUNT(*), 0) * 100, 0) AS avg_score,
 			COUNT(DISTINCT a.exam_content_id) AS total_exams
-		FROM content_exam_attempt_answers aa
+		FROM content_exam_answers aa
 		JOIN content_exam_attempts a ON a.id = aa.attempt_id
 		JOIN content_exam_questions eq ON eq.question_content_id = aa.question_content_id
 		JOIN contents q ON q.id = eq.question_content_id

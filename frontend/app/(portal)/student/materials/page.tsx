@@ -63,40 +63,53 @@ export default function StudentMaterialsPage() {
     const totalReads = materials.reduce((sum: number, m: any) => sum + (m.read_count || 0), 0);
 
     return (
-        <div className="space-y-8 p-6 pb-16">
-            {/* Top Bar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-5">
-                <div>
-                    <div className="flex items-center gap-2">
-                        <Badge variant="default" className="text-[10px] font-bold">MATERI LEARNING HUB</Badge>
-                        <span className="text-xs text-muted-foreground">{materials.length} Modul &bull; {totalReads.toLocaleString()} Dibaca</span>
-                    </div>
-                    <h1 className="text-3xl font-extrabold tracking-tight mt-1">Materi Pembelajaran</h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        Akses modul, video, PDF, dan rangkuman materi per mata pelajaran.
-                    </p>
+        <div className="space-y-6">
+            {/* Header */}
+            <div>
+                <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+                    Materi Learning Hub
+                </Badge>
+                <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-1">Materi Pembelajaran</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                    Akses modul, video, PDF, dan rangkuman materi per mata pelajaran.
+                </p>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <span className="text-xl font-extrabold font-mono block">{isLoading ? "…" : materials.length}</span>
+                    <span className="text-xs text-muted-foreground">Modul</span>
+                </div>
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <span className="text-xl font-extrabold font-mono block">{isLoading ? "…" : subjectNames.length}</span>
+                    <span className="text-xs text-muted-foreground">Mapel</span>
+                </div>
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <span className="text-xl font-extrabold font-mono block">{totalReads.toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">Dibaca</span>
                 </div>
             </div>
 
             {/* Search & Filter */}
-            <Card className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Card className="rounded-2xl p-4 space-y-3">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                         type="text"
                         placeholder="Cari judul, mata pelajaran, bab..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                 </div>
-                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                     <Button
                         key="ALL"
                         variant={selectedSubject === "ALL" ? "default" : "outline"}
                         size="sm"
                         onClick={() => setSelectedSubject("ALL")}
-                        className="text-[11px] font-semibold shrink-0 h-8"
+                        className="rounded-full shrink-0 text-xs font-semibold"
                     >
                         Semua
                     </Button>
@@ -106,7 +119,7 @@ export default function StudentMaterialsPage() {
                             variant={selectedSubject === sub ? "default" : "outline"}
                             size="sm"
                             onClick={() => setSelectedSubject(sub)}
-                            className="text-[11px] font-semibold shrink-0 h-8"
+                            className="rounded-full shrink-0 text-xs font-semibold"
                         >
                             {sub}
                         </Button>
@@ -116,21 +129,33 @@ export default function StudentMaterialsPage() {
 
             {/* Materials Grid Grouped by Subject */}
             {isLoading ? (
-                <div className="p-12 text-center text-xs text-muted-foreground">Memuat modul dari database...</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="animate-pulse bg-muted rounded-lg h-8 w-8" />
+                                <div className="animate-pulse bg-muted rounded-full h-4 w-16" />
+                            </div>
+                            <div className="animate-pulse bg-muted rounded-lg h-4 w-3/4" />
+                            <div className="animate-pulse bg-muted rounded-lg h-3 w-1/2" />
+                            <div className="animate-pulse bg-muted rounded-lg h-8 w-full mt-4" />
+                        </div>
+                    ))}
+                </div>
             ) : grouped.length > 0 ? (
-                <div className="space-y-10">
+                <div className="space-y-8">
                     {grouped.map(([subject, items]) => (
                         <section key={subject}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <h2 className="text-lg font-black tracking-tight">{subject}</h2>
+                            <div className="flex items-center gap-3 mb-3">
+                                <h2 className="text-base font-extrabold tracking-tight">{subject}</h2>
                                 <Badge variant="outline" className="text-[10px]">{items.length} Modul</Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {items.map((m: any) => {
                                     const fmt = getFormat(m.content_format);
                                     const Icon = fmt.icon;
                                     return (
-                                        <Card key={m.id} className="p-5 flex flex-col hover:border-primary/40 hover:shadow-md transition-all group">
+                                        <Card key={m.id} className="rounded-2xl p-5 flex flex-col hover:border-primary/40 hover:shadow-md transition-all group">
                                             <div className="space-y-3 flex-1">
                                                 <div className="flex items-center justify-between">
                                                     <div className={`p-1.5 rounded-lg ${fmt.color}`}>
@@ -175,7 +200,7 @@ export default function StudentMaterialsPage() {
                     ))}
                 </div>
             ) : (
-                <Card className="p-12 text-center space-y-3">
+                <div className="bg-card rounded-2xl border border-dashed p-8 text-center space-y-3">
                     <BookOpen className="h-10 w-10 text-muted-foreground mx-auto" />
                     <h3 className="font-bold text-sm">Tidak ada modul ditemukan</h3>
                     <p className="text-xs text-muted-foreground">
@@ -183,7 +208,17 @@ export default function StudentMaterialsPage() {
                             ? "Coba ubah kata kunci pencarian atau filter mata pelajaran."
                             : "Belum ada materi pembelajaran yang tersedia."}
                     </p>
-                </Card>
+                    {(search || selectedSubject !== "ALL") && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs font-semibold"
+                            onClick={() => { setSearch(""); setSelectedSubject("ALL"); }}
+                        >
+                            Reset Filter
+                        </Button>
+                    )}
+                </div>
             )}
         </div>
     );

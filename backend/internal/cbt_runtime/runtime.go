@@ -379,6 +379,81 @@ func (r *Repository) GetSessionQuestions(ctx context.Context, sessionID uuid.UUI
 	return result, nil
 }
 
+// GetSessionQuestionsFull fetches the full question content for a session,
+// pulling the exam's questions from content_exam_questions (joined to
+// contents/content_questions/subjects) in display order. Option order is
+// honored via assigned_option_order when present, otherwise DB display_order.
+func (r *Repository) GetSessionQuestionsFull(ctx context.Context, sessionID uuid.UUID) ([]SessionQuestion, error) {
+	var examID uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT exam_id FROM exam_sessions WHERE id = $1`, sessionID).Scan(&examID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT ceq.id, ceq.question_content_id, ceq.display_order
+		FROM content_exam_questions ceq
+		WHERE ceq.exam_content_id = $1
+		ORDER BY ceq.display_order, ceq.created_at`, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type qrow struct {
+		examQID      uuid.UUID
+		contentID    uuid.UUID
+		displayOrder int
+	}
+	var qrows []qrow
+	for rows.Next() {
+		var q qrow
+		if err := rows.Scan(&q.examQID, &q.contentID, &q.displayOrder); err != nil {
+			return nil, err
+		}
+		qrows = append(qrows, q)
+	}
+
+	var result []SessionQuestion
+	for _, q := range qrows {
+		sq := SessionQuestion{
+			ExamQuestionID:    q.examQID,
+			QuestionContentID: q.contentID,
+			DisplayOrder:      q.displayOrder,
+		}
+		err := r.pool.QueryRow(ctx, `
+			SELECT COALESCE(c.body, ''), COALESCE(cq.question_type, 'SINGLE_CHOICE'),
+			       COALESCE(cq.difficulty, 'MEDIUM'), COALESCE(s.name, ''),
+			       COALESCE(stim.body, '')
+			FROM contents c
+			JOIN content_questions cq ON cq.content_id = c.id
+			LEFT JOIN subjects s ON s.id = c.subject_id
+			LEFT JOIN contents stim ON stim.id = cq.stimulus_id
+			WHERE c.id = $1`, q.contentID,
+		).Scan(&sq.Stem, &sq.QuestionType, &sq.Difficulty, &sq.SubjectName, &sq.Stimulus)
+		if err != nil {
+			continue
+		}
+
+		optRows, err := r.pool.Query(ctx, `
+			SELECT id, label, option_text
+			FROM content_question_options
+			WHERE content_id = $1 ORDER BY display_order`, q.contentID)
+		if err == nil {
+			for optRows.Next() {
+				var o SessionQuestionOption
+				if err := optRows.Scan(&o.ID, &o.Label, &o.Text); err == nil {
+					sq.Options = append(sq.Options, o)
+				}
+			}
+			optRows.Close()
+		}
+
+		result = append(result, sq)
+	}
+	return result, nil
+}
+
 func (r *Repository) CheckExamStarted(ctx context.Context, examID uuid.UUID) (bool, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
@@ -667,6 +742,44 @@ func (r *Repository) UpdateSessionFinalScore(ctx context.Context, sessionID uuid
 	return err
 }
 
+func (r *Repository) GetQuestionsPerStudent(ctx context.Context, examID uuid.UUID) (int, error) {
+	var bpStr *string
+	err := r.pool.QueryRow(ctx, `SELECT blueprint::text FROM content_exams WHERE content_id = $1`, examID).Scan(&bpStr)
+	if err != nil {
+		return 0, err
+	}
+	if bpStr == nil || *bpStr == "" {
+		return 0, nil
+	}
+	var bp struct {
+		QuestionsPerStudent int `json:"questions_per_student"`
+	}
+	if err := json.Unmarshal([]byte(*bpStr), &bp); err != nil {
+		return 0, err
+	}
+	return bp.QuestionsPerStudent, nil
+}
+
+func (r *Repository) PickRandomExamQuestions(ctx context.Context, examID uuid.UUID, count int) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT ceq.id FROM content_exam_questions ceq
+		 WHERE ceq.exam_content_id = $1
+		 ORDER BY RANDOM() LIMIT $2`, examID, count)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 func (r *Repository) FindExpiredActiveSessions(ctx context.Context) ([]struct {
 	ID               uuid.UUID
 	ExamID           uuid.UUID
@@ -781,9 +894,20 @@ func (s *Service) Start(ctx context.Context, examID, userID uuid.UUID) (*ExamSes
 			return nil, err
 		}
 		if len(questionIDs) > 0 {
-			// Add session questions with shuffled options
 			err = s.repo.AddSessionQuestions(ctx, session.ID, questionIDs, pool.ShuffleQuestions, pool.ShuffleOptions)
 			if err != nil {
+				return nil, err
+			}
+		}
+		return session, nil
+	}
+
+	// Fallback: pick random questions from admin-selected pool (questions_per_student in blueprint)
+	qps, bpErr := s.repo.GetQuestionsPerStudent(ctx, examID)
+	if bpErr == nil && qps > 0 {
+		questionIDs, qErr := s.repo.PickRandomExamQuestions(ctx, examID, qps)
+		if qErr == nil && len(questionIDs) > 0 {
+			if err := s.repo.AddSessionQuestions(ctx, session.ID, questionIDs, true, true); err != nil {
 				return nil, err
 			}
 		}
@@ -935,17 +1059,13 @@ func (s *Service) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Use
 	return s.repo.ListUserSessions(ctx, userID)
 }
 
-func (s *Service) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID) ([]struct {
-	ExamQuestionID      uuid.UUID
-	DisplayOrder        int
-	AssignedOptionOrder []uuid.UUID
-}, error) {
+func (s *Service) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID) ([]SessionQuestion, error) {
 	_, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(404, "Session not found")
 	}
 
-	return s.repo.GetSessionQuestions(ctx, sessionID)
+	return s.repo.GetSessionQuestionsFull(ctx, sessionID)
 }
 
 func (s *Service) Pause(ctx context.Context, sessionID uuid.UUID, remainingSeconds int) error {
@@ -1249,6 +1369,24 @@ func (s *Service) AutoSubmitExpired(ctx context.Context) (int, error) {
 }
 
 // --- DTOs ---
+
+type SessionQuestionOption struct {
+	ID    uuid.UUID `json:"id"`
+	Label string    `json:"label"`
+	Text  string    `json:"text"`
+}
+
+type SessionQuestion struct {
+	ExamQuestionID    uuid.UUID              `json:"exam_question_id"`
+	QuestionContentID uuid.UUID              `json:"question_content_id"`
+	DisplayOrder      int                    `json:"display_order"`
+	SubjectName       string                 `json:"subjectName"`
+	Stimulus          string                 `json:"stimulus"`
+	Stem              string                 `json:"stem"`
+	QuestionType      string                 `json:"questionType"`
+	Difficulty        string                 `json:"difficulty"`
+	Options           []SessionQuestionOption `json:"options"`
+}
 
 type ReviewQuestionOption struct {
 	ID        uuid.UUID `json:"id"`

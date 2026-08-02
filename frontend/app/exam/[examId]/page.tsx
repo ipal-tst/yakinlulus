@@ -191,11 +191,11 @@ export default function CBTExamWorkspacePage() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#F8FAFC] font-sans text-[#1E293B] antialiased">
+        <div className="flex flex-col min-h-screen bg-[#F1F5F9] text-[#1E293B] antialiased">
             {/* Top Navigation Header Bar */}
             <header className="h-16 border-b border-[#E2E8F0] bg-white px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
                 <div className="flex items-center gap-3">
-                    <span className="text-xl font-extrabold tracking-tight text-[#1565C0]">
+                    <span className="text-xl font-extrabold tracking-tight text-primary">
                         YakinLulus.id
                     </span>
                     <span className="text-[#64748B]/40 text-lg font-light">|</span>
@@ -229,35 +229,35 @@ export default function CBTExamWorkspacePage() {
             </header>
 
             {/* Main Workspace (Split View) */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 bg-[#F8FAFC]">
-                {/* Left Column: Stem & Stimulus (~55% / 6 cols) */}
-                <main className="lg:col-span-6 p-6 md:p-8 space-y-6 border-r border-[#E2E8F0] bg-white flex flex-col justify-between">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 bg-[#F1F5F9] overflow-hidden">
+                {/* Left Column: Stem & Stimulus (~55% / 6 cols) - scrollable on desktop */}
+                <main className="lg:col-span-6 p-6 md:p-8 space-y-6 border-r border-[#E2E8F0] bg-white flex flex-col min-h-0 overflow-y-auto">
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
                             <span className="bg-[#F1F5F9] text-[#1E293B] font-semibold text-xs px-3.5 py-1 rounded border border-[#E2E8F0]">
                                 Soal No. {currentQuestion.id} / {examQuestions.length}
                             </span>
-                            <span className="border border-[#1565C0]/40 text-[#1565C0] bg-[#E3F2FD]/60 font-semibold text-xs px-3.5 py-0.5 rounded">
+                            <span className="border border-primary/40 text-primary bg-primary/10 font-semibold text-xs px-3.5 py-0.5 rounded">
                                 {currentQuestion.difficulty}
                             </span>
                         </div>
 
                         {currentQuestion.introText && (
                             <div className="text-sm md:text-base leading-relaxed text-[#1E293B] font-normal p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                                <MathKaTeXPreview content={currentQuestion.introText} />
+                                <MathKaTeXPreview content={currentQuestion.introText} invertDark={false} />
                             </div>
                         )}
 
                         {currentQuestion.stemText && (
                             <div className="text-sm md:text-base leading-relaxed text-[#1E293B] font-semibold">
-                                <MathKaTeXPreview content={currentQuestion.stemText} />
+                                <MathKaTeXPreview content={currentQuestion.stemText} invertDark={false} />
                             </div>
                         )}
                     </div>
                 </main>
 
-                {/* Right Column: Option Renderer Selector (~45% / 6 cols) */}
-                <aside className="lg:col-span-6 p-6 md:p-8 bg-[#F8FAFC] md:bg-white flex flex-col justify-between">
+                {/* Right Column: Option Renderer Selector (~45% / 6 cols) - fixed height, no scroll */}
+                <aside className="lg:col-span-6 p-6 md:p-8 bg-[#F8FAFC] md:bg-white flex flex-col min-h-0">
                     <div className="space-y-4">
                         <h2 className="text-base md:text-lg font-bold text-[#1E293B] tracking-tight mb-2">
                             Pilihan Jawaban Soal:
@@ -304,7 +304,7 @@ export default function CBTExamWorkspacePage() {
                             setIsSubmitDialogOpen(true);
                         }
                     }}
-                    className="bg-[#1565C0] hover:bg-[#0D47A1] text-white font-semibold text-xs px-5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    className="bg-primary hover:bg-primary/90 text-white font-semibold text-xs px-5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
                     <span>{currentIndex === examQuestions.length - 1 ? "Akhiri Ujian" : "Selanjutnya"}</span>
                     <ChevronRight className="h-4 w-4" />
@@ -326,7 +326,7 @@ export default function CBTExamWorkspacePage() {
             >
                 <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
                     <div className="flex items-center gap-2">
-                        <LayoutGrid className="h-4 w-4 text-[#1565C0]" />
+                        <LayoutGrid className="h-4 w-4 text-primary" />
                         <span className="font-bold text-sm text-[#1E293B]">Navigasi Nomor Soal</span>
                     </div>
                     <button

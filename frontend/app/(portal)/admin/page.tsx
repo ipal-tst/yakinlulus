@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
-import { useAdminDashboard } from "@/lib/api";
+import { useAdminDashboard, useApiHealthCheck, useSystemLogs, type HealthService, type LogEntry } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
 import {
     Users,
@@ -33,7 +33,6 @@ import {
     Layers,
     ExternalLink,
     Play,
-    Pause,
     Trash2,
     Search,
     Copy,
@@ -67,21 +66,6 @@ interface TerminalLogEntry {
     message: string;
 }
 
-const INITIAL_HEALTH_SERVICES: HealthMetric[] = [
-    { name: "REST API Gateway (Go Fiber)", endpoint: "/contents", status: "HEALTHY", latency: "8ms", uptime: "99.99%" },
-    { name: "PostgreSQL Primary DB (Supabase)", status: "HEALTHY", latency: "14ms", uptime: "99.98%" },
-    { name: "CBT Sync Worker Engine", status: "HEALTHY", latency: "12ms", uptime: "99.95%" },
-    { name: "AI Inference Engine (Gemini)", status: "HEALTHY", latency: "290ms", uptime: "99.90%" },
-];
-
-const INITIAL_LOGS: TerminalLogEntry[] = [
-    { id: "log-1", timestamp: "21:22:01", level: "INFO", module: "HTTP_API", message: "GET /api/v1/contents?type=QUESTION 200 OK - 8ms [ip: 127.0.0.1]" },
-    { id: "log-2", timestamp: "21:21:45", level: "INFO", module: "CBT_ENGINE", message: "Answer saved: session_id=sess_8819 question_id=q_402 (offline sync success)" },
-    { id: "log-3", timestamp: "21:20:12", level: "INFO", module: "DATABASE", message: "PostgreSQL pool acquired connection #14. Active pool count: 28/100" },
-    { id: "log-4", timestamp: "21:18:30", level: "DEBUG", module: "AI_RAG", message: "Embedding context vector matched 4 tokens in Subject: Fisika Chapter: Mechanics" },
-    { id: "log-5", timestamp: "21:15:00", level: "WARN", module: "SECURITY", message: "Auth Bearer token refresh requested for user_id=usr_940af273" },
-];
-
 export default function AdminDashboardPage() {
     const [isSyncing, setIsSyncing] = React.useState(false);
     const [lastSyncTime, setLastSyncTime] = React.useState<string>("");
@@ -95,52 +79,47 @@ export default function AdminDashboardPage() {
     const [chartMetric, setChartMetric] = React.useState<"EXAMS" | "TRAFFIC" | "LATENCY">("EXAMS");
 
     // Interactive Terminal Console State
-    const [logs, setLogs] = React.useState<TerminalLogEntry[]>(INITIAL_LOGS);
+    const [logs, setLogs] = React.useState<TerminalLogEntry[]>([]);
     const [selectedLogModule, setSelectedLogModule] = React.useState<string>("ALL");
     const [logSearch, setLogSearch] = React.useState<string>("");
-    const [isStreamingLogs, setIsStreamingLogs] = React.useState<boolean>(true);
     const [copiedLogs, setCopiedLogs] = React.useState<boolean>(false);
 
     // Dynamic Live Health Metrics State
-    const [healthServices, setHealthServices] = React.useState<HealthMetric[]>(INITIAL_HEALTH_SERVICES);
+    const [healthServices, setHealthServices] = React.useState<HealthMetric[]>([]);
     const [isPinging, setIsPinging] = React.useState(false);
 
     // TanStack hooks
-    const { data: user } = useAuth() as any;
-    const { data: dashData, isLoading: dashLoading, refetch: refetchDashboard } = useAdminDashboard() as any;
+    const { user } = useAuth();
+    const { data: dashData, isLoading: dashLoading, refetch: refetchDashboard } = useAdminDashboard();
+    const { data: healthData, isLoading: healthLoading, isError: healthError, error: healthErrorObj } = useApiHealthCheck();
+    const { data: logData, isLoading: logLoading, isError: logError, error: logErrorObj } = useSystemLogs(20);
 
-    // Simulated log streaming interval
+    // Sync health services from API
     React.useEffect(() => {
-        if (!isStreamingLogs) return;
-        const timer = setInterval(() => {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            const modules: Array<TerminalLogEntry["module"]> = ["HTTP_API", "CBT_ENGINE", "DATABASE", "AI_RAG", "SECURITY"];
-            const levels: Array<TerminalLogEntry["level"]> = ["INFO", "INFO", "INFO", "DEBUG", "WARN"];
-            const randomMod = modules[Math.floor(Math.random() * modules.length)] || "HTTP_API";
-            const randomLevel = levels[Math.floor(Math.random() * levels.length)] || "INFO";
+        if (healthData?.services) {
+            setHealthServices(healthData.services);
+        }
+    }, [healthData]);
 
-            const sampleMsgs: Record<TerminalLogEntry["module"], string> = {
-                HTTP_API: `GET /api/v1/contents/subtype 200 OK - ${Math.floor(Math.random() * 15 + 4)}ms`,
-                CBT_ENGINE: `Session heartbeat check: 42 active candidates synchronized`,
-                DATABASE: `Execute query: SELECT * FROM contents WHERE status = 'PUBLISHED'`,
-                AI_RAG: `Gemini 1.5 Flash stream generation chunked: 240 tokens/sec`,
-                SECURITY: `Token verification passed for role=ADMIN`,
-            };
+    // Sync logs from API
+    React.useEffect(() => {
+        if (logData?.logs) {
+            setLogs(logData.logs as TerminalLogEntry[]);
+        }
+    }, [logData]);
 
-            const newLog: TerminalLogEntry = {
-                id: `log-${Date.now()}`,
-                timestamp: timeStr,
-                level: randomLevel,
-                module: randomMod,
-                message: sampleMsgs[randomMod],
-            };
+    // Error handling for health/logs queries
+    React.useEffect(() => {
+        if (healthError) {
+            console.error('Failed to fetch health data:', healthErrorObj);
+        }
+    }, [healthError, healthErrorObj]);
 
-            setLogs((prev) => [newLog, ...prev.slice(0, 19)]);
-        }, 6000);
-
-        return () => clearInterval(timer);
-    }, [isStreamingLogs]);
+    React.useEffect(() => {
+        if (logError) {
+            console.error('Failed to fetch logs:', logErrorObj);
+        }
+    }, [logError, logErrorObj]);
 
     // Interactive Ping Test for REST API Gateway
     const handlePingLiveApi = async () => {
@@ -495,7 +474,11 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="space-y-2 mt-4">
-                            {healthServices.map((srv, idx) => (
+                            {healthLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <span className="text-xs text-slate-400">Loading health metrics...</span>
+                                </div>
+                            ) : healthData?.services ? healthData.services.map((srv: HealthMetric, idx: number) => (
                                 <div
                                     key={idx}
                                     className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
@@ -507,13 +490,17 @@ export default function AdminDashboardPage() {
                                                 ? "text-emerald-700 border-emerald-300 bg-emerald-50"
                                                 : "text-amber-700 border-amber-300 bg-amber-50"
                                             }`}
-                                    >
-                                        {srv.latency}
-                                    </Badge>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                                     >
+                                         {srv.latency}
+                                     </Badge>
+                                 </div>
+                             )) : (
+                                 <div className="flex items-center justify-center py-8">
+                                     <span className="text-xs text-slate-400">No health data available</span>
+                                 </div>
+                             )}
+                         </div>
+                     </div>
 
                     <div className="pt-3 border-t border-slate-100 space-y-2">
                         <span className="text-xs font-bold text-slate-400 block">System Maintenance Hub</span>
@@ -549,29 +536,17 @@ export default function AdminDashboardPage() {
                         <div>
                             <div className="flex items-center gap-2">
                                 <h3 className="font-bold text-sm text-slate-900">Live Terminal Logs Console</h3>
-                                <span className={`w-2 h-2 rounded-full ${isStreamingLogs ? "bg-emerald-500 animate-ping" : "bg-slate-400"}`} />
                             </div>
                             <p className="text-xs text-slate-500">Stream log sistem dari REST API Gateway, CBT Worker, DB Pool, & AI Tutor</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setIsStreamingLogs(!isStreamingLogs)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all ${isStreamingLogs
-                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                                    : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                                }`}
-                        >
-                            {isStreamingLogs ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                            {isStreamingLogs ? "Pause Stream" : "Resume Stream"}
-                        </button>
-
+<div className="flex items-center gap-2">
                         <button
                             onClick={handleCopyLogs}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-all"
                         >
-                            {copiedLogs ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedLogs ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 w-3.5" />}
                             Copy Logs
                         </button>
 
@@ -617,7 +592,9 @@ export default function AdminDashboardPage() {
 
                 {/* Terminal Body Output */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs max-h-72 overflow-y-auto space-y-2 leading-relaxed">
-                    {filteredLogs.length === 0 ? (
+                    {logLoading ? (
+                        <div className="text-slate-400 text-center py-6">Loading logs...</div>
+                    ) : filteredLogs.length === 0 ? (
                         <div className="text-slate-400 text-center py-6">Tidak ada log ditemukan untuk filter ini.</div>
                     ) : (
                         filteredLogs.map((l) => (

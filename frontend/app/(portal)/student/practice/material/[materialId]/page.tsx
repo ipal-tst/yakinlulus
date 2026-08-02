@@ -8,15 +8,10 @@ import {
     ChevronRight,
     Check,
     Clock,
-    LayoutGrid,
     X,
     Play,
-    Zap,
-    Target,
     Sparkles,
     Brain,
-    AlertTriangle,
-    CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -286,24 +281,24 @@ export default function MaterialPracticePage() {
         const percentage = (correctCount / questions.length) * 100;
 
         return (
-            <div className="max-w-3xl mx-auto space-y-6 p-6 pb-16">
-                <Card className="border-success/30 bg-success/5">
+            <div className="max-w-3xl mx-auto space-y-6">
+                <Card className="rounded-2xl border-success/30 bg-success/5">
                     <CardContent className="p-8 text-center space-y-4">
                         <Badge variant={percentage >= 70 ? "default" : "destructive"} className="text-sm">
                             {percentage >= 70 ? "LULUS" : "BELAJAR LAGI"}
                         </Badge>
-                        <h1 className="text-3xl font-black">Latihan Selesai</h1>
-                        <p className="text-muted-foreground">{mockSession.materialTitle}</p>
-                        <div className="text-6xl font-bold text-primary">{percentage.toFixed(0)}%</div>
+                        <h1 className="text-2xl font-extrabold tracking-tight">Latihan Selesai</h1>
+                        <p className="text-muted-foreground text-sm">{mockSession.materialTitle}</p>
+                        <div className="text-5xl font-black text-primary font-mono">{percentage.toFixed(0)}%</div>
                         <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
                             <span className="text-success font-bold">{correctCount} Benar</span>
                             <span className="text-destructive font-bold">{questions.length - correctCount} Salah</span>
                         </div>
-                        <div className="pt-4 border-t flex justify-center gap-4">
-                            <Button variant="outline" onClick={() => router.push(`/student/materials/${materialId}`)}>
+                        <div className="pt-4 border-t flex justify-center gap-3 flex-wrap">
+                            <Button variant="outline" size="sm" onClick={() => router.push(`/student/materials/${materialId}`)}>
                                 <ChevronLeft className="mr-1.5 h-4 w-4" /> Kembali
                             </Button>
-                            <Button onClick={() => router.push(`/student/practice`)}>
+                            <Button size="sm" onClick={() => router.push(`/student/practice`)}>
                                 <Sparkles className="mr-1.5 h-4 w-4" /> Latihan Lainnya
                             </Button>
                         </div>
@@ -314,37 +309,38 @@ export default function MaterialPracticePage() {
     }
 
     return (
-        <div className="space-y-6 p-6 pb-16">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4 bg-card p-4 rounded-xl shadow-xs">
+        <div className="space-y-6">
+            <Card className="rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2">
-                        <Badge variant="default" className="text-[10px] font-bold">PRACTICE</Badge>
+                        <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">Practice</Badge>
+                        <span className="text-xs text-muted-foreground">{mockSession.mode}</span>
                     </div>
-                    <h1 className="text-lg font-black tracking-tight mt-1">Soal {q.num} dari {questions.length}</h1>
+                    <h1 className="text-lg font-extrabold tracking-tight mt-1">Soal {q.num} dari {questions.length}</h1>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-muted/40 font-mono text-xs font-bold">
                         <Clock className="h-4 w-4" /> {formatTime(timeRemaining)}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setIsPaused(!isPaused)}>
                         {isPaused ? <Play className="h-4 w-4" /> : "Jeda"}
                     </Button>
-                    <Button size="sm" onClick={() => setShowSubmitConfirm(true)} className="bg-success">
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" /> Selesai
+                    <Button size="sm" variant="success" onClick={() => setShowSubmitConfirm(true)}>
+                        <Check className="mr-1.5 h-4 w-4" /> Selesai
                     </Button>
                 </div>
-            </div>
+            </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <Card className="lg:col-span-3 p-6 space-y-6">
-                    <div className="flex items-center justify-between border-b pb-3">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                <Card className="lg:col-span-3 rounded-2xl p-5 space-y-5">
+                    <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
                         <span className="text-xs font-bold text-muted-foreground">{q.subjectName} • {q.difficulty}</span>
                         <Button variant={flagged[currentIdx] ? "warning" : "outline"} size="sm" onClick={toggleFlag}>
                             <X className="mr-1.5 h-3 w-3" /> {flagged[currentIdx] ? "Ragu" : "Tandai"}
                         </Button>
                     </div>
 
-                    <div className="text-sm font-semibold text-foreground p-4 rounded-xl border bg-muted/20">
+                    <div className="text-sm font-semibold text-foreground p-4 rounded-xl border bg-muted/20 leading-relaxed">
                         {q.text}
                     </div>
 
@@ -355,9 +351,9 @@ export default function MaterialPracticePage() {
                                 <div
                                     key={opt.label}
                                     onClick={() => handleSelectOption(opt.label)}
-                                    className={`p-4 rounded-xl border cursor-pointer flex items-center gap-3 ${isSelected ? "border-primary bg-primary/10 font-bold" : "hover:border-primary/40 bg-card"}`}
+                                    className={`p-4 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${isSelected ? "border-primary bg-primary/10 font-bold" : "hover:border-primary/40 bg-card"}`}
                                 >
-                                    <div className={`h-7 w-7 rounded-lg font-bold text-xs flex items-center justify-center border ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                                    <div className={`h-7 w-7 rounded-lg font-bold text-xs flex items-center justify-center border shrink-0 ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                                         {opt.label}
                                     </div>
                                     <span className="text-xs">{opt.text}</span>
@@ -367,7 +363,7 @@ export default function MaterialPracticePage() {
                     </div>
 
                     {showExplanation && q.explanation && (
-                        <Card className="border-primary/30 bg-primary/5 p-4">
+                        <Card className="rounded-2xl border-primary/30 bg-primary/5 p-4">
                             <div className="flex items-center gap-2 text-sm font-bold text-primary">
                                 <Brain className="h-4 w-4" /> Pembahasan
                             </div>
@@ -375,7 +371,7 @@ export default function MaterialPracticePage() {
                         </Card>
                     )}
 
-                    <div className="pt-4 border-t flex justify-between items-center">
+                    <div className="pt-4 border-t flex justify-between items-center gap-2 flex-wrap">
                         <Button variant="outline" size="sm" disabled={currentIdx === 0} onClick={() => { setCurrentIdx(currentIdx - 1); setShowExplanation(false); }}>
                             <ChevronLeft className="mr-1 h-4 w-4" /> Sebelumnya
                         </Button>
@@ -388,8 +384,8 @@ export default function MaterialPracticePage() {
                     </div>
                 </Card>
 
-                <div className="space-y-4">
-                    <Card className="p-4">
+                <div className="space-y-3">
+                    <Card className="rounded-2xl p-4">
                         <h4 className="font-bold text-xs border-b pb-2 mb-2">Navigasi</h4>
                         <div className="grid grid-cols-5 gap-2 text-xs font-bold">
                             {questions.map((item, idx) => {
@@ -406,13 +402,18 @@ export default function MaterialPracticePage() {
                                 );
                             })}
                         </div>
+                        <div className="mt-3">
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+                            </div>
+                        </div>
                     </Card>
                 </div>
             </div>
 
             {showSubmitConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <Card className="w-full max-w-md mx-4 p-6">
+                    <Card className="rounded-2xl w-full max-w-md mx-4 p-6">
                         <CardHeader>
                             <CardTitle className="text-center">Yakin ingin mengumpulkan?</CardTitle>
                             <CardDescription className="text-center">
@@ -421,7 +422,7 @@ export default function MaterialPracticePage() {
                         </CardHeader>
                         <CardFooter className="flex justify-center gap-2">
                             <Button variant="outline" onClick={() => setShowSubmitConfirm(false)}>Batal</Button>
-                            <Button onClick={handleSubmit} className="bg-success">Ya, Kumpulkan</Button>
+                            <Button variant="success" onClick={handleSubmit}>Ya, Kumpulkan</Button>
                         </CardFooter>
                     </Card>
                 </div>

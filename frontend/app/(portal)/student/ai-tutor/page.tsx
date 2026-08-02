@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
-import { Bot, Send, Sparkles, BookOpen, Cpu, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Send, Sparkles, Cpu, RotateCw, BookOpen } from "lucide-react";
 
 interface ChatMessage {
     sender: "user" | "ai";
@@ -10,6 +11,13 @@ interface ChatMessage {
     timestamp: string;
     model?: string;
 }
+
+const QUICK_PROMPTS = [
+    "Jelaskan rumus aljabar sederhana",
+    "Contoh soal TPS penalaran",
+    "Tips vocab untuk Literasi Inggris",
+    "Rumus fisika gerak lurus",
+];
 
 export default function AITutorPage() {
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -63,67 +71,69 @@ export default function AITutorPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="max-w-3xl mx-auto space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 p-6 rounded-2xl border border-blue-900/40 text-white shadow-xl">
+            <header className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-blue-600/30 rounded-xl border border-blue-400/30 text-blue-300">
-                        <Sparkles className="w-7 h-7 animate-pulse" />
+                    <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">AI Virtual Tutor Workspace</h1>
-                        <p className="text-sm text-blue-200/80">
-                            Asisten Pintar Berbasis Retrieval-Augmented Generation (RAG) & Vector Database Qdrant
-                        </p>
+                        <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">AI Tutor</h1>
+                        <p className="text-xs text-muted-foreground">Asisten belajarmu berbasis RAG</p>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-2 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
-                    <BookOpen className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center gap-2 bg-card border border-border rounded-full px-3 py-2">
+                    <BookOpen className="h-4 w-4 text-primary shrink-0" />
                     <select
                         value={selectedSubject}
                         onChange={(e) => setSelectedSubject(e.target.value)}
-                        className="bg-transparent text-sm font-medium focus:outline-none text-slate-200 cursor-pointer"
+                        className="bg-transparent text-sm font-semibold focus:outline-none cursor-pointer"
                     >
-                        <option value="Penalaran Matematika" className="bg-slate-900 text-white">Penalaran Matematika</option>
-                        <option value="Penalaran Umum" className="bg-slate-900 text-white">Penalaran Umum</option>
-                        <option value="Literasi Bahasa Indonesia" className="bg-slate-900 text-white">Literasi Bahasa Indonesia</option>
-                        <option value="Literasi Bahasa Inggris" className="bg-slate-900 text-white">Literasi Bahasa Inggris</option>
+                        <option value="Penalaran Matematika">Penalaran Matematika</option>
+                        <option value="Penalaran Umum">Penalaran Umum</option>
+                        <option value="Literasi Bahasa Indonesia">Literasi Bahasa Indonesia</option>
+                        <option value="Literasi Bahasa Inggris">Literasi Bahasa Inggris</option>
                     </select>
                 </div>
+            </header>
+
+            {/* Quick actions */}
+            <div className="flex overflow-x-auto gap-2 no-scrollbar">
+                {QUICK_PROMPTS.map((prompt) => (
+                    <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => setInput(prompt)}
+                        className="px-4 py-2 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary shrink-0 transition-colors"
+                    >
+                        {prompt}
+                    </button>
+                ))}
             </div>
 
-            {/* Chat Box */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[550px]">
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Chat */}
+            <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col h-[520px]">
+                <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4">
                     {messages.map((msg, i) => (
                         <div
                             key={i}
-                            className={`flex gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                            className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                         >
-                            <div
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${msg.sender === "user"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
-                                    }`}
-                            >
-                                {msg.sender === "user" ? "U" : <Bot className="w-5 h-5" />}
-                            </div>
-
-                            <div className={`max-w-[78%] space-y-1`}>
+                            <div className="max-w-[75%] space-y-1">
                                 <div
-                                    className={`p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.sender === "user"
-                                        ? "bg-blue-600 text-white rounded-tr-none"
-                                        : "bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200/60"
+                                    className={`px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.sender === "user"
+                                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-md"
+                                        : "bg-muted rounded-2xl rounded-tl-md"
                                         }`}
                                 >
                                     {msg.text}
                                 </div>
-                                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground px-1">
                                     <span>{msg.timestamp}</span>
                                     {msg.model && (
-                                        <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                                            <Cpu className="w-3 h-3" /> {msg.model}
+                                        <span className="flex items-center gap-1">
+                                            <Cpu className="h-3 w-3" /> {msg.model}
                                         </span>
                                     )}
                                 </div>
@@ -131,37 +141,38 @@ export default function AITutorPage() {
                         </div>
                     ))}
                     {loading && (
-                        <div className="flex items-center gap-3 text-slate-400 text-sm italic py-2">
-                            <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                            <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
                             AI sedang memproses rasionalisasi jawaban...
                         </div>
                     )}
                 </div>
 
                 {/* Input Bar */}
-                <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+                <div className="p-4 border-t border-border">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             handleSend();
                         }}
-                        className="flex gap-2"
+                        className="flex items-center gap-2"
                     >
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="Tanyakan soal, rumus aljabar, atau trik penalaran..."
-                            className="flex-1 px-4 py-3 bg-white rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                            className="flex-1 px-5 py-3 bg-muted rounded-full border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         />
-                        <button
+                        <Button
                             type="submit"
+                            size="icon"
+                            className="rounded-full shrink-0"
                             disabled={loading || !input.trim()}
-                            className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-medium text-sm transition flex items-center gap-2 shadow-sm"
+                            aria-label="Kirim"
                         >
-                            <Send className="w-4 h-4" />
-                            Kirim
-                        </button>
+                            <Send className="h-4 w-4" />
+                        </Button>
                     </form>
                 </div>
             </div>

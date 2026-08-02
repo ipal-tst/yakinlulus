@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, HelpCircle, FileText, Shield, AlertTriangle, Play, Loader2, AlertCircle } from "lucide-react";
 import { useExam, useStartExamSession } from "@/lib/api";
@@ -35,26 +34,32 @@ export default function ExamInfoPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-3xl mx-auto p-6 pb-16">
-        <Card className="p-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
-          <p className="text-muted-foreground">Memuat informasi ujian...</p>
-        </Card>
+      <div className="max-w-3xl mx-auto space-y-4">
+        <div className="h-8 w-24 animate-pulse bg-muted rounded-lg" />
+        <div className="bg-card rounded-2xl border p-6 space-y-4">
+          <div className="h-6 w-2/3 animate-pulse bg-muted rounded-lg" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-24 animate-pulse bg-muted rounded-xl" />
+            ))}
+          </div>
+          <div className="h-40 animate-pulse bg-muted rounded-xl" />
+        </div>
       </div>
     );
   }
 
   if (error || !exam) {
     return (
-      <div className="max-w-3xl mx-auto p-6 pb-16">
-        <Card className="border-destructive bg-destructive/5 p-6 text-center">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-card rounded-2xl border border-destructive/30 bg-destructive/5 p-10 text-center">
           <AlertCircle className="h-10 w-10 mx-auto mb-3 text-destructive" />
           <h3 className="font-bold mb-1">Gagal Memuat Ujian</h3>
           <p className="text-sm text-muted-foreground">Data ujian tidak ditemukan</p>
           <Button variant="outline" onClick={() => router.push("/student/exam")} className="mt-4">
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Kembali
           </Button>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -62,42 +67,42 @@ export default function ExamInfoPage() {
   const e = exam as any;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-6 pb-16">
-      <div className="flex items-center gap-4">
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
         <Link href="/student/exam">
           <Button variant="outline" size="sm" className="h-9 w-9 p-0"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div>
           <Badge variant="outline" className="text-xs bg-background">Informasi Ujian</Badge>
-          <h1 className="text-2xl font-bold tracking-tight mt-1">{e.title}</h1>
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-1">{e.title}</h1>
         </div>
       </div>
 
-      <Card className="p-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl border bg-muted/20 text-center">
-            <Clock className="h-5 w-5 mx-auto mb-1 text-primary" />
+      <div className="bg-card rounded-2xl border p-5 md:p-6 space-y-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-muted/60 rounded-xl p-4 text-center">
+            <Clock className="h-5 w-5 mx-auto mb-1.5 text-primary" />
             <div className="text-xs text-muted-foreground">Durasi</div>
             <div className="font-bold text-lg">{e.duration_minutes || 120} Menit</div>
           </div>
-          <div className="p-4 rounded-xl border bg-muted/20 text-center">
-            <HelpCircle className="h-5 w-5 mx-auto mb-1 text-primary" />
+          <div className="bg-muted/60 rounded-xl p-4 text-center">
+            <HelpCircle className="h-5 w-5 mx-auto mb-1.5 text-primary" />
             <div className="text-xs text-muted-foreground">Jumlah Soal</div>
             <div className="font-bold text-lg">{e.total_questions || "—"}</div>
           </div>
-          <div className="p-4 rounded-xl border bg-muted/20 text-center">
-            <FileText className="h-5 w-5 mx-auto mb-1 text-primary" />
+          <div className="bg-muted/60 rounded-xl p-4 text-center">
+            <FileText className="h-5 w-5 mx-auto mb-1.5 text-primary" />
             <div className="text-xs text-muted-foreground">Passing Grade</div>
             <div className="font-bold text-lg">{e.passing_grade ?? "—"}</div>
           </div>
-          <div className="p-4 rounded-xl border bg-muted/20 text-center">
-            <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
+          <div className="bg-muted/60 rounded-xl p-4 text-center">
+            <Shield className="h-5 w-5 mx-auto mb-1.5 text-primary" />
             <div className="text-xs text-muted-foreground">Penilaian</div>
             <div className="font-bold text-lg">IRT</div>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border bg-amber-50/50 space-y-2">
+        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2">
           <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
             <AlertTriangle className="h-4 w-4" /> Aturan & Ketentuan Ujian
           </div>
@@ -115,7 +120,7 @@ export default function ExamInfoPage() {
           <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">{startError}</div>
         )}
 
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-border">
           <p className="text-xs text-muted-foreground">Dengan memulai, Anda menyetujui aturan dan ketentuan yang berlaku</p>
           <Button
             size="lg"
@@ -130,7 +135,7 @@ export default function ExamInfoPage() {
             )}
           </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

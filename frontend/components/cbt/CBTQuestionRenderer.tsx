@@ -84,13 +84,13 @@ export function CBTQuestionRenderer({
             {/* Stimulus / Intro (optional) */}
             {question.stimulus && (
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#1E293B] leading-relaxed">
-                    <MathKaTeXPreview content={question.stimulus} />
+                    <MathKaTeXPreview content={question.stimulus} invertDark={false} />
                 </div>
             )}
 
             {/* Question Stem */}
             <div className="prose max-w-none text-base md:text-lg leading-relaxed font-medium text-[#1E293B]">
-                <MathKaTeXPreview content={question.stem} />
+                <MathKaTeXPreview content={question.stem} invertDark={false} />
             </div>
 
             {/* Options / True-False Matrix Selection */}

@@ -10,15 +10,14 @@ import {
     AlertCircle,
     ArrowUpRight,
     Sparkles,
-    Loader2,
     XCircle,
     CheckCircle2,
     Calendar,
-    Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PerformanceRadarChart, RadarMetric } from "@/components/analytics/PerformanceRadarChart";
 import { PerformanceTrendChart, TrendPoint } from "@/components/analytics/PerformanceTrendChart";
 import { useAuth } from "@/providers/AuthProvider";
@@ -75,11 +74,13 @@ export default function StudentAnalyticsPage() {
 
     if (!studentId) {
         return (
-            <div className="max-w-5xl mx-auto p-6 pb-16">
-                <Card className="border-destructive bg-destructive/5 p-6 text-center">
-                    <XCircle className="h-10 w-10 mx-auto mb-3 text-destructive" />
-                    <h3 className="font-bold mb-1">Belum Login</h3>
-                    <p className="text-sm text-muted-foreground">Silakan login untuk melihat analitik</p>
+            <div className="space-y-6">
+                <Card className="rounded-2xl border-destructive bg-destructive/5">
+                    <CardContent className="p-10 text-center">
+                        <XCircle className="h-10 w-10 mx-auto mb-3 text-destructive" />
+                        <h3 className="font-bold mb-1">Belum Login</h3>
+                        <p className="text-sm text-muted-foreground">Silakan login untuk melihat analitik</p>
+                    </CardContent>
                 </Card>
             </div>
         );
@@ -87,22 +88,34 @@ export default function StudentAnalyticsPage() {
 
     if (isLoadingAnalytics || isLoadingTimeline) {
         return (
-            <div className="max-w-5xl mx-auto p-6 pb-16">
-                <Card className="p-12 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
-                    <p className="text-muted-foreground">Memuat data analitik...</p>
-                </Card>
+            <div className="space-y-6">
+                <div className="space-y-2">
+                    <div className="h-8 w-52 bg-muted animate-pulse rounded-lg" />
+                    <div className="h-4 w-72 bg-muted animate-pulse rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
+                    ))}
+                </div>
+                <div className="h-32 bg-muted animate-pulse rounded-2xl" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="h-72 bg-muted animate-pulse rounded-2xl" />
+                    <div className="h-72 bg-muted animate-pulse rounded-2xl" />
+                </div>
             </div>
         );
     }
 
     if (analyticsError) {
         return (
-            <div className="max-w-5xl mx-auto p-6 pb-16">
-                <Card className="border-destructive bg-destructive/5 p-6 text-center">
-                    <XCircle className="h-10 w-10 mx-auto mb-3 text-destructive" />
-                    <h3 className="font-bold mb-1">Gagal Memuat Data</h3>
-                    <p className="text-sm text-muted-foreground">Coba refresh halaman</p>
+            <div className="space-y-6">
+                <Card className="rounded-2xl border-destructive bg-destructive/5">
+                    <CardContent className="p-10 text-center">
+                        <XCircle className="h-10 w-10 mx-auto mb-3 text-destructive" />
+                        <h3 className="font-bold mb-1">Gagal Memuat Data</h3>
+                        <p className="text-sm text-muted-foreground">Coba refresh halaman</p>
+                    </CardContent>
                 </Card>
             </div>
         );
@@ -147,265 +160,253 @@ export default function StudentAnalyticsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Analitik Belajar & Hasil Ujian</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Pantau progresi skor, akurasi jawaban, dan analisis per mata pelajaran.
-                    </p>
+            <div>
+                <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">Analitik Belajar & Hasil Ujian</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Pantau progresi skor, akurasi jawaban, dan analisis per mata pelajaran.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <Target className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+                    <div className="text-2xl font-black">{totalTests}</div>
+                    <p className="text-[11px] text-muted-foreground">Total Ujian</p>
+                </div>
+
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <CheckCircle2 className="h-5 w-5 mx-auto mb-1.5 text-emerald-600" />
+                    <div className="text-2xl font-black">{accuracy.toFixed(1)}%</div>
+                    <p className="text-[11px] text-muted-foreground">{totalCorrect} benar / {totalQuestions} soal</p>
+                </div>
+
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <BarChart2 className="h-5 w-5 mx-auto mb-1.5 text-amber-600" />
+                    <div className="text-2xl font-black">{avgScore.toFixed(1)}</div>
+                    <p className="text-[11px] text-muted-foreground">Rata-rata dari {totalTests} ujian</p>
+                </div>
+
+                <div className="bg-muted/60 rounded-xl p-4 text-center">
+                    <Trophy className="h-5 w-5 mx-auto mb-1.5 text-violet-600" />
+                    <div className="text-2xl font-black">{passed} / {failed}</div>
+                    <p className="text-[11px] text-muted-foreground">{passed + failed > 0 ? ((passed / (passed + failed)) * 100).toFixed(0) : 0}% kelulusan</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className="p-4 border-primary/30 bg-primary/5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-primary font-semibold">Total Ujian</span>
-                        <Target className="h-4 w-4 text-primary" />
+            <Card className="rounded-2xl">
+                <CardContent className="p-4 md:p-5 space-y-3">
+                    <div>
+                        <h2 className="font-bold text-sm flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">Ringkasan Akurasi</Badge>
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {totalCorrect} Benar / {totalWrong} Salah / {totalUnanswered} Kosong
+                        </p>
                     </div>
-                    <div className="text-2xl font-black mt-2">{totalTests}</div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">Tryout & ujian selesai</p>
-                </Card>
-
-                <Card className="p-4 border-emerald-500/30 bg-emerald-500/5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-emerald-600 font-semibold">Akurasi</span>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div className="text-2xl font-black mt-2">{accuracy.toFixed(1)}%</div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{totalCorrect} benar / {totalQuestions} soal</p>
-                </Card>
-
-                <Card className="p-4 border-amber-500/30 bg-amber-500/5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-amber-600 font-semibold">Rata-rata Skor</span>
-                        <BarChart2 className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <div className="text-2xl font-black mt-2">{avgScore.toFixed(1)}</div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">Dari {totalTests} ujian</p>
-                </Card>
-
-                <Card className="p-4 border-violet-500/30 bg-violet-500/5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-violet-600 font-semibold">Lulus / Gagal</span>
-                        <Trophy className="h-4 w-4 text-violet-600" />
-                    </div>
-                    <div className="text-2xl font-black mt-2">{passed} / {failed}</div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{passed + failed > 0 ? ((passed / (passed + failed)) * 100).toFixed(0) : 0}% tingkat kelulusan</p>
-                </Card>
-            </div>
-
-            <Card className="p-4 border bg-card shadow-xs">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">Ringkasan Akurasi</Badge>
-                        </div>
-                        <h3 className="font-bold">Rincian Jawaban: {totalCorrect} Benar / {totalWrong} Salah / {totalUnanswered} Kosong</h3>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm font-mono">
-                        <div className="text-center">
+                    <div className="grid grid-cols-3 text-center text-sm font-mono">
+                        <div>
                             <div className="text-lg font-bold text-emerald-600">{totalCorrect}</div>
                             <div className="text-[10px] text-muted-foreground">Benar</div>
                         </div>
-                        <div className="text-center">
+                        <div>
                             <div className="text-lg font-bold text-destructive">{totalWrong}</div>
                             <div className="text-[10px] text-muted-foreground">Salah</div>
                         </div>
-                        <div className="text-center">
+                        <div>
                             <div className="text-lg font-bold text-muted-foreground">{totalUnanswered}</div>
                             <div className="text-[10px] text-muted-foreground">Kosong</div>
                         </div>
                     </div>
-                </div>
-                <div className="mt-3 h-3 w-full bg-muted rounded-full overflow-hidden flex">
-                    {totalQuestions > 0 && (
-                        <>
-                            <div
-                                className="h-full bg-emerald-500"
-                                style={{ width: `${(totalCorrect / totalQuestions) * 100}%` }}
-                            />
-                            <div
-                                className="h-full bg-destructive"
-                                style={{ width: `${(totalWrong / totalQuestions) * 100}%` }}
-                            />
-                            <div
-                                className="h-full bg-muted-foreground/30"
-                                style={{ width: `${(totalUnanswered / totalQuestions) * 100}%` }}
-                            />
-                        </>
-                    )}
-                </div>
+                    <div className="h-3 w-full bg-muted rounded-full overflow-hidden flex">
+                        {totalQuestions > 0 && (
+                            <>
+                                <div
+                                    className="h-full bg-emerald-500"
+                                    style={{ width: `${(totalCorrect / totalQuestions) * 100}%` }}
+                                />
+                                <div
+                                    className="h-full bg-destructive"
+                                    style={{ width: `${(totalWrong / totalQuestions) * 100}%` }}
+                                />
+                                <div
+                                    className="h-full bg-muted-foreground/30"
+                                    style={{ width: `${(totalUnanswered / totalQuestions) * 100}%` }}
+                                />
+                            </>
+                        )}
+                    </div>
+                </CardContent>
             </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-xs flex flex-col justify-between">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-primary" /> Radar Penguasaan Per Mata Pelajaran
-                        </CardTitle>
-                        <CardDescription>
-                            Visualisasi akurasi jawaban per sub-tes dibandingkan target 60%.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-center p-6">
-                        {radarData.length > 0 ? (
-                            <PerformanceRadarChart metrics={radarData} />
-                        ) : (
-                            <p className="text-sm text-muted-foreground">Belum ada data ujian</p>
-                        )}
+                <Card className="rounded-2xl">
+                    <CardContent className="p-4 md:p-5 flex flex-col space-y-3 h-full">
+                        <div>
+                            <h2 className="font-bold text-sm flex items-center gap-2">
+                                <Sparkles className="h-4 w-4 text-primary" /> Radar Penguasaan Per Mata Pelajaran
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Visualisasi akurasi jawaban per sub-tes dibandingkan target 60%.
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-center flex-1">
+                            {radarData.length > 0 ? (
+                                <PerformanceRadarChart metrics={radarData} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Belum ada data ujian</p>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-xs flex flex-col justify-between">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-emerald-600" /> Histori Tren Skor
-                        </CardTitle>
-                        <CardDescription>
-                            Progresi skor dari waktu ke waktu berdasarkan riwayat ujian.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-center p-6">
-                        {trendData.length > 0 ? (
-                            <PerformanceTrendChart data={trendData} targetCutoff={60} />
-                        ) : (
-                            <p className="text-sm text-muted-foreground">Minimal 1 ujian diperlukan untuk tren</p>
-                        )}
+                <Card className="rounded-2xl">
+                    <CardContent className="p-4 md:p-5 flex flex-col space-y-3 h-full">
+                        <div>
+                            <h2 className="font-bold text-sm flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-emerald-600" /> Histori Tren Skor
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Progresi skor dari waktu ke waktu berdasarkan riwayat ujian.
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-center flex-1">
+                            {trendData.length > 0 ? (
+                                <PerformanceTrendChart data={trendData} targetCutoff={60} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Minimal 1 ujian diperlukan untuk tren</p>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 shadow-xs">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <BarChart2 className="h-5 w-5 text-primary" /> Penguasaan Per Mata Pelajaran
-                        </CardTitle>
-                        <CardDescription>
-                            Persentase kebenaran jawaban per sub-tes.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {subjects.length > 0 ? subjects.map((sub, idx) => (
-                            <div key={idx} className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">{sub.subject_name}</span>
-                                    <div className="flex items-center gap-2 font-mono">
-                                        <span className="font-bold">{sub.percentage.toFixed(1)}%</span>
-                                        <span className="text-muted-foreground text-[11px]">({sub.correct_count}/{sub.questions_count} benar)</span>
-                                        {sub.percentage >= 80 && <Badge variant="default" className="text-[10px] py-0 bg-emerald-600">EXCELLENT</Badge>}
-                                        {sub.percentage >= 60 && sub.percentage < 80 && <Badge variant="secondary" className="text-[10px] py-0">SAFE</Badge>}
-                                        {sub.percentage < 60 && <Badge variant="destructive" className="text-[10px] py-0">BOOST NEEDED</Badge>}
+                <Card className="rounded-2xl lg:col-span-2">
+                    <CardContent className="p-4 md:p-5 space-y-3">
+                        <div>
+                            <h2 className="font-bold text-sm flex items-center gap-2">
+                                <BarChart2 className="h-4 w-4 text-primary" /> Penguasaan Per Mata Pelajaran
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">Persentase kebenaran jawaban per sub-tes.</p>
+                        </div>
+                        <div className="space-y-3">
+                            {subjects.length > 0 ? subjects.map((sub, idx) => (
+                                <div key={idx} className="space-y-1.5 p-3 rounded-xl border bg-muted/40">
+                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                        <span className="font-semibold truncate">{sub.subject_name}</span>
+                                        <div className="flex items-center gap-2 font-mono shrink-0">
+                                            <span className="font-bold">{sub.percentage.toFixed(1)}%</span>
+                                            <span className="text-muted-foreground text-[11px]">({sub.correct_count}/{sub.questions_count} benar)</span>
+                                            {sub.percentage >= 80 && <Badge variant="default" className="text-[10px] py-0 bg-emerald-600">EXCELLENT</Badge>}
+                                            {sub.percentage >= 60 && sub.percentage < 80 && <Badge variant="secondary" className="text-[10px] py-0">SAFE</Badge>}
+                                            {sub.percentage < 60 && <Badge variant="destructive" className="text-[10px] py-0">BOOST NEEDED</Badge>}
+                                        </div>
+                                    </div>
+                                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full ${sub.percentage >= 80 ? "bg-emerald-500" : sub.percentage >= 60 ? "bg-primary" : "bg-destructive"}`}
+                                            style={{ width: `${Math.min(100, sub.percentage)}%` }}
+                                        />
                                     </div>
                                 </div>
-                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full ${sub.percentage >= 80 ? "bg-emerald-500" : sub.percentage >= 60 ? "bg-primary" : "bg-destructive"}`}
-                                        style={{ width: `${Math.min(100, sub.percentage)}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )) : (
-                            <p className="text-sm text-muted-foreground text-center py-4">Belum ada data per sub-tes</p>
-                        )}
+                            )) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">Belum ada data per sub-tes</p>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-xs">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-amber-500" /> Rekomendasi Belajar
-                        </CardTitle>
-                        <CardDescription>
-                            Fokus perbaikan berdasarkan performa terkini.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-xs">
-                        {weakest.length > 0 && weakest.map((w, idx) => (
-                            <div key={idx} className={`p-3 rounded-lg border space-y-1 ${w.percentage < 60 ? "bg-destructive/10 border-destructive/20" : "bg-amber-50 border-amber-200"}`}>
-                                <span className={`font-bold flex items-center gap-1 ${w.percentage < 60 ? "text-destructive" : "text-amber-600"}`}>
-                                    <AlertCircle className="h-3.5 w-3.5" /> Prioritas {idx + 1}: {w.subject_name}
-                                </span>
-                                <p className="text-muted-foreground leading-relaxed">
-                                    Akurasi {w.percentage.toFixed(1)}% ({w.correct_count}/{w.questions_count} benar).
-                                    {w.percentage < 60 ? " Perlu perbaikan intensif. " : " Dapat ditingkatkan lagi. "}
-                                </p>
-                            </div>
-                        ))}
+                <Card className="rounded-2xl">
+                    <CardContent className="p-4 md:p-5 space-y-3 h-full flex flex-col">
+                        <div>
+                            <h2 className="font-bold text-sm flex items-center gap-2">
+                                <Sparkles className="h-4 w-4 text-amber-500" /> Rekomendasi Belajar
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">Fokus perbaikan berdasarkan performa terkini.</p>
+                        </div>
+                        <div className="space-y-3 text-xs flex-1">
+                            {weakest.length > 0 && weakest.map((w, idx) => (
+                                <div key={idx} className={`p-3 rounded-xl border space-y-1 ${w.percentage < 60 ? "bg-destructive/10 border-destructive/20" : "bg-amber-50 border-amber-200"}`}>
+                                    <span className={`font-bold flex items-center gap-1 ${w.percentage < 60 ? "text-destructive" : "text-amber-600"}`}>
+                                        <AlertCircle className="h-3.5 w-3.5" /> Prioritas {idx + 1}: {w.subject_name}
+                                    </span>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        Akurasi {w.percentage.toFixed(1)}% ({w.correct_count}/{w.questions_count} benar).
+                                        {w.percentage < 60 ? " Perlu perbaikan intensif. " : " Dapat ditingkatkan lagi. "}
+                                    </p>
+                                </div>
+                            ))}
 
-                                                {strongest.length > 0 && strongest[0].percentage >= 80 && (
-                            <div className="p-3 rounded-lg border bg-emerald-50 border-emerald-200 space-y-1">
-                                <span className="font-bold text-emerald-700 flex items-center gap-1">
-                                    <Trophy className="h-3.5 w-3.5" /> Kekuatan: {strongest[0].subject_name}
-                                </span>
-                                <p className="text-muted-foreground leading-relaxed">
-                                    Akurasi {strongest[0].percentage.toFixed(1)}% — pertahankan!
-                                </p>
-                            </div>
-                        )}
+                            {strongest.length > 0 && strongest[0]!.percentage >= 80 && (
+                                <div className="p-3 rounded-xl border bg-emerald-50 border-emerald-200 space-y-1">
+                                    <span className="font-bold text-emerald-700 flex items-center gap-1">
+                                        <Trophy className="h-3.5 w-3.5" /> Kekuatan: {strongest[0]!.subject_name}
+                                    </span>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        Akurasi {strongest[0]!.percentage.toFixed(1)}% — pertahankan!
+                                    </p>
+                                </div>
+                            )}
 
-                        <div className="pt-2">
-                            <Link href="/student/exam">
-                                <Button className="w-full text-xs" size="sm">
-                                    Ambil Ujian Selanjutnya <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
-                                </Button>
-                            </Link>
+                            <div className="pt-2">
+                                <Link href="/student/exam">
+                                    <Button className="w-full text-xs" size="sm">
+                                        Ambil Ujian Selanjutnya <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
             {recentResults.length > 0 && (
-                <Card className="shadow-xs">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-primary" /> Riwayat Ujian Terakhir
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <th className="pb-3 font-medium">Ujian</th>
-                                        <th className="pb-3 font-medium text-center">Skor</th>
-                                        <th className="pb-3 font-medium text-center">Status</th>
-                                        <th className="pb-3 font-medium text-right">Tanggal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {recentResults.map((r, idx) => (
-                                        <tr key={idx} className="border-b border-muted/50 hover:bg-muted/30">
-                                            <td className="py-3 font-medium">{r.exam_title}</td>
-                                            <td className="py-3 text-center font-mono font-bold">{r.score?.toFixed(1) ?? "—"}</td>
-                                            <td className="py-3 text-center">
-                                                <Badge variant={r.is_passed ? "default" : "destructive"} className={`text-[10px] ${r.is_passed ? "bg-emerald-600" : ""}`}>
-                                                    {r.is_passed ? "LULUS" : "TIDAK LULUS"}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 text-right text-muted-foreground text-xs">
-                                                {new Date(r.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                <Card className="rounded-2xl">
+                    <CardContent className="p-4 md:p-5 space-y-3">
+                        <h2 className="font-bold text-sm flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-primary" /> Riwayat Ujian Terakhir
+                        </h2>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Ujian</TableHead>
+                                    <TableHead className="text-center">Skor</TableHead>
+                                    <TableHead className="text-center">Status</TableHead>
+                                    <TableHead className="text-right">Tanggal</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {recentResults.map((r, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{r.exam_title}</TableCell>
+                                        <TableCell className="text-center font-mono font-bold">{r.score?.toFixed(1) ?? "—"}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant={r.is_passed ? "default" : "destructive"} className={`text-[10px] ${r.is_passed ? "bg-emerald-600" : ""}`}>
+                                                {r.is_passed ? "LULUS" : "TIDAK LULUS"}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs">
+                                            {new Date(r.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </CardContent>
                 </Card>
             )}
 
             {totalTests === 0 && (
-                <Card className="p-12 text-center space-y-3 bg-muted/10 border-dashed">
+                <div className="bg-card rounded-2xl border border-dashed p-10 text-center">
                     <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
-                    <h4 className="font-bold text-base">Belum Ada Ujian Selesai</h4>
-                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    <h4 className="font-bold text-base mt-3">Belum Ada Ujian Selesai</h4>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
                         Mulai mengerjakan ujian untuk melihat analitik perkembangan Anda.
                     </p>
                     <Link href="/student/exam">
                         <Button className="mt-4" size="sm">Mulai Ujian Sekarang</Button>
                     </Link>
-                </Card>
+                </div>
             )}
         </div>
     );

@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AuthContextType } from '@/providers/AuthProvider';
 
 const BASE_URL = '/api/v1';
 
@@ -120,6 +121,10 @@ export const queryKeys = {
     stats: ['audit', 'stats'] as const,
     logs: (page?: number, limit?: number, severity?: string, eventType?: string) => ['audit', 'logs', page, limit, severity, eventType] as const,
   },
+  admin: {
+    health: ['admin', 'health'] as const,
+    logs: (limit?: number) => ['admin', 'logs', limit] as const,
+  },
   schools: {
     all: ['schools'] as const,
   },
@@ -158,10 +163,28 @@ export const queryKeys = {
 
 // Auth Hooks
 export function useAuth() {
-  return useQuery({
+  return useQuery<{ user: AuthContextType['user'] } | null>({
     queryKey: queryKeys.auth.me,
     queryFn: () => apiFetch('/auth/me'),
     retry: false,
+  });
+}
+
+// Admin Dashboard Types
+export interface AdminDashboardResponse {
+  totalUsers: number;
+  totalSchools: number;
+  activeExamSessions: number;
+  totalExams: number;
+  totalQuestions: number;
+  approvedQuestions: number;
+}
+
+// Admin Dashboard
+export function useAdminDashboard() {
+  return useQuery<AdminDashboardResponse, Error>({
+    queryKey: queryKeys.dashboard.admin,
+    queryFn: () => apiFetch<AdminDashboardResponse>('/dashboard/admin'),
   });
 }
 
@@ -181,7 +204,6 @@ export function useCreateUser() {
   });
 }
 
-// Academic Hooks
 export function useLevels() {
   return useQuery({
     queryKey: queryKeys.academic.levels,
@@ -207,6 +229,31 @@ export function useChapters(subjectId?: string) {
   return useQuery({
     queryKey: queryKeys.academic.chapters(subjectId ?? 'all'),
     queryFn: () => apiFetch(subjectId ? `/academic/subjects/${subjectId}/chapters` : '/academic/chapters'),
+  });
+}
+
+export function useCreateChapter() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => apiFetch('/academic/chapters', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.academic.chapters('all') }),
+  });
+}
+
+export function useUpdateChapter() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiFetch(`/academic/chapters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.academic.chapters('all') }),
+  });
+}
+
+export function useDeleteChapter() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/academic/chapters/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.academic.chapters('all') }),
   });
 }
 
@@ -314,6 +361,24 @@ export function useImportExams() {
   });
 }
 
+export function useAddExamQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ examId, questionId, points }: { examId: string; questionId: string; points?: number }) =>
+      apiFetch(`/exams/${examId}/questions`, { method: 'POST', body: JSON.stringify({ question_id: questionId, display_order: 0, points: points || 1 }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.exams.all }),
+  });
+}
+
+export function useRemoveExamQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ examId, questionId }: { examId: string; questionId: string }) =>
+      apiFetch(`/exams/${examId}/questions/${questionId}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.exams.all }),
+  });
+}
+
 // Dashboard Hooks
 export function useStudentDashboard() {
   return useQuery({
@@ -329,12 +394,6 @@ export function useTeacherDashboard() {
   });
 }
 
-export function useAdminDashboard() {
-  return useQuery({
-    queryKey: queryKeys.dashboard.admin,
-    queryFn: () => apiFetch('/dashboard/admin'),
-  });
-}
 
 // Analytics Hooks
 export function useAnalytics(page = 1, limit = 20) {
@@ -789,3 +848,47 @@ export function useAuditLogs(page = 1, limit = 20, severity?: string, eventType?
 
 // Export raw apiFetch for custom needs
 export { apiFetch };
+
+// Admin DTOs (matching backend)
+export interface HealthService {
+  name: string;
+  endpoint?: string;
+  status: "HEALTHY" | "DEGRADED" | "DOWN";
+  latency: string;
+  uptime: string;
+}
+
+export interface HealthResponse {
+  services: HealthService[];
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: "INFO" | "WARN" | "ERROR" | "DEBUG";
+  module: "HTTP_API" | "CBT_ENGINE" | "DATABASE" | "AI_RAG" | "SECURITY" | string;
+  message: string;
+}
+
+export interface LogsResponse {
+  logs: LogEntry[];
+}
+
+// Admin Hooks
+export function useApiHealthCheck() {
+  return useQuery<HealthResponse, Error>({
+    queryKey: queryKeys.admin.health,
+    queryFn: () => apiFetch<HealthResponse>('/admin/health'),
+    refetchInterval: 30000,
+    staleTime: 10000,
+  });
+}
+
+export function useSystemLogs(limit = 50) {
+  return useQuery<LogsResponse, Error>({
+    queryKey: queryKeys.admin.logs(limit),
+    queryFn: () => apiFetch<LogsResponse>(`/admin/logs?limit=${limit}`),
+    refetchInterval: 15000,
+    staleTime: 10000,
+  });
+}
