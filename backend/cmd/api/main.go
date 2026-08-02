@@ -29,12 +29,15 @@ import (
 	"yakinlulus.id/backend/internal/middleware"
 	"yakinlulus.id/backend/internal/notification"
 	"yakinlulus.id/backend/internal/practice"
+	"yakinlulus.id/backend/internal/profile"
 	"yakinlulus.id/backend/internal/question_bank"
 	"yakinlulus.id/backend/internal/school"
 	"yakinlulus.id/backend/internal/scoring"
 	"yakinlulus.id/backend/internal/shared"
-	"yakinlulus.id/backend/internal/subscription"
-	"yakinlulus.id/backend/internal/ws"
+	"yakinlulus.id/backend/internal/subscription"                   
+	"yakinlulus.id/backend/internal/target_schools"                 
+	"yakinlulus.id/backend/internal/ws"                             
+
 	"yakinlulus.id/backend/pkg/cache"
 	"yakinlulus.id/backend/pkg/config"
 	"yakinlulus.id/backend/pkg/database"
@@ -223,6 +226,16 @@ func main() {
 	gamiSvc := gamification.NewService(gamiRepo)
 	gamiHandler := gamification.NewHandler(gamiSvc, cfg.JWT.Secret)
 
+	// Student profile module
+	profileRepo := profile.NewRepository(pool)
+	profileSvc := profile.NewService(profileRepo)
+	profileHandler := profile.NewHandler(profileSvc, cfg.JWT.Secret)
+
+	// Target schools module
+	targetSchoolRepo := target_schools.NewRepository(pool)
+	targetSchoolSvc := target_schools.NewService(targetSchoolRepo)
+	targetSchoolHandler := target_schools.NewHandler(targetSchoolSvc, cfg.JWT.Secret)
+
 	// WebSocket hub for live CBT proctoring
 	wsHub := ws.NewHub()
 	go wsHub.Run()
@@ -253,6 +266,9 @@ func main() {
 	adminHandler.RegisterRoutes(api)
 	wsHandler.RegisterRoutes(api)
 	gamiHandler.RegisterRoutes(api)
+	profileHandler.RegisterRoutes(api)                              
+	targetSchoolHandler.RegisterRoutes(api)                         
+
 
 	addr := cfg.App.Host + ":" + itoa(cfg.App.Port)
 	slog.Info("Server starting", "addr", addr)
