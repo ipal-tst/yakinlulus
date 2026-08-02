@@ -23,6 +23,7 @@ import {
     Terminal,
     Trophy,
     UserCheck,
+    Target,
     X,
     ChevronDown,
 } from "lucide-react";
@@ -95,6 +96,7 @@ export function Sidebar({ role = "student", isMobileOpen = false, onMobileClose 
         { label: "Materi Pembelajaran", href: "/admin/materials", icon: BookOpen },
         { label: "CBT Exam Operations", href: "/admin/cbt", icon: FileSpreadsheet },
         { label: "Sekolah Mitra & Quota", href: "/admin/schools", icon: Building2 },
+        { label: "Target Sekolah & Ambang", href: "/admin/target-schools", icon: Target },
         { label: "Paket & Revenue MRR", href: "/admin/subscriptions", icon: CreditCard },
         {
             label: "Pengaturan Sistem", icon: Settings, children: [
