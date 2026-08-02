@@ -226,15 +226,15 @@ func main() {
 	gamiSvc := gamification.NewService(gamiRepo)
 	gamiHandler := gamification.NewHandler(gamiSvc, cfg.JWT.Secret)
 
-	// Student profile module
-	profileRepo := profile.NewRepository(pool)
-	profileSvc := profile.NewService(profileRepo)
-	profileHandler := profile.NewHandler(profileSvc, cfg.JWT.Secret)
-
 	// Target schools module
 	targetSchoolRepo := target_schools.NewRepository(pool)
 	targetSchoolSvc := target_schools.NewService(targetSchoolRepo)
 	targetSchoolHandler := target_schools.NewHandler(targetSchoolSvc, cfg.JWT.Secret)
+
+	// Student profile module
+	profileRepo := profile.NewRepository(pool)
+	profileSvc := profile.NewService(profileRepo, targetSchoolRepo)
+	profileHandler := profile.NewHandler(profileSvc, cfg.JWT.Secret)
 
 	// WebSocket hub for live CBT proctoring
 	wsHub := ws.NewHub()
