@@ -120,7 +120,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) CountPackageSubjects(ctx context.Context, packageID uuid.UUID) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM exam_package_exams WHERE package_id = $1`, packageID).Scan(&n)
+		`SELECT COUNT(DISTINCT subject_id) FROM exam_package_exams WHERE package_id = $1`, packageID).Scan(&n)
 	return n, err
 }
 

@@ -213,7 +213,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, created_at, updated_at
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -224,7 +224,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -283,7 +283,7 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, created_at, updated_at
 		 FROM users WHERE email ILIKE $1 OR full_name ILIKE $1
 		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
 	if err != nil {
@@ -295,7 +295,7 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)

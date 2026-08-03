@@ -105,7 +105,7 @@ export const queryKeys = {
     exams: (packageId: string) => ['exam-packages', 'exams', packageId] as const,
   },
   ranking: {
-    leaderboard: (packageId: string, month?: string) => ['ranking', 'leaderboard', packageId, month] as const,
+    leaderboard: (packageId: string, month?: string, limit?: number) => ['ranking', 'leaderboard', packageId, month, limit ?? 100] as const,
   },
   analytics: {
     student: (id: string) => ['analytics', 'student', id] as const,
@@ -639,10 +639,10 @@ export function usePackageExams(packageId?: string) {
   });
 }
 
-export function useRanking(packageId?: string, month?: string) {
+export function useRanking(packageId?: string, month?: string, limit?: number) {
   return useQuery({
-    queryKey: queryKeys.ranking.leaderboard(packageId || '', month),
-    queryFn: () => apiFetch(`/leaderboard?package_id=${packageId}&month=${month || ''}&limit=100`),
+    queryKey: queryKeys.ranking.leaderboard(packageId || '', month, limit),
+    queryFn: () => apiFetch(`/leaderboard?package_id=${packageId}&month=${month || ''}&limit=${limit ?? 100}`),
     enabled: !!packageId,
   });
 }

@@ -8,7 +8,9 @@ import { Trophy, Calendar, School } from "lucide-react";
 export default function StudentLeaderboardPage() {
     const { user } = useAuth();
     const { data: packagesData } = useExamPackages() as any;
-    const packages = Array.isArray(packagesData) ? packagesData : [];
+    const packages = Array.isArray(packagesData)
+        ? (packagesData as any[]).filter((p) => p.is_active !== false)
+        : [];
 
     const [selectedPackageId, setSelectedPackageId] = React.useState<string>("");
     const [selectedMonth, setSelectedMonth] = React.useState<string>(

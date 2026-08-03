@@ -215,6 +215,14 @@ func (r *Repository) LinkExam(ctx context.Context, packageID uuid.UUID, req Link
 	return err
 }
 
+func (r *Repository) IsExamContent(ctx context.Context, examContentID uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM contents WHERE id = $1 AND content_type = 'EXAM')`,
+		examContentID).Scan(&ok)
+	return ok, err
+}
+
 func (r *Repository) UnlinkExam(ctx context.Context, packageID, examContentID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
 		`DELETE FROM exam_package_exams WHERE package_id = $1 AND exam_content_id = $2`,
@@ -259,6 +267,14 @@ func (s *Service) ListExams(ctx context.Context, packageID uuid.UUID) ([]Package
 func (s *Service) LinkExam(ctx context.Context, packageID uuid.UUID, req LinkExamRequest) error {
 	if err := validateLinkRequest(req); err != nil {
 		return err
+	}
+	examID, _ := uuid.Parse(req.ExamContentID)
+	ok, err := s.repo.IsExamContent(ctx, examID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusBadRequest, "exam_content_id must reference an exam content")
 	}
 	return s.repo.LinkExam(ctx, packageID, req)
 }

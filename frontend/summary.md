@@ -56,9 +56,9 @@
 
 ## Backend
 - 19 Go modules (~55 .go files), 401+ handlers
-- 25+ migrations applied
+- 42 migrations applied
 - Config: JWT, Redis (optional), MinIO (optional), rate limit
-- Modules: auth, academic, question_bank, cbt_engine, cbt_runtime, scoring, analytics, media, material, school, notification, gamification, dashboard, practice, ai_tutor, content, ws, middleware, shared
+- Modules: auth, academic, question_bank, cbt_engine, cbt_runtime, scoring, analytics, media, material, school, notification, exam_packages, ranking, dashboard, practice, ai_tutor, content, ws, middleware, shared
 
 - ✅ KaTeX math — ^0.16.21 installed (MathKaTeXPreview component)
 - ✅ Dark mode — CSS + ThemeProvider in layout
