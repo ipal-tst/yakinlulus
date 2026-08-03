@@ -80,3 +80,30 @@ func TestUpdateProfileRequestAcceptsSchoolName(t *testing.T) {
 	req := UpdateProfileRequest{SchoolName: &school}
 	assert.Equal(t, "SMPN 1 Jakarta", *req.SchoolName)
 }
+
+func TestValidateProfileRequest(t *testing.T) {
+	g := "L"
+	m := "IPA"
+	phone := "08123456789012345678901" // 23 chars > 20
+	badG := "X"
+	badM := "AGAMA"
+	gid := "not-a-uuid"
+
+	okReq := UpdateProfileRequest{Gender: &g, Major: &m}
+	assert.NoError(t, validateProfileRequest(okReq))
+
+	badGender := UpdateProfileRequest{Gender: &badG}
+	assert.Error(t, validateProfileRequest(badGender))
+
+	badMajor := UpdateProfileRequest{Major: &badM}
+	assert.Error(t, validateProfileRequest(badMajor))
+
+	longPhone := UpdateProfileRequest{Phone: &phone}
+	assert.Error(t, validateProfileRequest(longPhone))
+
+	badGrade := UpdateProfileRequest{GradeID: &gid}
+	assert.Error(t, validateProfileRequest(badGrade))
+
+	nilReq := UpdateProfileRequest{}
+	assert.NoError(t, validateProfileRequest(nilReq))
+}

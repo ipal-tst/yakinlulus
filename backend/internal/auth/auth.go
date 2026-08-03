@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,6 +31,9 @@ type User struct {
 	IsActive     bool       `json:"is_active"`
 	AvatarURL    *string    `json:"avatar_url,omitempty"`
 	SchoolName   *string    `json:"school_name,omitempty"`
+	Gender       *string    `json:"gender,omitempty"`
+	Phone        *string    `json:"phone,omitempty"`
+	Major        *string    `json:"major,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
@@ -50,6 +54,10 @@ type UpdateProfileRequest struct {
 	FullName   *string `json:"full_name,omitempty"`
 	AvatarURL  *string `json:"avatar_url,omitempty"`
 	SchoolName *string `json:"school_name,omitempty"`
+	Gender     *string `json:"gender,omitempty"`
+	Phone      *string `json:"phone,omitempty"`
+	Major      *string `json:"major,omitempty"`
+	GradeID    *string `json:"grade_id,omitempty"`
 }
 
 type ChangePasswordRequest struct {
@@ -73,9 +81,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	u := &User{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
 		 FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -88,9 +96,9 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, erro
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	u := &User{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
 		 FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -110,24 +118,52 @@ func (r *Repository) Create(ctx context.Context, u *User) error {
 	return err
 }
 
-func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName *string, avatarURL *string, schoolName *string) error {
+func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req UpdateProfileRequest) error {
 	query := "UPDATE users SET updated_at = NOW()"
 	args := []interface{}{}
 	argN := 1
 
-	if fullName != nil {
+	if req.FullName != nil {
 		query += fmt.Sprintf(", full_name = $%d", argN)
-		args = append(args, *fullName)
+		args = append(args, *req.FullName)
 		argN++
 	}
-	if avatarURL != nil {
+	if req.AvatarURL != nil {
 		query += fmt.Sprintf(", avatar_url = $%d", argN)
-		args = append(args, *avatarURL)
+		args = append(args, nilString(req.AvatarURL))
 		argN++
 	}
-	if schoolName != nil {
+	if req.SchoolName != nil {
 		query += fmt.Sprintf(", school_name = $%d", argN)
-		args = append(args, *schoolName)
+		args = append(args, nilString(req.SchoolName))
+		argN++
+	}
+	if req.Gender != nil {
+		query += fmt.Sprintf(", gender = $%d", argN)
+		args = append(args, nilString(req.Gender))
+		argN++
+	}
+	if req.Phone != nil {
+		query += fmt.Sprintf(", phone = $%d", argN)
+		args = append(args, nilString(req.Phone))
+		argN++
+	}
+	if req.Major != nil {
+		query += fmt.Sprintf(", major = $%d", argN)
+		args = append(args, nilString(req.Major))
+		argN++
+	}
+	if req.GradeID != nil {
+		query += fmt.Sprintf(", grade_id = $%d", argN)
+		if *req.GradeID == "" {
+			args = append(args, nil)
+		} else {
+			gid, err := uuid.Parse(*req.GradeID)
+			if err != nil {
+				return err
+			}
+			args = append(args, gid)
+		}
 		argN++
 	}
 
@@ -136,6 +172,19 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName *
 
 	_, err := r.pool.Exec(ctx, query, args...)
 	return err
+}
+
+func nilString(p *string) interface{} {
+	if p == nil || *p == "" {
+		return nil
+	}
+	return *p
+}
+
+func (r *Repository) GradeExists(ctx context.Context, gradeID uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM grades WHERE id = $1)`, gradeID).Scan(&ok)
+	return ok, err
 }
 
 func (r *Repository) CreatePasswordReset(ctx context.Context, userID uuid.UUID, token, expiresAt string) error {
@@ -213,7 +262,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -224,7 +273,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -283,7 +332,7 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
 		 FROM users WHERE email ILIKE $1 OR full_name ILIKE $1
 		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
 	if err != nil {
@@ -295,7 +344,7 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -422,7 +471,20 @@ func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*User, error) {
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*User, error) {
-	if err := s.repo.UpdateProfile(ctx, userID, req.FullName, req.AvatarURL, req.SchoolName); err != nil {
+	if err := validateProfileRequest(req); err != nil {
+		return nil, err
+	}
+	if req.GradeID != nil && *req.GradeID != "" {
+		gid, _ := uuid.Parse(*req.GradeID)
+		exists, err := s.repo.GradeExists(ctx, gid)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to validate grade")
+		}
+		if !exists {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "grade not found")
+		}
+	}
+	if err := s.repo.UpdateProfile(ctx, userID, req); err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update profile")
 	}
 	return s.repo.FindByID(ctx, userID)
@@ -916,6 +978,24 @@ func validatePassword(password string) error {
 	}
 	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
 		return fmt.Errorf("Password must contain uppercase, lowercase, digit, and special character")
+	}
+	return nil
+}
+
+func validateProfileRequest(req UpdateProfileRequest) error {
+	if req.Gender != nil && *req.Gender != "L" && *req.Gender != "P" {
+		return fiber.NewError(fiber.StatusBadRequest, "gender must be L or P")
+	}
+	if req.Major != nil && !slices.Contains([]string{"IPA", "IPS", "BAHASA", "OLAHRAGA"}, *req.Major) {
+		return fiber.NewError(fiber.StatusBadRequest, "major must be IPA, IPS, BAHASA, or OLAHRAGA")
+	}
+	if req.Phone != nil && len(*req.Phone) > 20 {
+		return fiber.NewError(fiber.StatusBadRequest, "phone must not exceed 20 characters")
+	}
+	if req.GradeID != nil && *req.GradeID != "" {
+		if _, err := uuid.Parse(*req.GradeID); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "grade_id must be a valid UUID")
+		}
 	}
 	return nil
 }
