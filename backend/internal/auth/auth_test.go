@@ -74,3 +74,9 @@ func validateLogin(email, password string) error {
 	}
 	return nil
 }
+
+func TestUpdateProfileRequestAcceptsSchoolName(t *testing.T) {
+	school := "SMPN 1 Jakarta"
+	req := UpdateProfileRequest{SchoolName: &school}
+	assert.Equal(t, "SMPN 1 Jakarta", *req.SchoolName)
+}

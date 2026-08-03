@@ -29,6 +29,7 @@ type User struct {
 	GradeID      *uuid.UUID `json:"grade_id,omitempty"`
 	IsActive     bool       `json:"is_active"`
 	AvatarURL    *string    `json:"avatar_url,omitempty"`
+	SchoolName   *string    `json:"school_name,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
@@ -46,8 +47,9 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	FullName  *string `json:"full_name,omitempty"`
-	AvatarURL *string `json:"avatar_url,omitempty"`
+	FullName   *string `json:"full_name,omitempty"`
+	AvatarURL  *string `json:"avatar_url,omitempty"`
+	SchoolName *string `json:"school_name,omitempty"`
 }
 
 type ChangePasswordRequest struct {
@@ -71,9 +73,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	u := &User{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, created_at, updated_at
 		 FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -86,9 +88,9 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, erro
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	u := &User{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, created_at, updated_at
 		 FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -108,7 +110,7 @@ func (r *Repository) Create(ctx context.Context, u *User) error {
 	return err
 }
 
-func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName *string, avatarURL *string) error {
+func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName *string, avatarURL *string, schoolName *string) error {
 	query := "UPDATE users SET updated_at = NOW()"
 	args := []interface{}{}
 	argN := 1
@@ -121,6 +123,11 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName *
 	if avatarURL != nil {
 		query += fmt.Sprintf(", avatar_url = $%d", argN)
 		args = append(args, *avatarURL)
+		argN++
+	}
+	if schoolName != nil {
+		query += fmt.Sprintf(", school_name = $%d", argN)
+		args = append(args, *schoolName)
 		argN++
 	}
 
@@ -415,7 +422,7 @@ func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*User, error) {
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*User, error) {
-	if err := s.repo.UpdateProfile(ctx, userID, req.FullName, req.AvatarURL); err != nil {
+	if err := s.repo.UpdateProfile(ctx, userID, req.FullName, req.AvatarURL, req.SchoolName); err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update profile")
 	}
 	return s.repo.FindByID(ctx, userID)
