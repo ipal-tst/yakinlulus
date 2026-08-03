@@ -23,7 +23,8 @@ import (
 	"yakinlulus.id/backend/internal/cbt_runtime"
 	"yakinlulus.id/backend/internal/content"
 	"yakinlulus.id/backend/internal/dashboard"
-	"yakinlulus.id/backend/internal/gamification"
+	"yakinlulus.id/backend/internal/exam_packages"
+	"yakinlulus.id/backend/internal/ranking"
 	"yakinlulus.id/backend/internal/material"
 	"yakinlulus.id/backend/internal/media"
 	"yakinlulus.id/backend/internal/middleware"
@@ -221,10 +222,15 @@ func main() {
 	practiceSvc := practice.NewService(practiceRepo, contentRepo)
 	practiceHandler := practice.NewHandler(practiceSvc, cfg.JWT.Secret)
 
-	// Gamification module
-	gamiRepo := gamification.NewRepository(pool)
-	gamiSvc := gamification.NewService(gamiRepo)
-	gamiHandler := gamification.NewHandler(gamiSvc, cfg.JWT.Secret)
+	// Exam packages module
+	pkgRepo := exam_packages.NewRepository(pool)
+	pkgSvc := exam_packages.NewService(pkgRepo)
+	pkgHandler := exam_packages.NewHandler(pkgSvc, cfg.JWT.Secret)
+
+	// Ranking module
+	rankRepo := ranking.NewRepository(pool)
+	rankSvc := ranking.NewService(rankRepo)
+	rankHandler := ranking.NewHandler(rankSvc, cfg.JWT.Secret)
 
 	// Target schools module
 	targetSchoolRepo := target_schools.NewRepository(pool)
@@ -265,7 +271,8 @@ func main() {
 	auditHandler.RegisterRoutes(api)
 	adminHandler.RegisterRoutes(api)
 	wsHandler.RegisterRoutes(api)
-	gamiHandler.RegisterRoutes(api)
+	pkgHandler.RegisterRoutes(api)
+	rankHandler.RegisterRoutes(api)
 	profileHandler.RegisterRoutes(api)                              
 	targetSchoolHandler.RegisterRoutes(api)                         
 
