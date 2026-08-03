@@ -20,6 +20,7 @@ import {
     useChangePassword,
     useUpdateProfile,
     useTargetSchools,
+    useGrades,
     type TargetSchool,
     type EnrichedTarget,
     type SaveTargetInput,
@@ -60,6 +61,8 @@ export default function StudentProfilePage() {
 
     const targetsQuery = useMyTargets();
     const certsQuery = useMyCertificates();
+    const gradesQuery = useGrades() as any;
+    const grades: any[] = Array.isArray(gradesQuery.data) ? gradesQuery.data : [];
 
     const [activeDialog, setActiveDialog] = React.useState<
         null | "edit" | "password" | "targets" | "notifications" | "certificates"
@@ -121,6 +124,12 @@ export default function StudentProfilePage() {
                             <Badge variant="success" className="text-[10px]">
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Terverifikasi
                             </Badge>
+                            {user?.gender && <Badge variant="outline" className="text-[10px]">{user.gender === "L" ? "Laki-laki" : "Perempuan"}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {user?.phone && <span className="text-[11px] text-muted-foreground">{user.phone}</span>}
+                            {user?.grade_id && <span className="text-[11px] text-muted-foreground">{grades?.find((g: any) => g.id === user.grade_id)?.name}</span>}
+                            {user?.major && <span className="text-[11px] text-muted-foreground">Jurusan {user.major}</span>}
                         </div>
                     </div>
                 </div>
@@ -267,21 +276,50 @@ function SettingRow({ icon: Icon, label, danger, onClick }: { icon: any; label: 
 function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const { user, refetch } = useAuth();
     const updateProfile = useUpdateProfile();
+    const gradesQuery = useGrades() as any;
+    const grades: any[] = Array.isArray(gradesQuery.data) ? gradesQuery.data : [];
+
     const [fullName, setFullName] = React.useState(user?.full_name || "");
     const [avatarUrl, setAvatarUrl] = React.useState(user?.avatar_url || "");
     const [school, setSchool] = React.useState(user?.school_name || "");
+    const [gender, setGender] = React.useState(user?.gender || "");
+    const [phone, setPhone] = React.useState(user?.phone || "");
+    const [gradeId, setGradeId] = React.useState(user?.grade_id || "");
+    const [major, setMajor] = React.useState(user?.major || "");
     const [error, setError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         setFullName(user?.full_name || "");
         setAvatarUrl(user?.avatar_url || "");
         setSchool(user?.school_name || "");
+        setGender(user?.gender || "");
+        setPhone(user?.phone || "");
+        setGradeId(user?.grade_id || "");
+        setMajor(user?.major || "");
     }, [user, isOpen]);
+
+    const selectedGrade = grades.find((g) => g.id === gradeId);
+    const isSmaSmk = selectedGrade?.level_code === "SMA" || selectedGrade?.level_code === "SMK";
 
     const submit = async () => {
         setError(null);
+        if (!fullName.trim()) return setError("Nama lengkap wajib diisi");
+        if (phone.length > 20) return setError("Nomor HP maksimal 20 karakter");
+        const payload: {
+            full_name?: string;
+            avatar_url?: string;
+            school_name?: string;
+            gender?: string;
+            phone?: string;
+            major?: string;
+            grade_id?: string;
+        } = { full_name: fullName, avatar_url: avatarUrl, school_name: school };
+        if (gender) payload.gender = gender;
+        if (phone) payload.phone = phone;
+        if (gradeId) payload.grade_id = gradeId;
+        if (isSmaSmk && major) payload.major = major;
         try {
-            await updateProfile.mutateAsync({ full_name: fullName, avatar_url: avatarUrl, school_name: school });
+            await updateProfile.mutateAsync(payload);
             await refetch();
             onClose();
         } catch (e: any) {
@@ -289,13 +327,48 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         }
     };
 
+    const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+
     return (
-        <Dialog isOpen={isOpen} onClose={onClose} title="Edit Profil" description="Perbarui data dirimu.">
-            <div className="space-y-3">
+        <Dialog isOpen={isOpen} onClose={onClose} title="Edit Profil" description="Lengkapi data dirimu.">
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
                 <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nama Lengkap</label>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nama Lengkap *</label>
                     <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nama lengkap" />
                 </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">No HP (opsional)</label>
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Jenis Kelamin (opsional)</label>
+                    <select value={gender} onChange={(e) => setGender(e.target.value)} className={selectClass}>
+                        <option value="">Pilih jenis kelamin</option>
+                        <option value="L">Laki-laki</option>
+                        <option value="P">Perempuan</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Kelas (opsional)</label>
+                    <select value={gradeId} onChange={(e) => { setGradeId(e.target.value); if (!isSmaSmk) setMajor(""); }} className={selectClass}>
+                        <option value="">Pilih kelas</option>
+                        {grades.map((g: any) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                    </select>
+                </div>
+                {isSmaSmk && (
+                    <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Jurusan</label>
+                        <select value={major} onChange={(e) => setMajor(e.target.value)} className={selectClass}>
+                            <option value="">Pilih jurusan</option>
+                            <option value="IPA">IPA</option>
+                            <option value="IPS">IPS</option>
+                            <option value="BAHASA">Bahasa</option>
+                            <option value="OLAHRAGA">Olahraga</option>
+                        </select>
+                    </div>
+                )}
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Sekolah (opsional)</label>
                     <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="Nama sekolah" />

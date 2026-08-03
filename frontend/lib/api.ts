@@ -178,8 +178,15 @@ export function useAuth() {
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { full_name?: string; avatar_url?: string; school_name?: string }) =>
-      apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+    mutationFn: (payload: {
+      full_name?: string;
+      avatar_url?: string;
+      school_name?: string;
+      gender?: string;
+      phone?: string;
+      major?: string;
+      grade_id?: string;
+    }) => apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.auth.me }),
   });
 }
@@ -239,10 +246,20 @@ export function useSubjects() {
   });
 }
 
+export interface Grade {
+  id: string;
+  education_level_id: string;
+  level_code?: string;
+  name: string;
+  alias?: string;
+  display_order: number;
+  is_active: boolean;
+}
+
 export function useGrades() {
-  return useQuery({
+  return useQuery<Grade[], Error>({
     queryKey: ['academic', 'grades'],
-    queryFn: () => apiFetch('/academic/grades'),
+    queryFn: () => apiFetch<Grade[]>('/academic/grades'),
   });
 }
 

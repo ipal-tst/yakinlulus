@@ -11,6 +11,10 @@ export interface User {
   is_active: boolean;
   avatar_url?: string;
   school_name?: string;
+  gender?: string;
+  phone?: string;
+  major?: string;
+  grade_id?: string;
 }
 
 export interface AuthContextType {
