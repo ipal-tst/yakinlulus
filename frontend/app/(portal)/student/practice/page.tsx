@@ -102,7 +102,7 @@ export default function StudentPracticePage() {
                         <h3 className="font-bold text-sm">Daily Practice Challenge Hari Ini</h3>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                        Selesaikan 10 soal Penalaran Umum hari ini untuk mendapatkan bonus <span className="font-bold text-foreground">+150 XP &amp; Streak Multiplier</span>.
+                        Selesaikan 10 soal Penalaran Umum hari ini untuk melatih kemampuan Penalaran Umummu.
                     </p>
                 </div>
                 <Link href="/student/practice/prac-01" className="w-full md:w-auto">

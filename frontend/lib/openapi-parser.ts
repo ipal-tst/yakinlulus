@@ -208,14 +208,18 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
         responses: { "201": "Practice session created" }
     },
     {
-        id: "gamification-leaderboard",
-        path: "/gamification/leaderboard",
+        id: "ranking-leaderboard",
+        path: "/leaderboard",
         method: "GET",
-        summary: "Get global & subject leaderboards",
-        tag: "Gamification",
+        summary: "Get monthly national exam-score leaderboard for a package",
+        tag: "Ranking",
         authRequired: true,
-        params: [{ name: "period", in: "query", type: "string", enum: ["WEEKLY", "MONTHLY", "ALL_TIME"] }],
-        responses: { "200": "Rankings and XP totals" }
+        params: [
+            { name: "package_id", in: "query", type: "string", required: true },
+            { name: "month", in: "query", type: "string", description: "YYYY-MM", required: true },
+            { name: "limit", in: "query", type: "integer" }
+        ],
+        responses: { "200": "Ranking rows with per-subject scores, totals and averages" }
     },
 
     // --- AI Ecosystem ---

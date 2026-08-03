@@ -360,12 +360,11 @@ Modal: none (inline conditional section)
 ### C1. `/student` — Dashboard
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Welcome + Streak | XP | Level badges                            │
-│  Stat: Tryout | Rata-rata Skor | Peringkat | Streak             │
-│  Section: Lanjutkan Tryout → link ke /student/exam/[id]/info    │
-│  Section: Materi Terbaru → /student/materials                   │
-│  Section: Tryout Tersedia → /student/exam/[id]/info             │
-│  Section: Leaderboard → /student/leaderboard                    │
+│  Welcome + Statistik Nilai Ujian (Total | Rata-rata | Nilai Terbaik) │
+│  Section: Nilai Ujian Terbaru → /student/tryout/[id]/result       │
+│  Section: Materi Terbaru → /student/materials                      │
+│  Section: Tryout Tersedia → /student/exam/[id]/info               │
+│  Section: Peringkat Nasional → /student/leaderboard                │
 └──────────────────────────────────────────────────────────────────┘
 Modal: none
 Navigasi: → /student/materials, /student/exam, /student/leaderboard
@@ -452,7 +451,7 @@ Modal: none (inline AI summary section)
 ### C8. `/student/practice` — Latihan Soal Adaptif
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Stat: Total | Rata-rata | Streak                               │
+│  Stat: Total | Rata-rata | Nilai Terbaik                        │
 │  Mulai Latihan Baru: pilih mapel + jumlah soal                  │
 │  Riwayat sesi: tanggal, mapel, skor, status                     │
 │  → /student/practice/[id]                                       │
@@ -492,12 +491,11 @@ Modal: none
 Modal: Custom fixed overlay confirmation
 ```
 
-### C12. `/student/leaderboard` — Leaderboard & XP
+### C12. `/student/leaderboard` — Leaderboard Nilai Ujian
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  XP stats | Level | Streak calendar                              │
-│  Badge grid                                                      │
-│  Leaderboard tabel: Rank | Nama | XP | Level                    │
+│  Pilih Paket Ujian + Bulan (reset bulanan)                        │
+│  Leaderboard tabel: Rank | Nama Siswa | [per-mapel] | Total | Rata | Sekolah │
 └──────────────────────────────────────────────────────────────────┘
 Modal: none
 ```
@@ -702,7 +700,7 @@ Latihan Soal Adaptif   → /student/practice
 Ujian CBT & Tryout     → /student/exam
 AI Tutor Companion     → /student/ai-tutor
 Progress & IRT Analytics → /student/analytics
-Leaderboard & XP       → /student/leaderboard
+Leaderboard Nilai Ujian → /student/leaderboard
 Profil & Target Belajar → /student/profile
 ```
 
@@ -823,6 +821,7 @@ apiFetch() → /api/v1/...  ──────────────→  local
 | Dashboard | GET /dashboard/student, /teacher, /admin |
 | Analytics | GET /analytics/students/:id, /students/:id/timeline, /exams/:id, /admin/overview |
 | Media | POST /media/upload, GET /media, DELETE /media/:id |
-| Gamification | GET /gamification/xp, /badges, /streak, /leaderboard |
+| Exam Packages | GET/POST /exam-packages, GET/PUT/DELETE /exam-packages/:id, POST /exam-packages/:id/exams, GET /exam-packages/:id/exams |
+| Ranking | GET /leaderboard?package_id&month |
 | AI | GET/PUT /ai/config, POST /ai/parse-questions, POST /ai/tutor/chat |
 | Scoring | GET /results/:id, /results/:id/subject-breakdown |

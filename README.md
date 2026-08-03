@@ -37,7 +37,7 @@
 ## 🌟 Fitur & Arsitektur Utama Platform
 
 ### 1. 🎓 Student Super App Suite (13 Rute Utama)
-- **Beranda Siswa (`/student`)**: Dashboard dengan Streak counter, Level/XP, Quick Actions, dan Continue Learning.
+- **Beranda Siswa (`/student`)**: Dashboard dengan statistik nilai tryout (total, rata-rata, nilai terbaik), Quick Actions, dan Continue Learning.
 - **Materi Belajar Hub (`/student/materials`)**: Modul interaktif per sub-tes dengan video stream HD & KaTeX renderer.
 - **Latihan Soal Adaptif (`/student/practice`)**: Daily Practice Challenge & Latihan Adaptif IRT.
 - **Ujian CBT & Tryout Hub (`/student/exam`)**: Central Hub Tryout Akbar & Asesmen Sekolah dengan statistik live, filter jenjang, & pencarian instan.
@@ -45,7 +45,7 @@
 - **Hasil & IRT Tryout (`/student/tryout/[tryoutId]/result`)**: Evaluasi IRT 3-PL & rekomendasi fokus AI.
 - **AI Tutor Companion Center (`/student/ai-tutor`)**: Asisten belajar 24/7 berbasis Gemini LLM & RAG vector store.
 - **Analytics & IRT (`/student/analytics`)**: Radar chart kemampuan sub-tes & grafik tren perkembangan.
-- **Leaderboard & XP (`/student/leaderboard`)**: Klasemen peringkat nasional, kota, & sekolah.
+- **Leaderboard Paket Ujian (`/student/leaderboard`)**: Peringkat nilai ujian nasional per paket tryout dengan reset bulanan.
 - **Profil & Target Belajar (`/student/profile`)**: Manajemen target sekolah/PTN impian & unduh sertifikat.
 
 ### 2. 👑 Admin & Teacher CMS Command Center
@@ -100,7 +100,8 @@ backend/
 │   ├── cbt_runtime/  # Real-time CBT session: answers, violations, timer, navigation
 │   ├── content/      # UNIFIED CONTENT DOMAIN (base + subtypes)
 │   ├── dashboard/    # Student dashboard aggregation
-│   ├── gamification/ # XP, streaks, badges, leaderboards
+│   ├── exam_packages/# Exam packages (tryout bundles) + linked exams
+│   ├── ranking/      # Monthly national exam-score leaderboard
 │   ├── material/     # Learning materials (uses content.Repository)
 │   ├── media/        # File upload, storage (Supabase S3)
 │   ├── middleware/   # Auth, RBAC, logging, rate limiting
@@ -115,7 +116,7 @@ backend/
 │   ├── config/       # YAML config loader
 │   ├── database/     # pgx pool, migrations
 │   └── storage/      # Supabase S3 client
-└── migrations/       # 24 SQL migration files (versioned)
+└── migrations/       # 41 SQL migration files (versioned)
 ```
 
 ### Unified Content Domain (`internal/content/`)
@@ -254,6 +255,9 @@ cbtHandler := cbt_engine.NewHandler(cbtService)
 | **022** | **`022_platform_simplify_rbac.up.sql`** | **Grade-based RBAC: grade_id on users/questions/materials/exams, triggers auto-set from subject, `user_accessible_grades` view (graduation grades 6/9/12 get vertical access)** |
 | **023** | **`023_unified_contents.up.sql`** | **Unified contents base + subtypes + runtime tables + inline data migration from legacy tables** |
 | **024** | **`024_data_migration_unified.up.sql`** | **Additional data migration layer (aligned to actual legacy column names: `content`, `label`, `exam_sessions`, `exam_answers`)** |
+| **037** | **`037_student_targets.up.sql`** | **Student target schools & study programs (student_targets, target_schools, study_programs)** |
+| **040** | **`040_exam_packages.up.sql`** | **Exam packages: `exam_packages` + `exam_package_exams` (bundle tryout exams), `users.school_name`** |
+| **041** | **`041_drop_gamification.up.sql`** | **Removes legacy gamification: XP, streaks, badges, leaderboards** |
 
 ### Grade-Based Access Control (Migration 022)
 ```sql
@@ -279,7 +283,7 @@ Auto-populated via triggers on `questions`, `materials`, `exams` from `subject.g
 
 ---
 
-## 📊 API Endpoints Summary (149 endpoints, 15 modules)
+## 📊 API Endpoints Summary (149 endpoints, 16 modules)
 
 | Module | Endpoints | Key Features |
 |--------|-----------|--------------|
@@ -294,7 +298,8 @@ Auto-populated via triggers on `questions`, `materials`, `exams` from `subject.g
 | `scoring` | 4 | IRT 3-PL, results, ability estimation |
 | `media` | 5 | Upload, list, delete, presigned URLs |
 | `notification` | 6 | CRUD, mark read, push preferences |
-| `gamification` | 8 | XP, streaks, badges, leaderboards |
+| `exam_packages` | 7 | CRUD exam packages, link exams, package exams list |
+| `ranking` | 1 | Monthly national exam-score leaderboard |
 | `practice` | 10 | Daily challenge, adaptive practice, history |
 | `ai_tutor` | 5 | Chat, RAG search, conversation history |
 | `ws` | 4 | WebSocket connect, auth, message types |
