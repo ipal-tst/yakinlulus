@@ -185,7 +185,25 @@ func main() {
 	log.Println("Seeded Curriculums & Subjects")
 
 	// -------------------------------------------------------------
-	// 3e. CHAPTERS & SUB-CHAPTERS
+	// 3e. PROGRAMS (Tahun Ajaran & Program PTN)
+	// -------------------------------------------------------------
+	progSNBTID := uuid.MustParse("22000000-0000-0000-0000-000000000001")
+	progKedinasanID := uuid.MustParse("22000000-0000-0000-0000-000000000002")
+	progSIMAKID := uuid.MustParse("22000000-0000-0000-0000-000000000003")
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO academic_programs (id, code, name, academic_year, target_type, status, description, enrolled_students)
+		VALUES 
+			($1, 'TA-2026-SNBT', 'Super Intensive SNBT 2026', '2025/2026', 'SNBT_UTBK', 'ACTIVE', 'Bimbingan & Tryout CBT persiapan seleksi nasional berbasis tes 2026', 1250),
+			($2, 'TA-2026-KED', 'Program Kedinasan & STAN 2026', '2025/2026', 'KEDINASAN', 'ACTIVE', 'Persiapan Tes SKD TWK, TIU, TKP, dan Psikotes Sekolah Kedinasan', 480),
+			($3, 'TA-2026-SUI', 'Simulasi SIMAK UI & UTUL UGM', '2025/2026', 'SIMAK_UI', 'UPCOMING', 'Ujian mandiri PTN klaster papan atas dengan tingkat kesulitan tinggi', 310)
+		ON CONFLICT (code) DO NOTHING
+	`, progSNBTID, progKedinasanID, progSIMAKID)
+
+	log.Println("Seeded Academic Programs")
+
+	// -------------------------------------------------------------
+	// 3f. CHAPTERS & SUB-CHAPTERS
 	// -------------------------------------------------------------
 	chapFisikaID := uuid.MustParse("30000000-0000-0000-0000-000000000001")
 	chapPUID := uuid.MustParse("30000000-0000-0000-0000-000000000002")

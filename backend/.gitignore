@@ -6,3 +6,5 @@ config.yaml
 *.dll
 *.so
 *.dylib
+server.err.log
+server.out.log

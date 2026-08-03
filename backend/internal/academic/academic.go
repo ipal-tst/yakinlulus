@@ -2,6 +2,8 @@ package academic
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -75,6 +77,20 @@ type Curriculum struct {
 	DisplayOrder int       `json:"display_order"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type Program struct {
+	ID               uuid.UUID `json:"id"`
+	Code             string    `json:"code"`
+	Name             string    `json:"name"`
+	AcademicYear     string    `json:"academic_year"`
+	TargetType       string    `json:"target_type"`
+	Status           string    `json:"status"`
+	Description      *string   `json:"description,omitempty"`
+	EnrolledStudents int       `json:"enrolled_students"`
+	IsActive         bool      `json:"is_active"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type Topic struct {
@@ -198,17 +214,72 @@ func (r *Repository) DeleteGrade(ctx context.Context, id uuid.UUID) error {
 
 func (r *Repository) FindEducationLevelByCodeOrID(ctx context.Context, levelIDOrCode string) (*uuid.UUID, error) {
 	if parsedID, err := uuid.Parse(levelIDOrCode); err == nil {
-		return &parsedID, nil
+		var exists bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM education_levels WHERE id=$1)`, parsedID).Scan(&exists); err != nil {
+			return nil, err
+		}
+		if exists {
+			return &parsedID, nil
+		}
+		return nil, nil
 	}
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx, `SELECT id FROM education_levels WHERE UPPER(code)=UPPER($1) OR UPPER(name)=UPPER($1) LIMIT 1`, levelIDOrCode).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		errSD := r.pool.QueryRow(ctx, `SELECT id FROM education_levels LIMIT 1`).Scan(&id)
-		if errSD != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return &id, nil
+}
+
+// EnsureEducationLevel returns the id of the education level matching code,
+// creating it if it does not exist yet.
+func (r *Repository) EnsureEducationLevel(ctx context.Context, code string) (*uuid.UUID, error) {
+	levelID, err := r.FindEducationLevelByCodeOrID(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	if levelID != nil {
+		return levelID, nil
+	}
+	l := &EducationLevel{Name: levelNameFromCode(code), Code: code}
+	if err := r.CreateLevel(ctx, l); err != nil {
+		return nil, err
+	}
+	return &l.ID, nil
+}
+
+// resolveLevelCode determines which level code/identifier should be used.
+func resolveLevelCode(levelCode, educationLevelID string) string {
+	if levelCode != "" {
+		return levelCode
+	}
+	if educationLevelID != "" {
+		return educationLevelID
+	}
+	return "SD"
+}
+
+// levelNameFromCode returns a human-readable name for a known level code.
+func levelNameFromCode(code string) string {
+	switch strings.ToUpper(code) {
+	case "SD":
+		return "Sekolah Dasar"
+	case "SMP":
+		return "Sekolah Menengah Pertama"
+	case "SMA":
+		return "Sekolah Menengah Atas"
+	case "SMK":
+		return "Sekolah Menengah Kejuruan"
+	case "ALUMNI":
+		return "Alumni / Gap Year"
+	case "UTBK":
+		return "Persiapan UTBK"
+	default:
+		return code
+	}
 }
 
 func (r *Repository) ListCurriculums(ctx context.Context) ([]Curriculum, error) {
@@ -251,6 +322,53 @@ func (r *Repository) UpdateCurriculum(ctx context.Context, c *Curriculum) error 
 
 func (r *Repository) DeleteCurriculum(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM curriculums WHERE id=$1`, id)
+	return err
+}
+
+func (r *Repository) ListPrograms(ctx context.Context) ([]Program, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, code, name, academic_year, target_type, status,
+		       COALESCE(description, ''), enrolled_students, is_active, created_at, updated_at
+		FROM academic_programs
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []Program
+	for rows.Next() {
+		var p Program
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.AcademicYear, &p.TargetType, &p.Status,
+			&p.Description, &p.EnrolledStudents, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, p)
+	}
+	return list, nil
+}
+
+func (r *Repository) CreateProgram(ctx context.Context, p *Program) error {
+	p.ID = uuid.New()
+	p.IsActive = true
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO academic_programs (id, code, name, academic_year, target_type, status, description, enrolled_students, is_active)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		p.ID, p.Code, p.Name, p.AcademicYear, p.TargetType, p.Status, p.Description, p.EnrolledStudents, p.IsActive)
+	return err
+}
+
+func (r *Repository) UpdateProgram(ctx context.Context, p *Program) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE academic_programs SET code=$1, name=$2, academic_year=$3, target_type=$4, status=$5,
+		 description=$6, updated_at=NOW() WHERE id=$7`,
+		p.Code, p.Name, p.AcademicYear, p.TargetType, p.Status, p.Description, p.ID)
+	return err
+}
+
+func (r *Repository) DeleteProgram(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic_programs WHERE id=$1`, id)
 	return err
 }
 
@@ -737,6 +855,23 @@ type UpdateCurriculumReq struct {
 	Description string `json:"description,omitempty"`
 }
 
+type CreateProgramReq struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	AcademicYear string `json:"academic_year"`
+	TargetType   string `json:"target_type"`
+	Description  string `json:"description,omitempty"`
+}
+
+type UpdateProgramReq struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	AcademicYear string `json:"academic_year"`
+	TargetType   string `json:"target_type"`
+	Status       string `json:"status"`
+	Description  string `json:"description,omitempty"`
+}
+
 type CreateSubjectReq struct {
 	LevelID      string `json:"level_id"`
 	GradeID      string `json:"grade_id,omitempty"`
@@ -776,15 +911,9 @@ func (s *Service) ListGrades(ctx context.Context) ([]Grade, error) {
 }
 
 func (s *Service) CreateGrade(ctx context.Context, req CreateGradeReq) (*Grade, error) {
-	levelCode := req.LevelCode
-	if levelCode == "" && req.EducationLevelID != "" {
-		levelCode = req.EducationLevelID
-	}
-	if levelCode == "" {
-		levelCode = "SD"
-	}
-	levelID, err := s.repo.FindEducationLevelByCodeOrID(ctx, levelCode)
-	if err != nil || levelID == nil {
+	levelCode := resolveLevelCode(req.LevelCode, req.EducationLevelID)
+	levelID, err := s.repo.EnsureEducationLevel(ctx, levelCode)
+	if err != nil {
 		return nil, fiber.NewError(400, "Invalid education level")
 	}
 
@@ -864,6 +993,53 @@ func (s *Service) UpdateCurriculum(ctx context.Context, id uuid.UUID, req Update
 
 func (s *Service) DeleteCurriculum(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteCurriculum(ctx, id)
+}
+
+func (s *Service) ListPrograms(ctx context.Context) ([]Program, error) {
+	return s.repo.ListPrograms(ctx)
+}
+
+func (s *Service) CreateProgram(ctx context.Context, req CreateProgramReq) (*Program, error) {
+	var desc *string
+	if req.Description != "" {
+		desc = &req.Description
+	}
+	p := &Program{
+		Code:         req.Code,
+		Name:         req.Name,
+		AcademicYear: req.AcademicYear,
+		TargetType:   req.TargetType,
+		Status:       "ACTIVE",
+		Description:  desc,
+	}
+	if err := s.repo.CreateProgram(ctx, p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (s *Service) UpdateProgram(ctx context.Context, id uuid.UUID, req UpdateProgramReq) (*Program, error) {
+	var desc *string
+	if req.Description != "" {
+		desc = &req.Description
+	}
+	p := &Program{
+		ID:           id,
+		Code:         req.Code,
+		Name:         req.Name,
+		AcademicYear: req.AcademicYear,
+		TargetType:   req.TargetType,
+		Status:       req.Status,
+		Description:  desc,
+	}
+	if err := s.repo.UpdateProgram(ctx, p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (s *Service) DeleteProgram(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteProgram(ctx, id)
 }
 
 func (s *Service) GetLevel(ctx context.Context, id uuid.UUID) (*EducationLevel, error) {
@@ -1124,6 +1300,12 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r.Post("/curriculums", middleware.RequireAuth(h.jwt), write, h.CreateCurriculum)
 	r.Put("/curriculums/:id", middleware.RequireAuth(h.jwt), write, h.UpdateCurriculum)
 	r.Delete("/curriculums/:id", middleware.RequireAuth(h.jwt), write, h.DeleteCurriculum)
+
+	// Programs
+	r.Get("/programs", middleware.RequireAuth(h.jwt), h.ListPrograms)
+	r.Post("/programs", middleware.RequireAuth(h.jwt), write, h.CreateProgram)
+	r.Put("/programs/:id", middleware.RequireAuth(h.jwt), write, h.UpdateProgram)
+	r.Delete("/programs/:id", middleware.RequireAuth(h.jwt), write, h.DeleteProgram)
 }
 
 func (h *Handler) ListCurriculums(c *fiber.Ctx) error {
@@ -1171,6 +1353,53 @@ func (h *Handler) DeleteCurriculum(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete curriculum"))
 	}
 	return c.JSON(shared.Success(map[string]string{"message": "Curriculum deleted"}))
+}
+
+func (h *Handler) ListPrograms(c *fiber.Ctx) error {
+	programs, err := h.svc.ListPrograms(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list programs"))
+	}
+	return c.JSON(shared.Success(programs))
+}
+
+func (h *Handler) CreateProgram(c *fiber.Ctx) error {
+	var req CreateProgramReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	program, err := h.svc.CreateProgram(c.Context(), req)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to create program"))
+	}
+	return c.Status(201).JSON(shared.Success(program))
+}
+
+func (h *Handler) UpdateProgram(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid program id"))
+	}
+	var req UpdateProgramReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	program, err := h.svc.UpdateProgram(c.Context(), id, req)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to update program"))
+	}
+	return c.JSON(shared.Success(program))
+}
+
+func (h *Handler) DeleteProgram(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid program id"))
+	}
+	if err := h.svc.DeleteProgram(c.Context(), id); err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete program"))
+	}
+	return c.JSON(shared.Success(map[string]string{"message": "Program deleted"}))
 }
 
 func (h *Handler) ListLevels(c *fiber.Ctx) error {
