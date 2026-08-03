@@ -92,6 +92,10 @@ func TestValidateProfileRequest(t *testing.T) {
 	okReq := UpdateProfileRequest{Gender: &g, Major: &m}
 	assert.NoError(t, validateProfileRequest(okReq))
 
+	empty := ""
+	clearGender := UpdateProfileRequest{Gender: &empty, Major: &empty}
+	assert.NoError(t, validateProfileRequest(clearGender))
+
 	badGender := UpdateProfileRequest{Gender: &badG}
 	assert.Error(t, validateProfileRequest(badGender))
 

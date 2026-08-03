@@ -983,10 +983,10 @@ func validatePassword(password string) error {
 }
 
 func validateProfileRequest(req UpdateProfileRequest) error {
-	if req.Gender != nil && *req.Gender != "L" && *req.Gender != "P" {
+	if req.Gender != nil && *req.Gender != "" && *req.Gender != "L" && *req.Gender != "P" {
 		return fiber.NewError(fiber.StatusBadRequest, "gender must be L or P")
 	}
-	if req.Major != nil && !slices.Contains([]string{"IPA", "IPS", "BAHASA", "OLAHRAGA"}, *req.Major) {
+	if req.Major != nil && *req.Major != "" && !slices.Contains([]string{"IPA", "IPS", "BAHASA", "OLAHRAGA"}, *req.Major) {
 		return fiber.NewError(fiber.StatusBadRequest, "major must be IPA, IPS, BAHASA, or OLAHRAGA")
 	}
 	if req.Phone != nil && len(*req.Phone) > 20 {
