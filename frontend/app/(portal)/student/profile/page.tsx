@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import {
-    useAchievements,
     useMyTargets,
     useSaveTargets,
     useMyCertificates,
@@ -59,7 +58,6 @@ export default function StudentProfilePage() {
     const router = useRouter();
     const { user, logout } = useAuth();
 
-    const achievements = useAchievements();
     const targetsQuery = useMyTargets();
     const certsQuery = useMyCertificates();
 
@@ -76,15 +74,11 @@ export default function StudentProfilePage() {
     const targets = targetsQuery.data ?? [];
     const certs = certsQuery.data ?? [];
 
-    const ach = achievements.data as any;
-    const rank = ach?.rank ?? 12;
-    const examsDone = ach?.exams_completed ?? 8;
     const bestPct = certs.length > 0 ? Math.max(...certs.map((c) => c.percent)) : 0;
-    const ertScore = bestPct > 0 ? Math.round(bestPct * 10) : 690;
     const stats = [
-        { icon: Medal, value: `#${rank}`, label: "Peringkat Nasional" },
-        { icon: FileSpreadsheet, value: `${examsDone}`, label: "Tryout Selesai" },
-        { icon: TrendingUp, value: `${ertScore}`, label: "Skor IRT" },
+        { icon: FileSpreadsheet, value: `${certs.length}`, label: "Tryout Selesai" },
+        { icon: TrendingUp, value: `${bestPct > 0 ? Math.round(bestPct) : "—"}%`, label: "Nilai Terbaik" },
+        { icon: Medal, value: targets.length ? targets[0]?.threshold_state : "BELUM", label: "Target Sekolah" },
     ];
 
     const handleLogout = async () => {
@@ -275,17 +269,19 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     const updateProfile = useUpdateProfile();
     const [fullName, setFullName] = React.useState(user?.full_name || "");
     const [avatarUrl, setAvatarUrl] = React.useState(user?.avatar_url || "");
+    const [school, setSchool] = React.useState((user as any)?.school_name || "");
     const [error, setError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         setFullName(user?.full_name || "");
         setAvatarUrl(user?.avatar_url || "");
+        setSchool((user as any)?.school_name || "");
     }, [user, isOpen]);
 
     const submit = async () => {
         setError(null);
         try {
-            await updateProfile.mutateAsync({ full_name: fullName, avatar_url: avatarUrl });
+            await updateProfile.mutateAsync({ full_name: fullName, avatar_url: avatarUrl, school_name: school });
             await refetch();
             onClose();
         } catch (e: any) {
@@ -294,11 +290,15 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     };
 
     return (
-        <Dialog isOpen={isOpen} onClose={onClose} title="Edit Profil" description="Perbarui nama dan foto profilmu.">
+        <Dialog isOpen={isOpen} onClose={onClose} title="Edit Profil" description="Perbarui data dirimu.">
             <div className="space-y-3">
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nama Lengkap</label>
                     <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nama lengkap" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Sekolah (opsional)</label>
+                    <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="Nama sekolah" />
                 </div>
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">URL Foto Profil (opsional)</label>
