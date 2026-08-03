@@ -24,6 +24,8 @@ credentials.txt
 *.dylib
 *.test
 *.out
+server.err.log
+server.out.log
 backend/yakinlulus-api
 backend/hermes-s1-api.exe
 

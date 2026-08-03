@@ -198,19 +198,24 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/leaderboard", middleware.RequireAuth(h.auth), h.Get)
 }
 
+// resolveMonth returns the month-start boundary for a query. Empty query
+// defaults to the current month (UTC). Otherwise "YYYY-MM" is parsed.
+func resolveMonth(q string, now time.Time) (time.Time, error) {
+	if q == "" {
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC), nil
+	}
+	return parseMonth(q)
+}
+
 func (h *Handler) Get(c *fiber.Ctx) error {
 	packageID, err := uuid.Parse(c.Query("package_id"))
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "package_id is required and must be a valid UUID"))
 	}
 
-	month := time.Now().UTC()
-	if m := c.Query("month"); m != "" {
-		parsed, perr := parseMonth(m)
-		if perr != nil {
-			return c.Status(400).JSON(shared.Error(shared.ErrValidation, "month must be YYYY-MM"))
-		}
-		month = parsed
+	month, perr := resolveMonth(c.Query("month"), time.Now().UTC())
+	if perr != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "month must be YYYY-MM"))
 	}
 
 	limit := c.QueryInt("limit", 50)

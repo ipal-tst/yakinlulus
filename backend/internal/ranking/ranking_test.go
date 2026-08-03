@@ -21,6 +21,24 @@ func TestParseMonth(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestResolveMonth(t *testing.T) {
+	now := time.Date(2026, 8, 3, 11, 30, 0, 0, time.UTC)
+
+	// default: empty query -> month-start of current month (UTC)
+	got, err := resolveMonth("", now)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), got)
+
+	// explicit query -> parsed month-start
+	got, err = resolveMonth("2026-01", now)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), got)
+
+	// invalid query -> error
+	_, err = resolveMonth("bad", now)
+	assert.Error(t, err)
+}
+
 func TestBuildRanking(t *testing.T) {
 	u1 := uuid.New()
 	u2 := uuid.New()
