@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useStudentDashboard } from "@/lib/api";
+import { useStudentDashboard, useResults } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Flame, Trophy, BookOpen, HelpCircle, FileSpreadsheet,
-    Bot, Play, Calendar, ArrowRight, Sparkles, Medal, Activity,
+    Bot, Play, Calendar, ArrowRight, Sparkles, Medal, Activity, Target,
 } from "lucide-react";
 
 const formatDate = (d: string) => {
@@ -18,38 +17,35 @@ const formatDate = (d: string) => {
     });
 };
 
-const formatTime = (d: string) => {
-    const date = new Date(d);
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-};
-
 const dayLabels = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 export default function StudentDashboardPage() {
     const { data: dashData, isLoading } = useStudentDashboard() as any;
+    const { data: resultsData } = useResults(1, 10) as any;
 
     const greeting = dashData?.greeting ?? {};
-    const achievement = dashData?.achievement ?? {};
+    const examStats = dashData?.exam_stats ?? {};
     const continueLearning = dashData?.continue_learning;
     const todayGoal = dashData?.today_goal ?? {};
     const learningProgress = dashData?.learning_progress ?? [];
     const weeklyActivity = dashData?.weekly_activity ?? [];
     const upcomingExams = dashData?.upcoming_exams ?? [];
-    const leaderboard = dashData?.leaderboard ?? [];
     const recentActivity = dashData?.recent_activity ?? [];
+
+    const recentResults = Array.isArray(resultsData) ? resultsData : [];
 
     const studentName = greeting?.full_name || "Murid";
     const initial = studentName.charAt(0).toUpperCase();
-    const totalXP = achievement?.total_xp ?? 0;
-    const level = achievement?.level ?? 1;
-    const streak = achievement?.streak ?? 0;
-    const badgesCount = achievement?.badges_count ?? 0;
+    const totalCompleted = examStats?.total_completed ?? 0;
+    const averageScore = examStats?.average_score ?? 0;
+    const highestScore = examStats?.highest_score ?? 0;
+    const nationalRank = examStats?.national_rank ?? 0;
 
     const maxActivity = Math.max(...weeklyActivity.map((d: any) => d.questions + d.materials), 1);
 
     return (
         <div className="space-y-6 pb-6">
-            {/* Welcome + Streak */}
+            {/* Welcome */}
             <section className="relative overflow-hidden">
                 <div className="relative z-10">
                     <div className="flex items-start justify-between gap-4">
@@ -62,28 +58,9 @@ export default function StudentDashboardPage() {
                             </h1>
                             <p className="text-xs text-muted-foreground mt-0.5">{greeting.date || formatDate(new Date().toISOString())}</p>
                         </div>
-                        <div className="flex items-center gap-1 bg-warning/10 text-warning px-3 py-1.5 rounded-full shrink-0">
-                            <Flame className="h-4 w-4" />
-                            <span className="text-xs font-bold">{streak} Hari</span>
-                        </div>
-                    </div>
-
-                    {/* Level & XP */}
-                    <div className="mt-5 bg-card p-5 rounded-2xl shadow-sm border">
-                        <div className="flex justify-between items-end mb-3">
-                            <div>
-                                <div className="text-sm font-bold text-muted-foreground">Level {level}</div>
-                                <div className="text-lg font-extrabold text-foreground">Sage Apprentice</div>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-xs font-bold text-primary">{totalXP.toLocaleString()} XP</span>
-                            </div>
-                        </div>
-                        <div className="h-3 w-full bg-muted rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
-                                style={{ width: `${Math.min((totalXP % 2000) / 2000 * 100, 100)}%` }}
-                            />
+                        <div className="flex items-center gap-1 bg-primary/10 text-primary px-3 py-1.5 rounded-full shrink-0">
+                            <Target className="h-4 w-4" />
+                            <span className="text-xs font-bold">Tryout Ku</span>
                         </div>
                     </div>
                 </div>
@@ -92,11 +69,12 @@ export default function StudentDashboardPage() {
             </section>
 
             {/* Key Statistics Grid */}
-            <section className="grid grid-cols-3 gap-3">
+            <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { icon: FileSpreadsheet, value: upcomingExams.length, label: "Tryout" },
-                    { icon: Trophy, value: totalXP.toLocaleString(), label: "Total XP" },
-                    { icon: Medal, value: `#${leaderboard.find((l: any) => l.is_current_user)?.rank ?? "—"}`, label: "Nasional" },
+                    { icon: FileSpreadsheet, value: totalCompleted, label: "Tryout Selesai" },
+                    { icon: Trophy, value: averageScore ? averageScore.toFixed(1) : "—", label: "Rata-rata Nilai" },
+                    { icon: Medal, value: highestScore ? highestScore.toFixed(1) : "—", label: "Nilai Tertinggi" },
+                    { icon: Target, value: nationalRank ? `#${nationalRank}` : "—", label: "Peringkat Nasional" },
                 ].map((stat, i) => (
                     <div key={i} className="bg-muted/60 p-4 rounded-xl flex flex-col items-center text-center">
                         <stat.icon className="h-5 w-5 text-primary mb-1.5" />
@@ -172,6 +150,40 @@ export default function StudentDashboardPage() {
                         </div>
                     </Link>
                 ))}
+            </section>
+
+            {/* Recent Exam Results */}
+            <section>
+                <div className="flex justify-between items-center mb-3">
+                    <h2 className="font-bold text-sm flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-primary" /> Nilai Ujian Terbaru
+                    </h2>
+                    <Link href="/student/exam" className="text-xs font-bold text-primary">Lihat Semua</Link>
+                </div>
+                {recentResults.length > 0 ? (
+                    <div className="space-y-3">
+                        {recentResults.slice(0, 5).map((r: any) => (
+                            <Link key={r.id} href={`/student/exam/${r.exam_id || r.exam_content_id}/result`} className="flex items-center gap-4 p-4 bg-card rounded-2xl border hover:border-primary/40 hover:shadow-md transition-all">
+                                <div className="w-14 h-14 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary shrink-0">
+                                    <span className="text-[10px] font-bold leading-none uppercase">{new Date(r.created_at).toLocaleDateString("id-ID", { month: "short" })}</span>
+                                    <span className="text-lg font-extrabold leading-tight">{new Date(r.created_at).getDate()}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="font-bold text-xs truncate">Ujian #{r.exam_id?.slice(0, 8) || r.session_id?.slice(0, 8) || "Tryout"}</h4>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {(r.score ?? 0).toFixed(1)} · {r.is_passed ? "LULUS" : "BELUM LULUS"}
+                                    </p>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] shrink-0">{r.correct_count ?? 0}/{r.total_questions ?? 0} benar</Badge>
+                                <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="bg-card rounded-2xl border border-dashed p-8 text-center">
+                        <p className="text-xs text-muted-foreground">Belum ada nilai ujian. Selesaikan tryout pertamamu!</p>
+                    </div>
+                )}
             </section>
 
             {/* Recent Materials Horizontal Scroll */}
@@ -263,31 +275,21 @@ export default function StudentDashboardPage() {
             </section>
 
             {/* Leaderboard Preview */}
-            {leaderboard.length > 0 && (
-                <section className="bg-card rounded-2xl border p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-sm flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-warning" /> Papan Peringkat
-                        </h2>
-                        <Link href="/student/leaderboard" className="text-xs font-bold text-primary">Lihat Semua</Link>
-                    </div>
-                    <div className="space-y-2">
-                        {leaderboard.slice(0, 3).map((entry: any) => (
-                            <div key={entry.user_id} className="flex items-center justify-between py-1.5">
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xs font-black w-5 text-center ${entry.rank === 1 ? "text-warning" : entry.rank === 2 ? "text-muted-foreground" : "text-amber-600"}`}>
-                                        #{entry.rank}
-                                    </span>
-                                    <span className="text-xs font-semibold truncate max-w-[140px]">{entry.full_name}</span>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground font-mono">
-                                    Lv.{entry.level} · {entry.total_xp?.toLocaleString()} XP
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            )}
+            <section className="bg-card rounded-2xl border p-5">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-bold text-sm flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-warning" /> Peringkat Nasional
+                    </h2>
+                    <Link href="/student/leaderboard" className="text-xs font-bold text-primary">Lihat Peringkat</Link>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    {nationalRank ? (
+                        <>Kamu berada di peringkat <span className="font-bold text-primary">#{nationalRank}</span> nasional bulan ini.</>
+                    ) : (
+                        "Selesaikan tryout untuk masuk peringkat nasional."
+                    )}
+                </p>
+            </section>
 
             {/* Daily Tip */}
             <section className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex gap-4 items-start">
