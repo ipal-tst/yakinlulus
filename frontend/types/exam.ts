@@ -156,3 +156,31 @@ export interface StartExamRequest {
   tag?: string;
   blueprints?: { subject_id: string; count: number }[];
 }
+
+export interface ExamPackage {
+  id: string;
+  code: string;
+  name: string;
+  education_level: "SD" | "SMP" | "SMA" | "UNIVERSITY";
+  grade_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageExam {
+  exam_content_id: string;
+  subject_id: string;
+  subject_name: string;
+  display_order: number;
+}
+
+export interface RankingRow {
+  rank: number;
+  user_id: string;
+  full_name: string;
+  school_name: string;
+  subject_scores: Record<string, number>;
+  total: number;
+  average: number;
+}

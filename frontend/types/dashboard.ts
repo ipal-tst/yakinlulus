@@ -15,10 +15,6 @@ export interface DashboardWidget {
 export interface StudentDashboard {
   user_id: string;
   greeting: string;
-  level: number;
-  current_xp: number;
-  next_level_xp: number;
-  streak_days: number;
   active_courses: number;
   pending_exams: number;
   completed_exams: number;
@@ -26,8 +22,12 @@ export interface StudentDashboard {
   recent_exams: RecentExam[];
   recent_materials: RecentMaterial[];
   upcoming_events: UpcomingEvent[];
-  xp_progress: number;
-  leaderboard_rank?: number;
+  exam_stats: {
+    total_completed: number;
+    average_score: number;
+    highest_score: number;
+    national_rank: number;
+  };
 }
 
 export interface TeacherDashboard {
