@@ -364,16 +364,20 @@ class ApiClient {
         submitPracticeSession: async (sessionId: string, answers: any[]) => this.request(`/practice/${sessionId}/submit`, { method: "POST", body: JSON.stringify({ answers }) }),
     };
 
-    // --- 15. Gamification API ---
-    public gamification = {
-        getMyXP: async () => this.request("/gamification/xp", { method: "GET" }),
-        listBadges: async (category?: string) => this.request(`/gamification/badges${category ? `?category=${category}` : ""}`, { method: "GET" }),
-        getUserBadges: async () => this.request("/gamification/user/badges", { method: "GET" }),
-        getStreak: async () => this.request("/gamification/streak", { method: "GET" }),
-        pingStreak: async () => this.request("/gamification/streak/ping", { method: "POST" }),
-        getLeaderboard: async (limit = 20, period = "all") => this.request(`/gamification/leaderboard?limit=${limit}&period=${period}`, { method: "GET" }),
-        getAchievements: async () => this.request("/gamification/achievements", { method: "GET" }),
-        addXP: async (userId: string, amount: number, reason: string) => this.request("/gamification/xp/add", { method: "POST", body: JSON.stringify({ user_id: userId, amount, reason }) }),
+    // --- 15. Exam Packages API ---
+    public examPackages = {
+        list: async (educationLevel?: string) => this.request(`/exam-packages${educationLevel ? `?education_level=${educationLevel}` : ""}`, { method: "GET" }),
+        create: async (payload: { code: string; name: string; education_level: string; grade_id?: string; is_active?: boolean }) => this.request("/exam-packages", { method: "POST", body: JSON.stringify(payload) }),
+        update: async (id: string, payload: { code: string; name: string; education_level: string; grade_id?: string; is_active?: boolean }) => this.request(`/exam-packages/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+        remove: async (id: string) => this.request(`/exam-packages/${id}`, { method: "DELETE" }),
+        listExams: async (id: string) => this.request(`/exam-packages/${id}/exams`, { method: "GET" }),
+        linkExam: async (id: string, payload: { exam_content_id: string; subject_id: string; display_order?: number }) => this.request(`/exam-packages/${id}/exams`, { method: "POST", body: JSON.stringify(payload) }),
+        unlinkExam: async (id: string, examContentId: string) => this.request(`/exam-packages/${id}/exams/${examContentId}`, { method: "DELETE" }),
+    };
+
+    // --- 15b. Ranking API ---
+    public ranking = {
+        getLeaderboard: async (packageId: string, month?: string, limit = 50) => this.request(`/leaderboard?package_id=${packageId}&month=${month || ""}&limit=${limit}`, { method: "GET" }),
     };
 
     // --- 16. AI Ecosystem API ---

@@ -100,11 +100,12 @@ export const queryKeys = {
     session: (id: string) => ['practice', 'session', id] as const,
     stats: ['practice', 'stats'] as const,
   },
-  gamification: {
-    xp: ['gamification', 'xp'] as const,
-    badges: ['gamification', 'badges'] as const,
-    streak: ['gamification', 'streak'] as const,
-    leaderboard: (period: string) => ['gamification', 'leaderboard', period] as const,
+  examPackages: {
+    all: (level?: string) => ['exam-packages', level] as const,
+    exams: (packageId: string) => ['exam-packages', 'exams', packageId] as const,
+  },
+  ranking: {
+    leaderboard: (packageId: string, month?: string) => ['ranking', 'leaderboard', packageId, month] as const,
   },
   analytics: {
     student: (id: string) => ['analytics', 'student', id] as const,
@@ -177,7 +178,7 @@ export function useAuth() {
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { full_name?: string; avatar_url?: string }) =>
+    mutationFn: (payload: { full_name?: string; avatar_url?: string; school_name?: string }) =>
       apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.auth.me }),
   });
@@ -622,39 +623,27 @@ export function useSubmitPractice() {
   });
 }
 
-// Gamification Hooks
-export function useXP() {
+// Exam Package Hooks
+export function useExamPackages(educationLevel?: string) {
   return useQuery({
-    queryKey: queryKeys.gamification.xp,
-    queryFn: () => apiFetch('/gamification/xp'),
+    queryKey: queryKeys.examPackages.all(educationLevel),
+    queryFn: () => apiFetch(`/exam-packages${educationLevel ? `?education_level=${educationLevel}` : ''}`),
   });
 }
 
-export function useBadges(category?: string) {
+export function usePackageExams(packageId?: string) {
   return useQuery({
-    queryKey: queryKeys.gamification.badges,
-    queryFn: () => apiFetch(`/gamification/badges${category ? `?category=${category}` : ''}`),
+    queryKey: queryKeys.examPackages.exams(packageId || ''),
+    queryFn: () => apiFetch(`/exam-packages/${packageId}/exams`),
+    enabled: !!packageId,
   });
 }
 
-export function useUserBadges() {
+export function useRanking(packageId?: string, month?: string) {
   return useQuery({
-    queryKey: ['gamification', 'user', 'badges'],
-    queryFn: () => apiFetch('/gamification/user/badges'),
-  });
-}
-
-export function useStreak() {
-  return useQuery({
-    queryKey: queryKeys.gamification.streak,
-    queryFn: () => apiFetch('/gamification/streak'),
-  });
-}
-
-export function useLeaderboard(limit = 20, period = 'all') {
-  return useQuery({
-    queryKey: queryKeys.gamification.leaderboard(period),
-    queryFn: () => apiFetch(`/gamification/leaderboard?limit=${limit}&period=${period}`),
+    queryKey: queryKeys.ranking.leaderboard(packageId || '', month),
+    queryFn: () => apiFetch(`/leaderboard?package_id=${packageId}&month=${month || ''}&limit=100`),
+    enabled: !!packageId,
   });
 }
 
@@ -712,13 +701,6 @@ export interface Certificate {
   rank: number;
   total: number;
   date: string;
-}
-
-export function useAchievements() {
-  return useQuery({
-    queryKey: ['gamification', 'achievements'],
-    queryFn: () => apiFetch('/gamification/achievements'),
-  });
 }
 
 export function useMyTargets() {
