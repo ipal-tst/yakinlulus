@@ -214,18 +214,23 @@
 
 ---
 
-## ✅ Gamification (8 endpoints) — Sprint 16
+## ✅ Exam Packages (7 endpoints) — Sprint 17
 
 | # | Method | Path | Auth | Role | Status |
 |---|--------|------|------|------|--------|
-| 124 | GET | `/gamification/xp` | JWT | any | ✅ |
-| 125 | GET | `/gamification/badges` | JWT | any | ✅ |
-| 126 | GET | `/gamification/user/badges` | JWT | any | ✅ |
-| 127 | POST | `/gamification/xp/add` | JWT | ADMIN/STAFF | ✅ |
-| 128 | GET | `/gamification/streak` | JWT | any | ✅ |
-| 129 | POST | `/gamification/streak/ping` | JWT | any | ✅ |
-| 130 | GET | `/gamification/leaderboard` | JWT | any | ✅ |
-| 131 | GET | `/gamification/achievements` | JWT | any | ✅ |
+| 124 | GET | `/exam-packages` | JWT | any | ✅ |
+| 125 | POST | `/exam-packages` | JWT | ADMIN/TEACHER | ✅ |
+| 126 | PUT | `/exam-packages/:id` | JWT | ADMIN/TEACHER | ✅ |
+| 127 | DELETE | `/exam-packages/:id` | JWT | ADMIN/TEACHER | ✅ |
+| 128 | GET | `/exam-packages/:id/exams` | JWT | any | ✅ |
+| 129 | POST | `/exam-packages/:id/exams` | JWT | ADMIN/TEACHER | ✅ |
+| 130 | DELETE | `/exam-packages/:id/exams/:examContentId` | JWT | ADMIN/TEACHER | ✅ |
+
+## ✅ Ranking (1 endpoint) — Sprint 17
+
+| # | Method | Path | Auth | Role | Status |
+|---|--------|------|------|------|--------|
+| 131 | GET | `/leaderboard?package_id=&month=&limit=` | JWT | any | ✅ |
 
 ---
 
@@ -296,7 +301,8 @@
 | School + Branding | 10 | Sprint 12/13 |
 | Notification + Templates | 15 | Sprint 12/13 |
 | **Dashboard** | **3** | **Sprint 16 ✅** |
-| **Gamification** | **8** | **Sprint 16 ✅** |
+| **Exam Packages** | **7** | **Sprint 17 ✅** |
+| **Ranking** | **1** | **Sprint 17 ✅** |
 | **Practice** | **5** | **Sprint 16 ✅** |
 | **AI Tutor** | **5** | **Sprint 16 ✅** |
 | **TOTAL** | **149** | |

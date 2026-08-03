@@ -2727,26 +2727,28 @@ paths:
                 $ref: "#/components/schemas/Success"
 
   # ──────────────────────────────────────────
-  # Gamification Module (8 endpoints)
+  # Exam Packages Module (paket ujian)
   # ──────────────────────────────────────────
-  /gamification/xp:
+  /exam-packages:
     get:
-      operationId: getXP
-      summary: Get current user XP
-      tags: [Gamification]
+      operationId: listExamPackages
+      summary: List exam packages (filter by education_level)
+      tags: [ExamPackages]
+      parameters:
+        - name: education_level
+          in: query
+          schema: { type: string, enum: [SD, SMP, SMA, UNIVERSITY] }
       responses:
         "200":
-          description: XP data
+          description: Exam package list
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Success"
-
-  /gamification/xp/add:
     post:
-      operationId: addXP
-      summary: Award XP to user (admin/staff)
-      tags: [Gamification]
+      operationId: createExamPackage
+      summary: Create an exam package (admin/teacher)
+      tags: [ExamPackages]
       requestBody:
         required: true
         content:
@@ -2754,98 +2756,156 @@ paths:
             schema:
               type: object
               properties:
-                user_id: { type: string }
-                amount: { type: integer }
-                reason: { type: string }
-              required: [user_id, amount]
+                code: { type: string }
+                name: { type: string }
+                education_level: { type: string, enum: [SD, SMP, SMA, UNIVERSITY] }
+                grade_id: { type: string }
+                is_active: { type: boolean }
+              required: [code, name, education_level]
       responses:
-        "200":
-          description: XP awarded
+        "201":
+          description: Exam package created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Success"
 
-  /gamification/badges:
-    get:
-      operationId: listBadges
-      summary: List all available badges
-      tags: [Gamification]
-      responses:
-        "200":
-          description: Badge list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
-
-  /gamification/user/badges:
-    get:
-      operationId: getUserBadges
-      summary: Get current user's earned badges
-      tags: [Gamification]
-      responses:
-        "200":
-          description: User badges
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
-
-  /gamification/streak:
-    get:
-      operationId: getStreak
-      summary: Get current user's streak
-      tags: [Gamification]
-      responses:
-        "200":
-          description: Streak data
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
-
-  /gamification/streak/ping:
-    post:
-      operationId: pingStreak
-      summary: Ping daily streak
-      tags: [Gamification]
-      responses:
-        "200":
-          description: Streak updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
-
-  /gamification/leaderboard:
-    get:
-      operationId: getLeaderboard
-      summary: Get leaderboard
-      tags: [Gamification]
+  /exam-packages/{id}:
+    put:
+      operationId: updateExamPackage
+      summary: Update an exam package (admin/teacher)
+      tags: [ExamPackages]
       parameters:
-        - name: period
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                name: { type: string }
+                education_level: { type: string, enum: [SD, SMP, SMA, UNIVERSITY] }
+                grade_id: { type: string }
+                is_active: { type: boolean }
+              required: [code, name, education_level]
+      responses:
+        "200":
+          description: Exam package updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    delete:
+      operationId: deleteExamPackage
+      summary: Delete an exam package (admin/teacher)
+      tags: [ExamPackages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam package deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-packages/{id}/exams:
+    get:
+      operationId: listPackageExams
+      summary: List exams linked to a package
+      tags: [ExamPackages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Linked exams
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+    post:
+      operationId: linkExamToPackage
+      summary: Link an exam to a package (admin/teacher)
+      tags: [ExamPackages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                exam_content_id: { type: string }
+                subject_id: { type: string }
+                display_order: { type: integer }
+              required: [exam_content_id, subject_id]
+      responses:
+        "200":
+          description: Exam linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-packages/{id}/exams/{examContentId}:
+    delete:
+      operationId: unlinkExamFromPackage
+      summary: Unlink an exam from a package (admin/teacher)
+      tags: [ExamPackages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: examContentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Exam unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
+  # Ranking Module (peringkat nilai bulanan)
+  # ──────────────────────────────────────────
+  /leaderboard:
+    get:
+      operationId: getExamLeaderboard
+      summary: Monthly exam-score leaderboard for a package
+      tags: [Ranking]
+      parameters:
+        - name: package_id
           in: query
-          schema: { type: string, enum: [daily, weekly, monthly, all] }
+          required: true
+          schema: { type: string }
+        - name: month
+          in: query
+          schema: { type: string, description: "YYYY-MM, defaults to current month" }
         - name: limit
           in: query
           schema: { type: integer, default: 50 }
       responses:
         "200":
-          description: Leaderboard data
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
-
-  /gamification/achievements:
-    get:
-      operationId: listAchievements
-      summary: List all achievements
-      tags: [Gamification]
-      responses:
-        "200":
-          description: Achievement list
+          description: Ranking rows
           content:
             application/json:
               schema:
