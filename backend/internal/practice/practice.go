@@ -168,22 +168,26 @@ func (r *Repository) getOptions(ctx context.Context, questionID uuid.UUID) ([]op
 func (r *Repository) createSession(ctx context.Context, userID uuid.UUID, subjectID *uuid.UUID, questionCount int) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO content_practice_sessions (user_id, subject_id, total_questions) VALUES ($1, $2, $3) RETURNING id`,
+		`INSERT INTO content_practice_sessions (user_id, subject_id, status, started_at, created_at, max_score)
+		 VALUES ($1, $2, 'IN_PROGRESS', NOW(), NOW(), $3) RETURNING id`,
 		userID, subjectID, questionCount).Scan(&id)
 	return id, err
 }
 
 func (r *Repository) getSessionByID(ctx context.Context, sessionID uuid.UUID) (*SessionDetail, error) {
-	s := &SessionDetail{}
+	s := &SessionDetail{Answers: []AnswerDetail{}}
+	var maxScore float64
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, COALESCE(title, 'Latihan Mandiri'), subject_id, total_questions, answered_count, correct_count, score, status, created_at, completed_at
-		 FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(
-		&s.ID, &s.Title, &s.SubjectID, &s.TotalQuestions, &s.AnsweredCount, &s.CorrectCount,
-		&s.Score, &s.Status, &s.CreatedAt, &s.CompletedAt)
+		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), ps.subject_id, ps.status, ps.started_at, ps.graded_at, COALESCE(ps.total_score,0), COALESCE(ps.max_score,0)
+		 FROM content_practice_sessions ps
+		 LEFT JOIN subjects sub ON sub.id = ps.subject_id
+		 WHERE ps.id=$1`, sessionID).Scan(
+		&s.ID, &s.Title, &s.SubjectID, &s.Status, &s.CreatedAt, &s.CompletedAt, &s.Score, &maxScore)
 	if err != nil {
 		return nil, err
 	}
-
+	// max_score == question count (1 point per question in practice flow)
+	s.TotalQuestions = int(maxScore)
 	return s, nil
 }
 
@@ -204,30 +208,15 @@ func (r *Repository) getQuestionExplanation(ctx context.Context, questionID uuid
 	return explanation, err
 }
 
-func (r *Repository) insertAnswer(ctx context.Context, sessionID, questionID, selectedOptionID uuid.UUID, isCorrect bool) error {
-	return nil
-}
-
 func (r *Repository) updateSessionCounters(ctx context.Context, sessionID uuid.UUID, isCorrect bool) error {
 	correctInc := 0
 	if isCorrect {
 		correctInc = 1
 	}
 	_, err := r.pool.Exec(ctx,
-		`UPDATE content_practice_sessions 
-		 SET answered_count = answered_count + 1,
-		     correct_count = correct_count + $2
-		 WHERE id=$1`, sessionID, correctInc)
-	return err
-}
-
-func (r *Repository) completeSession(ctx context.Context, sessionID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
 		`UPDATE content_practice_sessions
-		 SET status='COMPLETED',
-		     score = CASE WHEN total_questions > 0 THEN (correct_count::float / total_questions) * 100 ELSE 0 END,
-		     completed_at = NOW()
-		 WHERE id=$1 AND status='IN_PROGRESS'`, sessionID)
+		 SET total_score = LEAST(COALESCE(max_score,0), COALESCE(total_score,0) + $2)
+		 WHERE id=$1 AND status='IN_PROGRESS'`, sessionID, correctInc)
 	return err
 }
 
@@ -236,9 +225,11 @@ func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, 
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_practice_sessions WHERE user_id=$1`, userID).Scan(&total)
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, COALESCE(title, 'Latihan Mandiri'), score, total_questions, answered_count, correct_count, status, created_at
-		 FROM content_practice_sessions WHERE user_id=$1
-		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
+		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), COALESCE(ps.total_score,0), COALESCE(ps.max_score,0), ps.status, ps.started_at
+		 FROM content_practice_sessions ps
+		 LEFT JOIN subjects sub ON sub.id = ps.subject_id
+		 WHERE ps.user_id=$1
+		 ORDER BY ps.created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -246,10 +237,11 @@ func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, 
 	var items []SessionListItem
 	for rows.Next() {
 		var item SessionListItem
-		if err := rows.Scan(&item.ID, &item.Title, &item.Score, &item.TotalQuestions,
-			&item.AnsweredCount, &item.CorrectCount, &item.Status, &item.CreatedAt); err != nil {
+		var maxScore float64
+		if err := rows.Scan(&item.ID, &item.Title, &item.Score, &maxScore, &item.Status, &item.CreatedAt); err != nil {
 			continue
 		}
+		item.TotalQuestions = int(maxScore)
 		items = append(items, item)
 	}
 	return items, total, nil
@@ -258,8 +250,9 @@ func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, 
 func (r *Repository) getStats(ctx context.Context, userID uuid.UUID) (*StatsResp, error) {
 	s := &StatsResp{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*), COALESCE(SUM(total_questions),0), COALESCE(SUM(correct_count),0), COALESCE(AVG(score),0)
-		 FROM content_practice_sessions WHERE user_id=$1 AND status='COMPLETED'`,
+		`SELECT COUNT(*), COALESCE(SUM(max_score),0), COALESCE(SUM(total_score),0),
+		        COALESCE(AVG(CASE WHEN max_score > 0 THEN (total_score / max_score) * 100 ELSE 0 END),0)
+		 FROM content_practice_sessions WHERE user_id=$1 AND status IN ('GRADED','SUBMITTED')`,
 		userID).Scan(&s.TotalSessions, &s.TotalQuestions, &s.TotalCorrect, &s.AverageScore)
 	if err != nil {
 		return nil, err
@@ -321,7 +314,7 @@ func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID,
 func (s *Service) AnswerQuestion(ctx context.Context, sessionID, userID uuid.UUID, questionID uuid.UUID, selectedOptionID uuid.UUID) (*AnswerResp, error) {
 	// Verify session belongs to user
 	var dbUserID uuid.UUID
-	err := s.repo.pool.QueryRow(ctx, `SELECT user_id FROM practice_sessions WHERE id=$1`, sessionID).Scan(&dbUserID)
+	err := s.repo.pool.QueryRow(ctx, `SELECT user_id FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(&dbUserID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
 	}
@@ -336,20 +329,8 @@ func (s *Service) AnswerQuestion(ctx context.Context, sessionID, userID uuid.UUI
 
 	isCorrect := selectedOptionID == correctOpt.ID
 
-	if err := s.repo.insertAnswer(ctx, sessionID, questionID, selectedOptionID, isCorrect); err != nil {
-		return nil, err
-	}
-
-	// Update counters
 	if err := s.repo.updateSessionCounters(ctx, sessionID, isCorrect); err != nil {
 		return nil, err
-	}
-
-	// Check if session should be completed
-	var answered, total int
-	s.repo.pool.QueryRow(ctx, `SELECT answered_count, total_questions FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(&answered, &total)
-	if answered >= total {
-		s.repo.completeSession(ctx, sessionID)
 	}
 
 	explanation, _ := s.repo.getQuestionExplanation(ctx, questionID)
@@ -365,6 +346,13 @@ func (s *Service) GetSession(ctx context.Context, sessionID, userID uuid.UUID) (
 	session, err := s.repo.getSessionByID(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
+	}
+	var dbUserID uuid.UUID
+	if err := s.repo.pool.QueryRow(ctx, `SELECT user_id FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(&dbUserID); err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
+	}
+	if dbUserID != userID {
+		return nil, fiber.NewError(fiber.StatusForbidden, "Not your session")
 	}
 	return session, nil
 }

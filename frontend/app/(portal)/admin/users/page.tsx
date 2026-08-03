@@ -10,7 +10,7 @@ import {
     flexRender,
     createColumnHelper,
 } from "@tanstack/react-table";
-import { useUsers, apiFetch } from "@/lib/api";
+import { useUsers, useGrades, apiFetch } from "@/lib/api";
 import {
     UserPlus,
     Search,
@@ -34,6 +34,8 @@ interface UserItem {
     is_active: boolean;
     created_at: string;
     avatar_url?: string;
+    grade_id?: string | null;
+    school_name?: string | null;
 }
 
 /* ============================================================================
@@ -215,9 +217,11 @@ const EditUserModal = React.memo(function EditUserModal({
     onClose: () => void;
     onSuccess: () => void;
 }) {
-    const [formData, setFormData] = React.useState({ full_name: "", email: "", role: "STUDENT", is_active: true });
+    const [formData, setFormData] = React.useState({ full_name: "", email: "", role: "STUDENT", is_active: true, grade_id: "", school_name: "" });
     const [formError, setFormError] = React.useState("");
     const [submitting, setSubmitting] = React.useState(false);
+    const gradesQuery = useGrades() as any;
+    const grades: any[] = Array.isArray(gradesQuery.data) ? gradesQuery.data : [];
 
     React.useEffect(() => {
         if (user) {
@@ -226,6 +230,8 @@ const EditUserModal = React.memo(function EditUserModal({
                 email: user.email || "",
                 role: (user.role || "STUDENT").toUpperCase(),
                 is_active: Boolean(user.is_active),
+                grade_id: user.grade_id || "",
+                school_name: user.school_name || "",
             });
             setFormError("");
         }
@@ -251,6 +257,8 @@ const EditUserModal = React.memo(function EditUserModal({
                     email: formData.email.trim(),
                     role: formData.role,
                     is_active: formData.is_active,
+                    grade_id: formData.grade_id || null,
+                    school_name: formData.school_name.trim() || null,
                 }),
             });
             onSuccess();
@@ -313,6 +321,31 @@ const EditUserModal = React.memo(function EditUserModal({
                             <option value="STAFF">STAFF (Pengelola)</option>
                             <option value="ADMIN">ADMIN (Administrator)</option>
                         </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="font-semibold text-foreground">Kelas</label>
+                        <select
+                            value={formData.grade_id}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, grade_id: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:ring-2 focus:ring-primary"
+                        >
+                            <option value="">— Pilih kelas —</option>
+                            {grades.map((g: any) => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="font-semibold text-foreground">Sekolah</label>
+                        <input
+                            type="text"
+                            value={formData.school_name}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, school_name: e.target.value }))}
+                            placeholder="Nama sekolah"
+                            className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:ring-2 focus:ring-primary"
+                        />
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">

@@ -111,3 +111,41 @@ func TestValidateProfileRequest(t *testing.T) {
 	nilReq := UpdateProfileRequest{}
 	assert.NoError(t, validateProfileRequest(nilReq))
 }
+
+func TestPublicRegisterRejectsElevatedRoles(t *testing.T) {
+	assert.Error(t, validatePublicRegisterRole("ADMIN"))
+	assert.Error(t, validatePublicRegisterRole("STAFF"))
+	assert.Error(t, validatePublicRegisterRole("TEACHER"))
+	assert.NoError(t, validatePublicRegisterRole("STUDENT"))
+	assert.NoError(t, validatePublicRegisterRole(""))
+}
+
+func TestRestrictGradeSchoolByRole(t *testing.T) {
+	g := "grade-123"
+	s := "SMPN 1 Jakarta"
+
+	for _, role := range []string{"STUDENT", "TEACHER"} {
+		req := UpdateProfileRequest{GradeID: &g, SchoolName: &s}
+		got := restrictGradeSchoolForRole(req, role)
+		assert.Nil(t, got.GradeID, "role %s must not update grade", role)
+		assert.Nil(t, got.SchoolName, "role %s must not update school", role)
+	}
+
+	for _, role := range []string{"ADMIN", "STAFF"} {
+		req := UpdateProfileRequest{GradeID: &g, SchoolName: &s}
+		got := restrictGradeSchoolForRole(req, role)
+		assert.NotNil(t, got.GradeID, "role %s may update grade", role)
+		assert.NotNil(t, got.SchoolName, "role %s may update school", role)
+	}
+
+	name := "Budi"
+	req := UpdateProfileRequest{FullName: &name, GradeID: &g, SchoolName: &s}
+	got := restrictGradeSchoolForRole(req, "STUDENT")
+	assert.NotNil(t, got.FullName)
+	assert.Equal(t, "Budi", *got.FullName)
+}
+
+func TestUpdateUserSQLIncludesSchoolName(t *testing.T) {
+	q := buildUpdateUserQuery()
+	assert.Contains(t, q, "school_name", "UpdateUser SQL must set school_name")
+}

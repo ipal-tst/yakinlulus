@@ -279,6 +279,8 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     const gradesQuery = useGrades() as any;
     const grades: any[] = Array.isArray(gradesQuery.data) ? gradesQuery.data : [];
 
+    const isAdmin = user?.role === "ADMIN" || user?.role === "STAFF";
+
     const [fullName, setFullName] = React.useState(user?.full_name || "");
     const [avatarUrl, setAvatarUrl] = React.useState(user?.avatar_url || "");
     const [school, setSchool] = React.useState(user?.school_name || "");
@@ -350,12 +352,15 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 </div>
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Kelas (opsional)</label>
-                    <select value={gradeId} onChange={(e) => { setGradeId(e.target.value); if (!isSmaSmk) setMajor(""); }} className={selectClass}>
+                    <select value={gradeId} onChange={(e) => { setGradeId(e.target.value); if (!isSmaSmk) setMajor(""); }} className={selectClass} disabled={!isAdmin}>
                         <option value="">Pilih kelas</option>
                         {grades.map((g: any) => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
+                    {!isAdmin && (
+                        <p className="text-[10px] text-muted-foreground mt-1">Kelas hanya dapat diubah oleh admin.</p>
+                    )}
                 </div>
                 {isSmaSmk && (
                     <div>
@@ -371,7 +376,10 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 )}
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Sekolah (opsional)</label>
-                    <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="Nama sekolah" />
+                    <Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="Nama sekolah" disabled={!isAdmin} />
+                    {!isAdmin && (
+                        <p className="text-[10px] text-muted-foreground mt-1">Sekolah hanya dapat diubah oleh admin.</p>
+                    )}
                 </div>
                 <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">URL Foto Profil (opsional)</label>

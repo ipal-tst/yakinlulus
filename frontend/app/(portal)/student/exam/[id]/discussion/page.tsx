@@ -98,79 +98,34 @@ export default function ExamDiscussionPage() {
     );
   }
 
-  const fallbackReview: Review = {
-    session_id: activeSessionId || id,
-    exam_id: id,
-    exam_title: (exam as any)?.title || "Simulasi UTBK SNBT 2024 - Pembahasan Soal",
-    total_questions: 3,
-    correct_count: 2,
-    wrong_count: 1,
-    unanswered_count: 0,
-    score: 685.5,
-    passing_grade: 600,
-    is_passed: true,
-    duration_seconds: 1450,
-    created_at: new Date().toISOString(),
-    questions: [
-      {
-        exam_question_id: "q1",
-        question_content_id: "qc1",
-        display_order: 1,
-        stem: "Semua peserta ujian yang lulus telah mempersiapkan diri dengan matang. Sebagian siswa SMA 1 adalah peserta ujian yang lulus. Manakah kesimpulan yang paling tepat?",
-        question_type: "SINGLE_CHOICE",
-        difficulty: "MEDIUM",
-        explanation: "Sesuai hukum silogisme: Semua A (lulus) adalah B (persiapan matang). Sebagian C (siswa SMA 1) adalah A (lulus). Maka sebagian C (siswa SMA 1) adalah B (mempersiapkan diri dengan matang).",
-        selected_option_id: "o1",
-        is_correct: true,
-        is_doubtful: false,
-        options: [
-          { id: "o1", label: "A", text: "Sebagian siswa SMA 1 telah mempersiapkan diri dengan matang", is_correct: true },
-          { id: "o2", label: "B", text: "Semua siswa SMA 1 telah mempersiapkan diri dengan matang", is_correct: false },
-          { id: "o3", label: "C", text: "Semua peserta ujian yang mempersiapkan diri dengan matang adalah siswa SMA 1", is_correct: false },
-          { id: "o4", label: "D", text: "Tidak ada siswa SMA 1 yang mempersiapkan diri", is_correct: false },
-        ],
-      },
-      {
-        exam_question_id: "q2",
-        question_content_id: "qc2",
-        display_order: 2,
-        stem: "Jika p = 3a + 2b dan q = 2a + 3b dengan a > b > 0, manakah hubungan p dan q yang benar?",
-        question_type: "SINGLE_CHOICE",
-        difficulty: "HARD",
-        explanation: "Hitung selisih p - q = (3a + 2b) - (2a + 3b) = a - b. Karena a > b, maka a - b > 0, sehingga p > q.",
-        selected_option_id: "o5",
-        is_correct: true,
-        is_doubtful: false,
-        options: [
-          { id: "o5", label: "A", text: "p > q", is_correct: true },
-          { id: "o6", label: "B", text: "q > p", is_correct: false },
-          { id: "o7", label: "C", text: "p = q", is_correct: false },
-          { id: "o8", label: "D", text: "Hubungan p dan q tidak dapat ditentukan", is_correct: false },
-        ],
-      },
-      {
-        exam_question_id: "q3",
-        question_content_id: "qc3",
-        display_order: 3,
-        stem: "Nilai rata-rata tes matematika dari 15 siswa adalah 80. Jika nilai 5 siswa lainnya digabungkan, nilai rata-rata menjadi 82. Berapakah nilai rata-rata 5 siswa tersebut?",
-        question_type: "SINGLE_CHOICE",
-        difficulty: "HARD",
-        explanation: "Total nilai 15 siswa = 15 x 80 = 1200. Total nilai 20 siswa = 20 x 82 = 1640. Total nilai 5 siswa = 1640 - 1200 = 440. Rata-rata 5 siswa = 440 / 5 = 88.",
-        selected_option_id: "o10",
-        is_correct: false,
-        is_doubtful: true,
-        options: [
-          { id: "o9", label: "A", text: "85", is_correct: false },
-          { id: "o10", label: "B", text: "86", is_correct: false },
-          { id: "o11", label: "C", text: "88", is_correct: true },
-          { id: "o12", label: "D", text: "90", is_correct: false },
-        ],
-      },
-    ],
-  };
+  const review = apiReview;
+  const questionsList = review?.questions || [];
 
-  const review = apiReview || fallbackReview;
-  const questionsList = review.questions || [];
+  if (!review) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href={`/student/exam/${id}/result`}>
+            <Button variant="outline" size="sm" className="h-9 w-9 p-0"><ArrowLeft className="h-4 w-4" /></Button>
+          </Link>
+          <div>
+            <Badge variant="outline" className="text-xs bg-background">Pembahasan Soal</Badge>
+            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-1">{(exam as any)?.title || "Pembahasan Soal"}</h1>
+          </div>
+        </div>
+        <Card className="p-10 text-center space-y-3">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <BookOpen className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-lg font-semibold">Belum ada pembahasan</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Pembahasan belum tersedia. Selesaikan ujian terlebih dahulu, lalu cek kembali halaman ini.
+          </p>
+          <Button onClick={() => router.push("/student/exam")} className="mt-2">Lihat Daftar Ujian</Button>
+        </Card>
+      </div>
+    );
+  }
 
   const filteredQuestions = questionsList.filter((q) => {
     if (filter === "CORRECT") return q.is_correct === true;

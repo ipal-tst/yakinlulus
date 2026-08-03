@@ -22,24 +22,6 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
   let res = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
 
-  if (res.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
-    // Auto-login on 401 for dev session persistence
-    try {
-      const loginRes = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@yakinlulus.id', password: 'Admin@123!' }),
-      });
-      if (loginRes.ok) {
-        // Re-execute original request after acquiring new session cookie
-        res = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
-      }
-    } catch (e) {
-      console.warn('[apiFetch] Auto-login failed:', e);
-    }
-  }
-
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
     const message = errorData?.message || errorData?.error || errorData?.detail || `Request failed (${res.status})`;

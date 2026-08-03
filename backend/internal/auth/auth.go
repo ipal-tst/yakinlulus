@@ -262,7 +262,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
+		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, grade_id, school_name, gender, phone, major, created_at, updated_at
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -273,7 +273,7 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -288,10 +288,13 @@ func (r *Repository) SetActive(ctx context.Context, userID uuid.UUID, active boo
 	return err
 }
 
+func buildUpdateUserQuery() string {
+	return "UPDATE users SET email = $1, full_name = $2, role = $3, grade_id = $4, school_name = $5, is_active = $6, updated_at = NOW() WHERE id = $7"
+}
+
 func (r *Repository) UpdateUser(ctx context.Context, u *User) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE users SET email = $1, full_name = $2, role = $3, grade_id = $4, is_active = $5, updated_at = NOW() WHERE id = $6`,
-		u.Email, u.FullName, u.Role, u.GradeID, u.IsActive, u.ID)
+	_, err := r.pool.Exec(ctx, buildUpdateUserQuery(),
+		u.Email, u.FullName, u.Role, u.GradeID, u.SchoolName, u.IsActive, u.ID)
 	return err
 }
 
@@ -396,12 +399,9 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Password must contain uppercase, lowercase, digit, and special character")
 	}
-	switch req.Role {
-	case "ADMIN", "STAFF", "TEACHER", "STUDENT":
-	default:
-		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid role: must be ADMIN/STAFF/TEACHER/STUDENT")
+	if err := validatePublicRegisterRole(req.Role); err != nil {
+		return nil, err
 	}
-
 	existing, _ := s.repo.FindByEmail(ctx, req.Email)
 	if existing != nil {
 		return nil, fiber.NewError(fiber.StatusConflict, "Email already registered")
@@ -416,7 +416,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 		Email:        req.Email,
 		PasswordHash: string(hash),
 		FullName:     req.FullName,
-		Role:         req.Role,
+		Role:         "STUDENT",
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
@@ -470,7 +470,8 @@ func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*User, error) {
 	return user, nil
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*User, error) {
+func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, role string, req UpdateProfileRequest) (*User, error) {
+	req = restrictGradeSchoolForRole(req, role)
 	if err := validateProfileRequest(req); err != nil {
 		return nil, err
 	}
@@ -668,11 +669,12 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid user ID"))
 	}
+	role, _ := c.Locals("role").(string)
 	var req UpdateProfileRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
-	user, err := h.svc.UpdateProfile(c.Context(), userID, req)
+	user, err := h.svc.UpdateProfile(c.Context(), userID, role, req)
 	if err != nil {
 		if e, ok := err.(*fiber.Error); ok {
 			return c.Status(e.Code).JSON(shared.Error(shared.ErrorCode(e.Message), e.Message))
@@ -803,11 +805,12 @@ type AdminCreateUserReq struct {
 }
 
 type AdminUpdateUserReq struct {
-	Email    *string    `json:"email,omitempty"`
-	FullName *string    `json:"full_name,omitempty"`
-	Role     *string    `json:"role,omitempty"`
-	IsActive *bool      `json:"is_active,omitempty"`
-	GradeID  *uuid.UUID `json:"grade_id,omitempty"`
+	Email      *string    `json:"email,omitempty"`
+	FullName   *string    `json:"full_name,omitempty"`
+	Role       *string    `json:"role,omitempty"`
+	IsActive   *bool      `json:"is_active,omitempty"`
+	GradeID    *uuid.UUID `json:"grade_id,omitempty"`
+	SchoolName *string    `json:"school_name,omitempty"`
 }
 
 func (h *Handler) AdminGetUser(c *fiber.Ctx) error {
@@ -883,6 +886,9 @@ func (h *Handler) AdminUpdateUser(c *fiber.Ctx) error {
 	}
 	if req.GradeID != nil {
 		user.GradeID = req.GradeID
+	}
+	if req.SchoolName != nil {
+		user.SchoolName = req.SchoolName
 	}
 	if err := h.svc.repo.UpdateUser(c.Context(), user); err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to update user"))
@@ -980,6 +986,21 @@ func validatePassword(password string) error {
 		return fmt.Errorf("Password must contain uppercase, lowercase, digit, and special character")
 	}
 	return nil
+}
+
+func validatePublicRegisterRole(role string) error {
+	if role != "" && role != "STUDENT" {
+		return fiber.NewError(fiber.StatusBadRequest, "Public registration only allows STUDENT role")
+	}
+	return nil
+}
+
+func restrictGradeSchoolForRole(req UpdateProfileRequest, role string) UpdateProfileRequest {
+	if role != "ADMIN" && role != "STAFF" {
+		req.GradeID = nil
+		req.SchoolName = nil
+	}
+	return req
 }
 
 func validateProfileRequest(req UpdateProfileRequest) error {

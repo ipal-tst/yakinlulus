@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
 	"yakinlulus.id/backend/internal/content"
@@ -220,15 +221,25 @@ func (s *Service) StartAttempt(ctx context.Context, examID, userID uuid.UUID) (*
 }
 
 // GetAttempt retrieves an attempt by ID.
-func (s *Service) GetAttempt(ctx context.Context, attemptID uuid.UUID) (*content.ExamAttempt, error) {
-	return s.content.GetExamAttempt(ctx, attemptID)
+func (s *Service) GetAttempt(ctx context.Context, attemptID uuid.UUID, userID uuid.UUID) (*content.ExamAttempt, error) {
+	attempt, err := s.content.GetExamAttempt(ctx, attemptID)
+	if err != nil {
+		return nil, err
+	}
+	if attempt.UserID != userID {
+		return nil, fiber.NewError(fiber.StatusForbidden, "Not your attempt")
+	}
+	return attempt, nil
 }
 
 // SubmitAttempt submits an exam attempt.
-func (s *Service) SubmitAttempt(ctx context.Context, attemptID uuid.UUID, answers []content.ExamAnswer) error {
+func (s *Service) SubmitAttempt(ctx context.Context, attemptID uuid.UUID, userID uuid.UUID, answers []content.ExamAnswer) error {
 	attempt, err := s.content.GetExamAttempt(ctx, attemptID)
 	if err != nil {
 		return err
+	}
+	if attempt.UserID != userID {
+		return fiber.NewError(fiber.StatusForbidden, "Not your attempt")
 	}
 
 	if attempt.Status != content.AttemptInProgress {
@@ -247,10 +258,15 @@ func (s *Service) SubmitAttempt(ctx context.Context, attemptID uuid.UUID, answer
 		return err
 	}
 
-	// Batch create answers
+	// Batch create answers. Client-supplied correctness/grading fields are
+	// stripped — they are recomputed server-side during GradeAttempt.
 	for i := range answers {
 		answers[i].AttemptID = attemptID
 		answers[i].CreatedAt = time.Now()
+		answers[i].IsCorrect = nil
+		answers[i].PointsEarned = nil
+		answers[i].GradedBy = nil
+		answers[i].GradedAt = nil
 		if answers[i].ID == uuid.Nil {
 			answers[i].ID = uuid.New()
 		}
@@ -260,10 +276,13 @@ func (s *Service) SubmitAttempt(ctx context.Context, attemptID uuid.UUID, answer
 }
 
 // GradeAttempt grades a submitted attempt.
-func (s *Service) GradeAttempt(ctx context.Context, attemptID uuid.UUID) error {
+func (s *Service) GradeAttempt(ctx context.Context, attemptID uuid.UUID, userID uuid.UUID) error {
 	attempt, err := s.content.GetExamAttempt(ctx, attemptID)
 	if err != nil {
 		return err
+	}
+	if attempt.UserID != userID {
+		return fiber.NewError(fiber.StatusForbidden, "Not your attempt")
 	}
 
 	if attempt.Status != content.AttemptSubmitted {
@@ -293,14 +312,38 @@ func (s *Service) GradeAttempt(ctx context.Context, attemptID uuid.UUID) error {
 		points := pointsMap[answers[i].QuestionContentID]
 		maxScore += points
 
-		// Auto-grade for objective questions
-		// TODO: For essay/short answer, need manual grading
-		// For now, assume is_correct and points_earned are set by client or auto-graded here
-		if answers[i].IsCorrect != nil && *answers[i].IsCorrect {
+		// Recompute correctness server-side from the question's options. The
+		// client-supplied IsCorrect/PointsEarned are never trusted.
+		isCorrect := false
+		if q, err := s.content.GetQuestion(ctx, answers[i].QuestionContentID); err == nil {
+			correct := make(map[uuid.UUID]bool)
+			for _, opt := range q.Options {
+				if opt.IsCorrect {
+					correct[opt.ID] = true
+				}
+			}
+			if len(answers[i].SelectedOptions) > 0 {
+				isCorrect = true
+				for _, sel := range answers[i].SelectedOptions {
+					if !correct[sel] {
+						isCorrect = false
+						break
+					}
+				}
+			}
+		}
+
+		answers[i].IsCorrect = &isCorrect
+		if isCorrect {
 			answers[i].PointsEarned = &points
 			totalScore += points
-		} else if answers[i].PointsEarned != nil {
-			totalScore += *answers[i].PointsEarned
+		} else {
+			zero := 0.0
+			answers[i].PointsEarned = &zero
+		}
+		answers[i].GradedAt = &now
+		if err := s.content.UpdateExamAnswer(ctx, &answers[i]); err != nil {
+			return err
 		}
 	}
 
@@ -630,10 +673,13 @@ func (s *Service) StartTagBasedPractice(ctx context.Context, userID uuid.UUID, t
 }
 
 // SubmitPracticeSession submits and grades a practice session.
-func (s *Service) SubmitPracticeSession(ctx context.Context, sessionID uuid.UUID, answers []content.ExamAnswer) (*content.PracticeSession, error) {
+func (s *Service) SubmitPracticeSession(ctx context.Context, sessionID, userID uuid.UUID, answers []content.ExamAnswer) (*content.PracticeSession, error) {
 	session, err := s.content.GetPracticeSession(ctx, sessionID)
 	if err != nil {
 		return nil, err
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(fiber.StatusForbidden, "Not your session")
 	}
 
 	if session.Status != content.PracticeInProgress {
@@ -647,16 +693,47 @@ func (s *Service) SubmitPracticeSession(ctx context.Context, sessionID uuid.UUID
 	timeSpent := int(now.Sub(session.StartedAt).Seconds())
 	session.TimeSpentSeconds = &timeSpent
 
-	// Grade answers and calculate per-subject breakdown
-	// This is simplified - in reality you'd fetch questions and their subjects
+	// Recompute correctness server-side from the question's options. The
+	// client-supplied IsCorrect/PointsEarned are never trusted.
 	var totalScore, maxScore float64
 	subjectScores := make(map[uuid.UUID]*content.SubjectBreakdown)
 
 	for i := range answers {
 		answers[i].AttemptID = sessionID // Using same ID for practice
 		answers[i].CreatedAt = time.Now()
+		answers[i].IsCorrect = nil
+		answers[i].PointsEarned = nil
+		answers[i].GradedBy = nil
+		answers[i].GradedAt = nil
 		if answers[i].ID == uuid.Nil {
 			answers[i].ID = uuid.New()
+		}
+
+		points := float64(1)
+		isCorrect := false
+		if q, err := s.content.GetQuestion(ctx, answers[i].QuestionContentID); err == nil {
+			correct := make(map[uuid.UUID]bool)
+			for _, opt := range q.Options {
+				if opt.IsCorrect {
+					correct[opt.ID] = true
+				}
+			}
+			if len(answers[i].SelectedOptions) > 0 {
+				isCorrect = true
+				for _, sel := range answers[i].SelectedOptions {
+					if !correct[sel] {
+						isCorrect = false
+						break
+					}
+				}
+			}
+		}
+		answers[i].IsCorrect = &isCorrect
+		if isCorrect {
+			answers[i].PointsEarned = &points
+		} else {
+			zero := 0.0
+			answers[i].PointsEarned = &zero
 		}
 
 		// Get question's subject
@@ -673,18 +750,11 @@ func (s *Service) SubmitPracticeSession(ctx context.Context, sessionID uuid.UUID
 				subjectScores[qSubjectID] = sb
 			}
 			sb.QuestionsCount++
-
-			points := float64(1) // Default
 			maxScore += points
-
-			if answers[i].IsCorrect != nil && *answers[i].IsCorrect {
-				answers[i].PointsEarned = &points
+			if isCorrect {
 				totalScore += points
 				sb.CorrectCount++
 				sb.TotalScore += points
-			} else if answers[i].PointsEarned != nil {
-				totalScore += *answers[i].PointsEarned
-				sb.TotalScore += *answers[i].PointsEarned
 			}
 			sb.MaxScore += points
 		}
@@ -717,6 +787,13 @@ func (s *Service) SubmitPracticeSession(ctx context.Context, sessionID uuid.UUID
 }
 
 // GetPracticeSession retrieves a practice session with results.
-func (s *Service) GetPracticeSession(ctx context.Context, sessionID uuid.UUID) (*content.PracticeSession, error) {
-	return s.content.GetPracticeSession(ctx, sessionID)
+func (s *Service) GetPracticeSession(ctx context.Context, sessionID, userID uuid.UUID) (*content.PracticeSession, error) {
+	session, err := s.content.GetPracticeSession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(fiber.StatusForbidden, "Not your session")
+	}
+	return session, nil
 }

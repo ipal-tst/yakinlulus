@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"yakinlulus.id/backend/internal/content"
+	"yakinlulus.id/backend/internal/middleware"
 	"yakinlulus.id/backend/internal/shared"
 )
 
@@ -25,30 +26,33 @@ func NewHandler(svc *Service, secret string) *Handler {
 
 // RegisterRoutes registers the CBT exam routes.
 func (h *Handler) RegisterRoutes(r fiber.Router) {
-	exams := r.Group("/exams")
-	exams.Post("/", h.CreateExam)
-	exams.Post("/import", h.ImportExams)
+	authed := r.Group("", middleware.RequireAuth(h.secret))
+	write := middleware.RequireRole("ADMIN", "STAFF", "TEACHER")
+
+	exams := authed.Group("/exams")
+	exams.Post("/", write, h.CreateExam)
+	exams.Post("/import", write, h.ImportExams)
 	exams.Get("/", h.ListExams)
 	exams.Get("/:id", h.GetExam)
-	exams.Put("/:id", h.UpdateExam)
-	exams.Delete("/:id", h.DeleteExam)
+	exams.Put("/:id", write, h.UpdateExam)
+	exams.Delete("/:id", write, h.DeleteExam)
 
 	// Exam questions
-	exams.Post("/:id/questions", h.AddQuestionToExam)
-	exams.Delete("/:id/questions/:questionId", h.RemoveQuestionFromExam)
-	exams.Put("/:id/questions/reorder", h.ReorderQuestions)
+	exams.Post("/:id/questions", write, h.AddQuestionToExam)
+	exams.Delete("/:id/questions/:questionId", write, h.RemoveQuestionFromExam)
+	exams.Put("/:id/questions/reorder", write, h.ReorderQuestions)
 
 	// Exam blueprint
-	exams.Post("/:id/blueprint", h.SetBlueprint)
+	exams.Post("/:id/blueprint", write, h.SetBlueprint)
 	exams.Get("/:id/blueprint", h.GetBlueprint)
 
 	// Exam subject blueprints
-	exams.Post("/:id/subject-blueprints", h.SetSubjectBlueprint)
+	exams.Post("/:id/subject-blueprints", write, h.SetSubjectBlueprint)
 	exams.Get("/:id/subject-blueprints", h.GetSubjectBlueprints)
 
 	// Participants
-	exams.Post("/:id/participants", h.AddParticipant)
-	exams.Delete("/:id/participants/:userId", h.RemoveParticipant)
+	exams.Post("/:id/participants", write, h.AddParticipant)
+	exams.Delete("/:id/participants/:userId", write, h.RemoveParticipant)
 	exams.Get("/:id/participants", h.GetParticipants)
 
 	// Attempts
@@ -63,7 +67,7 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	exams.Get("/:id/analytics", h.GetAnalytics)
 
 	// Practice endpoints
-	practice := r.Group("/practice")
+	practice := authed.Group("/practice")
 	practice.Post("/material/:materialId", h.StartMaterialPractice)
 	practice.Post("/subject", h.StartSubjectPractice)
 	practice.Post("/tags", h.StartTagBasedPractice)
@@ -111,7 +115,7 @@ func (h *Handler) CreateExam(c *fiber.Ctx) error {
 
 	createdBy := req.CreatedBy
 	if createdBy == uuid.Nil {
-		if uid, ok := c.Locals("user_id").(uuid.UUID); ok && uid != uuid.Nil {
+		if uid, ok := middleware.UserIDFromCtx(c); ok && uid != uuid.Nil {
 			createdBy = uid
 		} else {
 			createdBy = uuid.MustParse("00000000-0000-0000-0000-000000000001")
@@ -190,7 +194,7 @@ func (h *Handler) ImportExams(c *fiber.Ctx) error {
 	for _, req := range reqs {
 		createdBy := req.CreatedBy
 		if createdBy == uuid.Nil {
-			if uid, ok := c.Locals("user_id").(uuid.UUID); ok && uid != uuid.Nil {
+			if uid, ok := middleware.UserIDFromCtx(c); ok && uid != uuid.Nil {
 				createdBy = uid
 			} else {
 				createdBy = uuid.MustParse("00000000-0000-0000-0000-000000000001")
@@ -564,7 +568,10 @@ func (h *Handler) StartAttempt(c *fiber.Ctx) error {
 	}
 
 	// Get user ID from JWT context
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	attempt, err := h.svc.StartAttempt(c.Context(), examID, userID)
 	if err != nil {
@@ -586,8 +593,16 @@ func (h *Handler) GetAttempt(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid attempt ID"))
 	}
 
-	attempt, err := h.svc.GetAttempt(c.Context(), attemptID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
+	attempt, err := h.svc.GetAttempt(c.Context(), attemptID, userID)
 	if err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		return c.Status(http.StatusNotFound).JSON(shared.Error(shared.ErrNotFound, "Attempt not found"))
 	}
 
@@ -607,7 +622,15 @@ func (h *Handler) SubmitAttempt(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
 
-	if err := h.svc.SubmitAttempt(c.Context(), attemptID, req.Answers); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
+	if err := h.svc.SubmitAttempt(c.Context(), attemptID, userID, req.Answers); err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		if err == ErrAttemptAlreadySubmitted {
 			return c.Status(http.StatusConflict).JSON(shared.Error(shared.ErrConflict, "Attempt already submitted"))
 		}
@@ -623,7 +646,15 @@ func (h *Handler) GradeAttempt(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid attempt ID"))
 	}
 
-	if err := h.svc.GradeAttempt(c.Context(), attemptID); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
+	if err := h.svc.GradeAttempt(c.Context(), attemptID, userID); err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		if err == ErrInvalidState {
 			return c.Status(http.StatusConflict).JSON(shared.Error(shared.ErrConflict, "Attempt cannot be graded in current state"))
 		}
@@ -658,7 +689,10 @@ func (h *Handler) StartAttemptWithSubjectBlueprints(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid exam ID"))
 	}
 
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	attempt, err := h.svc.StartAttemptWithSubjectBlueprints(c.Context(), examID, userID)
 	if err != nil {
@@ -681,7 +715,10 @@ func (h *Handler) StartTagBasedExam(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid exam ID"))
 	}
 
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	var req struct {
 		TagFilter      map[string]interface{} `json:"tag_filter" validate:"required"`
@@ -714,7 +751,10 @@ func (h *Handler) StartMaterialPractice(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid material ID"))
 	}
 
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	var req struct {
 		QuestionsCount int `json:"questions_count" validate:"gt=0"`
@@ -736,7 +776,10 @@ func (h *Handler) StartMaterialPractice(c *fiber.Ctx) error {
 
 // StartSubjectPractice starts a practice session by subject and grade.
 func (h *Handler) StartSubjectPractice(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	var req struct {
 		SubjectID      *uuid.UUID `json:"subject_id"`
@@ -760,7 +803,10 @@ func (h *Handler) StartSubjectPractice(c *fiber.Ctx) error {
 
 // StartTagBasedPractice starts a practice session filtered by tags.
 func (h *Handler) StartTagBasedPractice(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(uuid.UUID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
 
 	var req struct {
 		TagFilter      map[string]interface{} `json:"tag_filter" validate:"required"`
@@ -795,8 +841,16 @@ func (h *Handler) SubmitPracticeSession(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
 
-	session, err := h.svc.SubmitPracticeSession(c.Context(), sessionID, req.Answers)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
+	session, err := h.svc.SubmitPracticeSession(c.Context(), sessionID, userID, req.Answers)
 	if err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		if err == ErrAttemptAlreadySubmitted {
 			return c.Status(http.StatusConflict).JSON(shared.Error(shared.ErrConflict, "Session already submitted"))
 		}
@@ -813,8 +867,16 @@ func (h *Handler) GetPracticeSession(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	session, err := h.svc.GetPracticeSession(c.Context(), sessionID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
+	session, err := h.svc.GetPracticeSession(c.Context(), sessionID, userID)
 	if err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		return c.Status(http.StatusNotFound).JSON(shared.Error(shared.ErrNotFound, "Practice session not found"))
 	}
 

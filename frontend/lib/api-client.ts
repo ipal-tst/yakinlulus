@@ -11,6 +11,7 @@ export interface ApiResponse<T = any> {
     data?: T;
     error?: string;
     message?: string;
+    status?: number;
     meta?: {
         page: number;
         limit: number;
@@ -39,45 +40,11 @@ class ApiClient {
         // No-op: logout clears HttpOnly cookie server-side
     }
 
-    public async autoLoginAdmin(): Promise<string | null> {
-        // Dev convenience: auto login with admin credentials
-        // Backend sets HttpOnly cookie, no token returned to JS
-        try {
-            const res = await fetch(`${this.baseUrl}/auth/login`, {
-                method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: "admin@yakinlulus.id",
-                    password: "Admin@123!",
-                }),
-            });
-            const text = await res.text();
-            if (res.ok && text) {
-                const json = JSON.parse(text);
-                return json.data?.token || json.token || "ok";
-            }
-        } catch (err) {
-            console.warn("[ApiClient] Auto admin login failed:", err);
-        }
-        return null;
-    }
-
     public async request<T>(
         endpoint: string,
         options: RequestInit = {},
         retryOn401: boolean = true
     ): Promise<ApiResponse<T>> {
-        // Auto obtain session if missing (for dev convenience)
-        if (!endpoint.includes("/auth/login") && !endpoint.includes("/auth/register")) {
-            const meRes = await fetch(`${this.baseUrl}/auth/me`, {
-                credentials: "include",
-            });
-            if (meRes.status === 401) {
-                await this.autoLoginAdmin();
-            }
-        }
-
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -96,11 +63,14 @@ class ApiClient {
                 headers,
             });
 
-            // Handle 401 Unauthorized: try auto login once
+            // Handle 401 Unauthorized: signal unauthenticated state; caller decides.
             if (response.status === 401 && retryOn401 && !endpoint.includes("/auth/login")) {
-                console.info("[ApiClient] 401 encountered. Attempting auto-login...");
-                await this.autoLoginAdmin();
-                return this.request<T>(endpoint, options, false);
+                console.info("[ApiClient] 401 Unauthorized. Session expired or not logged in.");
+                return {
+                    success: false,
+                    status: 401,
+                    error: "Unauthorized. Silakan login terlebih dahulu.",
+                };
             }
 
             // Handle 204 No Content (DELETE responses)

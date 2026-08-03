@@ -916,10 +916,13 @@ func (s *Service) Start(ctx context.Context, examID, userID uuid.UUID) (*ExamSes
 	return session, nil
 }
 
-func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, answers []SyncAnswerReq) error {
+func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, answers []SyncAnswerReq) error {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return fiber.NewError(403, "Not your session")
 	}
 	if session.Status != "ACTIVE" {
 		return fiber.NewError(400, "Session is not active")
@@ -1012,10 +1015,13 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, answers 
 	return nil
 }
 
-func (s *Service) Navigate(ctx context.Context, sessionID uuid.UUID, examQuestionID string, isDoubtful bool) error {
+func (s *Service) Navigate(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, examQuestionID string, isDoubtful bool) error {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return fiber.NewError(403, "Not your session")
 	}
 	if session.Status != "ACTIVE" {
 		return fiber.NewError(400, "Session is not active")
@@ -1034,10 +1040,13 @@ func (s *Service) Navigate(ctx context.Context, sessionID uuid.UUID, examQuestio
 	return nil
 }
 
-func (s *Service) GetAnswers(ctx context.Context, sessionID uuid.UUID) ([]ExamAnswer, error) {
-	_, err := s.repo.FindSession(ctx, sessionID)
+func (s *Service) GetAnswers(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) ([]ExamAnswer, error) {
+	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(403, "Not your session")
 	}
 
 	answers, err := s.repo.GetAnswers(ctx, sessionID)
@@ -1047,7 +1056,14 @@ func (s *Service) GetAnswers(ctx context.Context, sessionID uuid.UUID) ([]ExamAn
 	return answers, nil
 }
 
-func (s *Service) GetSessionReview(ctx context.Context, sessionID uuid.UUID) (*SessionReview, error) {
+func (s *Service) GetSessionReview(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) (*SessionReview, error) {
+	session, err := s.repo.FindSession(ctx, sessionID)
+	if err != nil {
+		return nil, fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(403, "Not your session")
+	}
 	review, err := s.repo.GetSessionReview(ctx, sessionID)
 	if err != nil {
 		return nil, err
@@ -1059,19 +1075,25 @@ func (s *Service) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Use
 	return s.repo.ListUserSessions(ctx, userID)
 }
 
-func (s *Service) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID) ([]SessionQuestion, error) {
-	_, err := s.repo.FindSession(ctx, sessionID)
+func (s *Service) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) ([]SessionQuestion, error) {
+	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(403, "Not your session")
 	}
 
 	return s.repo.GetSessionQuestionsFull(ctx, sessionID)
 }
 
-func (s *Service) Pause(ctx context.Context, sessionID uuid.UUID, remainingSeconds int) error {
+func (s *Service) Pause(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, remainingSeconds int) error {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return fiber.NewError(403, "Not your session")
 	}
 	if session.Status != "ACTIVE" {
 		return fiber.NewError(400, "Session is not active")
@@ -1080,10 +1102,13 @@ func (s *Service) Pause(ctx context.Context, sessionID uuid.UUID, remainingSecon
 	return s.repo.PauseSession(ctx, sessionID, remainingSeconds)
 }
 
-func (s *Service) Resume(ctx context.Context, sessionID uuid.UUID) error {
+func (s *Service) Resume(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) error {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return fiber.NewError(403, "Not your session")
 	}
 	if session.Status != "PAUSED" {
 		return fiber.NewError(400, "Session is not paused")
@@ -1091,10 +1116,13 @@ func (s *Service) Resume(ctx context.Context, sessionID uuid.UUID) error {
 	return s.repo.ResumeSession(ctx, sessionID)
 }
 
-func (s *Service) ReportViolation(ctx context.Context, sessionID uuid.UUID, violationType, details string) (*ExamSession, error) {
+func (s *Service) ReportViolation(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, violationType, details string) (*ExamSession, error) {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(403, "Not your session")
 	}
 
 	v := &Violation{
@@ -1118,7 +1146,7 @@ func (s *Service) ReportViolation(ctx context.Context, sessionID uuid.UUID, viol
 			return nil, err
 		}
 		// Auto-score on termination
-		if _, err := s.Finish(ctx, sessionID); err != nil {
+		if _, err := s.Finish(ctx, sessionID, userID); err != nil {
 			// don't fail on scoring error
 		}
 		session.Status = "TERMINATED"
@@ -1130,10 +1158,13 @@ func (s *Service) ReportViolation(ctx context.Context, sessionID uuid.UUID, viol
 	return session, nil
 }
 
-func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID) (*Result, error) {
+func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) (*Result, error) {
 	session, err := s.repo.FindSession(ctx, sessionID)
 	if err != nil {
 		return nil, fiber.NewError(404, "Session not found")
+	}
+	if session.UserID != userID {
+		return nil, fiber.NewError(403, "Not your session")
 	}
 	if session.Status == "FINISHED" || session.Status == "TERMINATED" {
 		// Already finished, return existing result if available
@@ -1361,7 +1392,7 @@ func (s *Service) AutoSubmitExpired(ctx context.Context) (int, error) {
 	}
 	count := 0
 	for _, sess := range sessions {
-		if _, err := s.Finish(ctx, sess.ID); err == nil {
+		if _, err := s.Finish(ctx, sess.ID, sess.UserID); err == nil {
 			count++
 		}
 	}
@@ -1514,7 +1545,11 @@ func (h *Handler) Sync(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "answers required"))
 	}
 
-	if err := h.svc.SyncAnswers(c.Context(), sessionID, req.Answers); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	if err := h.svc.SyncAnswers(c.Context(), sessionID, userID, req.Answers); err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
 		}
@@ -1534,7 +1569,11 @@ func (h *Handler) Navigate(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
 
-	if err := h.svc.Navigate(c.Context(), sessionID, req.ExamQuestionID, req.IsDoubtful); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	if err := h.svc.Navigate(c.Context(), sessionID, userID, req.ExamQuestionID, req.IsDoubtful); err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
 		}
@@ -1554,7 +1593,11 @@ func (h *Handler) Pause(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
 
-	if err := h.svc.Pause(c.Context(), sessionID, req.RemainingSeconds); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	if err := h.svc.Pause(c.Context(), sessionID, userID, req.RemainingSeconds); err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
 		}
@@ -1569,7 +1612,11 @@ func (h *Handler) Resume(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	if err := h.svc.Resume(c.Context(), sessionID); err != nil {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	if err := h.svc.Resume(c.Context(), sessionID, userID); err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
 		}
@@ -1584,7 +1631,11 @@ func (h *Handler) Finish(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	result, err := h.svc.Finish(c.Context(), sessionID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	result, err := h.svc.Finish(c.Context(), sessionID, userID)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
@@ -1613,7 +1664,11 @@ func (h *Handler) ReportViolation(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid violation type"))
 	}
 
-	session, err := h.svc.ReportViolation(c.Context(), sessionID, req.ViolationType, req.Details)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	session, err := h.svc.ReportViolation(c.Context(), sessionID, userID, req.ViolationType, req.Details)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
@@ -1634,7 +1689,11 @@ func (h *Handler) GetAnswers(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	answers, err := h.svc.GetAnswers(c.Context(), sessionID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	answers, err := h.svc.GetAnswers(c.Context(), sessionID, userID)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
@@ -1650,7 +1709,11 @@ func (h *Handler) GetSessionQuestions(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	questions, err := h.svc.GetSessionQuestions(c.Context(), sessionID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	questions, err := h.svc.GetSessionQuestions(c.Context(), sessionID, userID)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
@@ -1666,9 +1729,11 @@ func (h *Handler) GetReview(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
-	userID := uuid.MustParse(c.Locals("user_id").(string))
-
-	review, err := h.svc.GetSessionReview(c.Context(), sessionID)
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+	review, err := h.svc.GetSessionReview(c.Context(), sessionID, userID)
 	if err != nil {
 		if fe, ok := err.(*fiber.Error); ok {
 			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))

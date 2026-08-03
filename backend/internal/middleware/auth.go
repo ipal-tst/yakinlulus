@@ -10,8 +10,31 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"yakinlulus.id/backend/internal/shared"
 )
+
+// UserIDFromCtx safely extracts the authenticated user id from the request
+// context set by RequireAuth. It returns the zero uuid and false when the
+// caller is unauthenticated or the stored value has an unexpected type.
+func UserIDFromCtx(c *fiber.Ctx) (uuid.UUID, bool) {
+	raw := c.Locals("user_id")
+	if raw == nil {
+		return uuid.Nil, false
+	}
+	switch v := raw.(type) {
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return uuid.Nil, false
+		}
+		return id, true
+	case uuid.UUID:
+		return v, true
+	default:
+		return uuid.Nil, false
+	}
+}
 
 type RBACConfig struct {
 	Secret string

@@ -1032,6 +1032,15 @@ func (r *repository) GetExamAnswers(ctx context.Context, attemptID uuid.UUID) ([
 	return answers, nil
 }
 
+func (r *repository) UpdateExamAnswer(ctx context.Context, ea *ExamAnswer) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE content_exam_answers
+		SET selected_options = $2, text_answer = $3, is_correct = $4, points_earned = $5, graded_by = $6, graded_at = $7
+		WHERE id = $1
+	`, ea.ID, ea.SelectedOptions, ea.TextAnswer, ea.IsCorrect, ea.PointsEarned, ea.GradedBy, ea.GradedAt)
+	return err
+}
+
 func (r *repository) BatchCreateExamAnswers(ctx context.Context, answers []ExamAnswer) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

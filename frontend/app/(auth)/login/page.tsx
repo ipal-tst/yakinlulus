@@ -22,26 +22,16 @@ function LoginFormContent() {
     const reason = searchParams?.get("reason");
     const registered = searchParams?.get("registered");
 
-    const [email, setEmail] = React.useState("admin@yakinlulus.id");
-    const [password, setPassword] = React.useState("Admin@123!");
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
     const [showPassword, setShowPassword] = React.useState(false);
-    const [selectedRole, setSelectedRole] = React.useState<"student" | "teacher" | "admin">("admin");
+    const [selectedRole, setSelectedRole] = React.useState<"student" | "teacher" | "admin">("student");
     const [isLoading, setIsLoading] = React.useState(false);
     const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
     const handleSelectRole = (role: "student" | "teacher" | "admin") => {
         setSelectedRole(role);
         setErrorMessage(null);
-        if (role === "student") {
-            setEmail("murid@yakinlulus.id");
-            setPassword("Admin@123!");
-        } else if (role === "teacher") {
-            setEmail("guru@yakinlulus.id");
-            setPassword("Admin@123!");
-        } else if (role === "admin") {
-            setEmail("admin@yakinlulus.id");
-            setPassword("Admin@123!");
-        }
     };
 
     const handleLogin = async (e: React.FormEvent) => {

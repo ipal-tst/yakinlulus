@@ -501,6 +501,7 @@ type Repository interface {
 	CreateExamAnswer(ctx context.Context, ea *ExamAnswer) error
 	GetExamAnswers(ctx context.Context, attemptID uuid.UUID) ([]ExamAnswer, error)
 	BatchCreateExamAnswers(ctx context.Context, answers []ExamAnswer) error
+	UpdateExamAnswer(ctx context.Context, ea *ExamAnswer) error
 
 	// Question pools
 		CreateQuestionPool(ctx context.Context, qp *QuestionPool) error

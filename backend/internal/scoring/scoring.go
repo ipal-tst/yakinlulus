@@ -157,9 +157,17 @@ func (h *Handler) GetBySession(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid session ID"))
 	}
 
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+	}
+
 	result, err := h.svc.repo.GetResult(c.Context(), sessionID)
 	if err != nil {
 		return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Result not found"))
+	}
+	if result.UserID != userID {
+		return c.Status(403).JSON(shared.Error(shared.ErrForbidden, "Not your result"))
 	}
 
 	return c.JSON(shared.Success(result))

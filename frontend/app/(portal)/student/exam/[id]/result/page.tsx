@@ -66,33 +66,39 @@ export default function ExamResultPage() {
     );
   }
 
-  // Fallback demo result if no database result found yet
-  const fallbackResult = {
-    exam_title: (exam as any)?.title || "Simulasi UTBK SNBT 2024",
-    score: 685.5,
-    passing_grade: 600,
-    is_passed: true,
-    total_questions: 4,
-    answered_count: 4,
-    correct_count: 3,
-    wrong_count: 1,
-    duration_seconds: 1450,
-    ability_estimate: 1.25,
-  };
+  // No fabricated demo result: show "belum ada hasil" when the DB has none.
+  const result = apiResult;
 
-  const result = apiResult || fallbackResult;
-
-  const fallbackBreakdown = [
-    { subject_id: "1", subject_name: "Penalaran Umum", question_count: 2, correct_count: 2, score: 350.0, max_score: 400.0, ability_estimate: 1.4 },
-    { subject_id: "2", subject_name: "Penalaran Kuantitatif", question_count: 2, correct_count: 1, score: 335.5, max_score: 400.0, ability_estimate: 1.1 },
-  ];
+  const fallbackBreakdown = [] as any[];
 
   const subjects = (breakdown && breakdown.length > 0) ? breakdown : fallbackBreakdown;
-  const totalMaxScore = subjects.reduce((sum: number, s: any) => sum + (s.max_score || 0), 0) || 800;
-  const overallPercentage = totalMaxScore > 0 ? ((result.score || 0) / totalMaxScore) * 100 : 85;
-  const isPassed = result.is_passed || (result.score >= (result.passing_grade || 0));
-  const durationMinutes = Math.floor((result.duration_seconds || 0) / 60);
-  const durationSecs = (result.duration_seconds || 0) % 60;
+  const totalMaxScore = subjects.reduce((sum: number, s: any) => sum + (s.max_score || 0), 0) || 0;
+  const overallPercentage = totalMaxScore > 0 ? ((result?.score || 0) / totalMaxScore) * 100 : 0;
+  const isPassed = !!(result && (result.is_passed || (result.score >= (result.passing_grade || 0))));
+  const durationMinutes = Math.floor((result?.duration_seconds || 0) / 60);
+  const durationSecs = (result?.duration_seconds || 0) % 60;
+
+  if (!result) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/student/exam" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Kembali
+          </Link>
+        </div>
+        <Card className="p-10 text-center space-y-3">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Clock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-lg font-semibold">Belum ada hasil</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Hasil ujian belum tersedia. Selesaikan ujian terlebih dahulu, lalu cek kembali halaman ini.
+          </p>
+          <Button onClick={() => router.push("/student/exam")} className="mt-2">Lihat Daftar Ujian</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

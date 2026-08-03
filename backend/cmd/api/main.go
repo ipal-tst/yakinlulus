@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"yakinlulus.id/backend/internal/academic"
@@ -97,6 +98,9 @@ func main() {
 		AllowCredentials: true,
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-ID",
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+	}))
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
 	}))
 	app.Use(requestid.New())
 	app.Use(middleware.SecurityHeaders())
