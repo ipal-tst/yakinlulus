@@ -23,8 +23,7 @@ type StudentDashboard struct {
 	LearningProgress []SubjectProgress  `json:"learning_progress"`
 	WeeklyActivity   []DailyActivity    `json:"weekly_activity"`
 	UpcomingExams    []UpcomingExam     `json:"upcoming_exams"`
-	Achievement      AchievementSummary `json:"achievement"`
-	Leaderboard      []LeaderboardEntry `json:"leaderboard"`
+	ExamStats        ExamStats          `json:"exam_stats"`
 	RecentActivity   []ActivityItem     `json:"recent_activity"`
 }
 
@@ -75,20 +74,11 @@ type UpcomingExam struct {
 	Status        string    `json:"status"`
 }
 
-type AchievementSummary struct {
-	TotalXP     int `json:"total_xp"`
-	Level       int `json:"level"`
-	Streak      int `json:"streak"`
-	BadgesCount int `json:"badges_count"`
-}
-
-type LeaderboardEntry struct {
-	Rank      int       `json:"rank"`
-	UserID    uuid.UUID `json:"user_id"`
-	FullName  string    `json:"full_name"`
-	TotalXP   int       `json:"total_xp"`
-	Level     int       `json:"level"`
-	AvatarURL string    `json:"avatar_url"`
+type ExamStats struct {
+	TotalCompleted int     `json:"total_completed"`
+	AverageScore   float64 `json:"average_score"`
+	HighestScore   float64 `json:"highest_score"`
+	NationalRank   int     `json:"national_rank"`
 }
 
 type ActivityItem struct {
@@ -365,47 +355,38 @@ func (r *Repository) GetUpcomingExams(ctx context.Context, userID uuid.UUID, gra
 	return items
 }
 
-func (r *Repository) GetAchievement(ctx context.Context, userID uuid.UUID) AchievementSummary {
-	a := AchievementSummary{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(total_xp_earned, 0), COALESCE(level, 0)
-		 FROM user_levels WHERE user_id = $1`, userID,
-	).Scan(&a.TotalXP, &a.Level)
-	if err != nil {
-		return a
-	}
+func (r *Repository) GetExamStats(ctx context.Context, userID uuid.UUID) ExamStats {
+	var s ExamStats
 	r.pool.QueryRow(ctx,
-		`SELECT COALESCE(current_streak, 0) FROM user_streaks WHERE user_id = $1`, userID,
-	).Scan(&a.Streak)
-	r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM user_badges WHERE user_id = $1`, userID,
-	).Scan(&a.BadgesCount)
-	return a
+		`SELECT COUNT(*),
+		        COALESCE(AVG(total_score), 0),
+		        COALESCE(MAX(total_score), 0)
+		 FROM content_exam_attempts
+		 WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL`,
+		userID).Scan(&s.TotalCompleted, &s.AverageScore, &s.HighestScore)
+	s.NationalRank = r.GetNationalRank(ctx, userID)
+	return s
 }
 
-func (r *Repository) GetLeaderboard(ctx context.Context) []LeaderboardEntry {
-	rows, err := r.pool.Query(ctx,
-		`SELECT ul.user_id, u.full_name, ul.total_xp_earned, ul.level, COALESCE(u.avatar_url, '')
-		 FROM user_levels ul
-		 JOIN users u ON u.id = ul.user_id
-		 ORDER BY ul.total_xp_earned DESC LIMIT 10`)
+func (r *Repository) GetNationalRank(ctx context.Context, userID uuid.UUID) int {
+	var rank int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) + 1
+		 FROM (SELECT user_id, AVG(total_score) AS avg
+		       FROM content_exam_attempts
+		       WHERE status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL
+		         AND submitted_at >= date_trunc('month', NOW())
+		       GROUP BY user_id) t
+		 WHERE t.avg > COALESCE((
+		     SELECT AVG(total_score) FROM content_exam_attempts
+		     WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED')
+		       AND total_score IS NOT NULL
+		       AND submitted_at >= date_trunc('month', NOW())), 0)`,
+		userID).Scan(&rank)
 	if err != nil {
-		return []LeaderboardEntry{}
+		return 0
 	}
-	defer rows.Close()
-
-	var items []LeaderboardEntry
-	rank := 1
-	for rows.Next() {
-		var entry LeaderboardEntry
-		if err := rows.Scan(&entry.UserID, &entry.FullName, &entry.TotalXP, &entry.Level, &entry.AvatarURL); err != nil {
-			continue
-		}
-		entry.Rank = rank
-		rank++
-		items = append(items, entry)
-	}
-	return items
+	return rank
 }
 
 func (r *Repository) GetStudentRecentActivity(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) []ActivityItem {
@@ -421,9 +402,6 @@ func (r *Repository) GetStudentRecentActivity(ctx context.Context, userID uuid.U
 		 SELECT 'material' AS type, 'Menyelesaikan materi: ' || c.title AS message, lp.updated_at AS created_at
 		 FROM content_learning_progress lp JOIN contents c ON c.id = lp.content_id
 		 WHERE lp.user_id = $1 AND lp.progress >= 100`+gradeFilter+`
-		 UNION ALL
-		 SELECT 'badge' AS type, 'Mendapatkan lencana: ' || b.name AS message, ub.created_at AS created_at
-		 FROM user_badges ub JOIN badges b ON b.id = ub.badge_id WHERE ub.user_id = $1
 		) sub ORDER BY created_at DESC LIMIT 10`, userID)
 	if err != nil {
 		return []ActivityItem{}
@@ -644,8 +622,7 @@ func (s *Service) GetStudentDashboard(ctx context.Context, userID uuid.UUID) (*S
 		LearningProgress: s.repo.GetLearningProgress(ctx, userID, gradeID),
 		WeeklyActivity:   s.repo.GetWeeklyActivity(ctx, userID, gradeID),
 		UpcomingExams:    s.repo.GetUpcomingExams(ctx, userID, gradeID),
-		Achievement:      s.repo.GetAchievement(ctx, userID),
-		Leaderboard:      s.repo.GetLeaderboard(ctx),
+		ExamStats:        s.repo.GetExamStats(ctx, userID),
 		RecentActivity:   s.repo.GetStudentRecentActivity(ctx, userID, gradeID),
 	}
 	return dash, nil
