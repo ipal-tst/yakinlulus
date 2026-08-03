@@ -67,7 +67,7 @@ useQuestions, useCreateQuestion, useUpdateQuestion, useDeleteQuestion
 useMaterials, useCreateMaterial, useUpdateMaterial, useDeleteMaterial
 useSubjects, useGrades, useLevels, useChapters, useTopics
 useStudentDashboard, useStudentAnalytics, useStudentTimeline
-useLeaderboard, useXP, useBadges, useStreak
+useExamPackages, usePackageExams, useRanking
 useCBTReview, useStartExamSession, useCBTQuestions, useFinishExam
 useSchools, useSubscriptionPlans, useUserSubscriptions
 useCreateUser, useUsers

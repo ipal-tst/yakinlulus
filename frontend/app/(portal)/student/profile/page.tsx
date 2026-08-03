@@ -269,13 +269,13 @@ function EditProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     const updateProfile = useUpdateProfile();
     const [fullName, setFullName] = React.useState(user?.full_name || "");
     const [avatarUrl, setAvatarUrl] = React.useState(user?.avatar_url || "");
-    const [school, setSchool] = React.useState((user as any)?.school_name || "");
+    const [school, setSchool] = React.useState(user?.school_name || "");
     const [error, setError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         setFullName(user?.full_name || "");
         setAvatarUrl(user?.avatar_url || "");
-        setSchool((user as any)?.school_name || "");
+        setSchool(user?.school_name || "");
     }, [user, isOpen]);
 
     const submit = async () => {

@@ -576,16 +576,20 @@ func main() {
 	log.Println("Seeded Exam Analytics & Custom Configs")
 
 	// -------------------------------------------------------------
-	// 3j. GAMIFICATION & NOTIFICATIONS & AI TUTOR
+	// 3j. SCHOOL NAME & NOTIFICATIONS & AI TUTOR
 	// -------------------------------------------------------------
 	_, err = pool.Exec(ctx, `
-		INSERT INTO user_gamification (user_id, points, level, current_streak, highest_streak, updated_at)
-		VALUES 
-			($1, 1250, 4, 7, 14, NOW()),
-			($2, 850, 3, 3, 5, NOW()),
-			($3, 400, 2, 1, 3, NOW())
-		ON CONFLICT DO NOTHING
+		UPDATE users SET school_name = CASE id
+			WHEN $1 THEN 'SMA Negeri 1 Jakarta'
+			WHEN $2 THEN 'SMA Muhammadiyah 2 Bandung'
+			WHEN $3 THEN 'SMA Cendekia Surabaya'
+			ELSE school_name
+		END
+		WHERE id IN ($1, $2, $3)
 	`, student1ID, student2ID, student3ID)
+	if err != nil {
+		log.Fatalf("seed school_name: %v", err)
+	}
 
 	_, err = pool.Exec(ctx, `
 		INSERT INTO notifications (id, user_id, title, message, is_read, created_at)

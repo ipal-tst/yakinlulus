@@ -2,6 +2,7 @@ package exam_packages
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -58,6 +59,11 @@ func validateSaveRequest(req SavePackageRequest) error {
 	case "SD", "SMP", "SMA", "UNIVERSITY":
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "education_level must be SD/SMP/SMA/UNIVERSITY")
+	}
+	if req.GradeID != nil && *req.GradeID != "" {
+		if _, err := uuid.Parse(*req.GradeID); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid grade_id")
+		}
 	}
 	return nil
 }
@@ -152,19 +158,28 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SavePackageRe
 			gradeID = &gid
 		}
 	}
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE exam_packages SET code=$2, name=$3, education_level=$4, grade_id=$5,
 		   is_active=COALESCE($6, is_active), updated_at=NOW() WHERE id=$1`,
 		id, req.Code, req.Name, req.EducationLevel, gradeID, req.IsActive)
 	if err != nil {
 		return nil, err
 	}
+	if tag.RowsAffected() == 0 {
+		return nil, pgx.ErrNoRows
+	}
 	return r.GetByID(ctx, id)
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM exam_packages WHERE id = $1`, id)
-	return err
+	tag, err := r.pool.Exec(ctx, `DELETE FROM exam_packages WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repository) ListExams(ctx context.Context, packageID uuid.UUID) ([]PackageExam, error) {
@@ -321,6 +336,9 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	}
 	p, err := h.svc.Update(c.Context(), id, req)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Exam package not found"))
+		}
 		if e, ok := err.(*fiber.Error); ok {
 			return c.Status(e.Code).JSON(shared.Error(shared.ErrorCode(e.Message), e.Message))
 		}
@@ -335,6 +353,9 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
 	}
 	if err := h.svc.Delete(c.Context(), id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Exam package not found"))
+		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete exam package"))
 	}
 	return c.JSON(shared.Success(map[string]string{"status": "deleted"}))

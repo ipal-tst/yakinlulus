@@ -371,17 +371,20 @@ func (r *Repository) GetExamStats(ctx context.Context, userID uuid.UUID) ExamSta
 func (r *Repository) GetNationalRank(ctx context.Context, userID uuid.UUID) int {
 	var rank int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) + 1
-		 FROM (SELECT user_id, AVG(total_score) AS avg
+		`SELECT CASE WHEN u.avg IS NULL THEN 0
+		        ELSE (SELECT COUNT(*) + 1
+		              FROM (SELECT user_id, AVG(total_score) AS avg
+		                    FROM content_exam_attempts
+		                    WHERE status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL
+		                      AND submitted_at >= date_trunc('month', NOW())
+		                    GROUP BY user_id) t
+		              WHERE t.avg > u.avg)
+		        END
+		 FROM (SELECT AVG(total_score) AS avg
 		       FROM content_exam_attempts
-		       WHERE status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL
-		         AND submitted_at >= date_trunc('month', NOW())
-		       GROUP BY user_id) t
-		 WHERE t.avg > COALESCE((
-		     SELECT AVG(total_score) FROM content_exam_attempts
-		     WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED')
-		       AND total_score IS NOT NULL
-		       AND submitted_at >= date_trunc('month', NOW())), 0)`,
+		       WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED')
+		         AND total_score IS NOT NULL
+		         AND submitted_at >= date_trunc('month', NOW())) u`,
 		userID).Scan(&rank)
 	if err != nil {
 		return 0

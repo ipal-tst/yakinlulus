@@ -132,6 +132,7 @@ func (r *Repository) FetchRawScores(ctx context.Context, packageID uuid.UUID, fr
 		 JOIN exam_package_exams epe ON epe.exam_content_id = a.exam_content_id AND epe.package_id = $1
 		 JOIN users u ON u.id = a.user_id
 		 WHERE a.status IN ('SUBMITTED', 'GRADED')
+		   AND a.total_score IS NOT NULL
 		   AND a.submitted_at >= $2 AND a.submitted_at < $3
 		 GROUP BY a.user_id, u.full_name, u.school_name, epe.subject_id`,
 		packageID, from, to)

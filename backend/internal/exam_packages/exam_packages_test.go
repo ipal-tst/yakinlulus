@@ -17,6 +17,9 @@ func TestValidateSaveRequest(t *testing.T) {
 		{"missing code", SavePackageRequest{Name: "Tryout", EducationLevel: "SMP"}, true},
 		{"missing name", SavePackageRequest{Code: "X", EducationLevel: "SMP"}, true},
 		{"bad level", SavePackageRequest{Code: "X", Name: "Y", EducationLevel: "TK"}, true},
+		{"valid grade_id", SavePackageRequest{Code: "X", Name: "Y", EducationLevel: "SMP", GradeID: strPtr("11111111-1111-1111-1111-111111111111")}, false},
+		{"empty grade_id ok", SavePackageRequest{Code: "X", Name: "Y", EducationLevel: "SMP", GradeID: strPtr("")}, false},
+		{"invalid grade_id", SavePackageRequest{Code: "X", Name: "Y", EducationLevel: "SMP", GradeID: strPtr("nope")}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -53,4 +56,8 @@ func TestValidateLinkRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func strPtr(s string) *string {
+	return &s
 }

@@ -10,6 +10,7 @@ export interface User {
   role: 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT';
   is_active: boolean;
   avatar_url?: string;
+  school_name?: string;
 }
 
 export interface AuthContextType {
