@@ -50,6 +50,11 @@ type UpdateProfileRequest struct {
 	AvatarURL *string `json:"avatar_url,omitempty"`
 }
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 type AuthResponse struct {
 	User  User   `json:"user"`
 	Token string `json:"token"`
@@ -416,6 +421,36 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req Updat
 	return s.repo.FindByID(ctx, userID)
 }
 
+func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, req ChangePasswordRequest) error {
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Current and new password required")
+	}
+	if err := validatePassword(req.NewPassword); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	user, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
+	if user == nil {
+		return fiber.NewError(fiber.StatusNotFound, "User not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Current password is incorrect")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to hash password")
+	}
+	if err := s.repo.UpdatePassword(ctx, userID, string(hash)); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update password")
+	}
+	return nil
+}
+
 type Handler struct {
 	svc *Service
 	jwt string
@@ -436,6 +471,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authed := r.Group("", middleware.RequireAuth(h.jwt))
 	authed.Get("/me", h.GetMe)
 	authed.Put("/profile", h.UpdateProfile)
+	authed.Post("/change-password", h.ChangePassword)
 	authed.Post("/logout", h.Logout)
 	authed.Post("/refresh", h.Refresh)
 
@@ -575,6 +611,28 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Internal error"))
 	}
 	return c.JSON(shared.Success(user))
+}
+
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	userIDStr := c.Locals("user_id")
+	if userIDStr == nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid user ID"))
+	}
+	var req ChangePasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	if err := h.svc.ChangePassword(c.Context(), userID, req); err != nil {
+		if e, ok := err.(*fiber.Error); ok {
+			return c.Status(e.Code).JSON(shared.Error(shared.ErrorCode(e.Message), e.Message))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Internal error"))
+	}
+	return c.JSON(shared.Success(fiber.Map{"message": "Password changed successfully"}))
 }
 
 func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
