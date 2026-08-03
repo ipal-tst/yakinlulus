@@ -69,7 +69,7 @@ export default function MasterDataAdminPage() {
         if (Array.isArray(subjects)) {
             subjects.forEach((s: any) => items.push({
                 id: s.id, code: s.code || `SUBJ-${s.id}`, category: "MAPEL",
-                name: s.name, description: s.description || "",
+                name: `${s.name} (${s.level_code || "?"})`, description: s.description || "",
                 itemsCount: s.total_questions || 0, updatedAt: s.updated_at || "",
                 targetRoute: "/admin/master-data/subjects",
             }));

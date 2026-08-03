@@ -159,11 +159,12 @@ function parseRawTextToStagingRows(
 }
 
 interface AIPDFImportModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+    isOpen?: boolean;
+    onClose?: () => void;
     subjectsList: any[];
     chaptersList: any[];
     onSuccessImport: () => void;
+    variant?: "modal" | "section";
 }
 
 export function AIPDFImportModal({
@@ -172,6 +173,7 @@ export function AIPDFImportModal({
     subjectsList,
     chaptersList,
     onSuccessImport,
+    variant = "modal",
 }: AIPDFImportModalProps) {
     const [file, setFile] = React.useState<File | null>(null);
     const [isParsing, setIsParsing] = React.useState(false);
@@ -217,10 +219,10 @@ export function AIPDFImportModal({
     };
 
     React.useEffect(() => {
-        if (isOpen) {
+        if (variant === "section" || isOpen) {
             fetchAIConfig();
         }
-    }, [isOpen]);
+    }, [isOpen, variant]);
 
     const handleSaveAIConfig = async () => {
         setIsSavingConfig(true);
@@ -246,7 +248,7 @@ export function AIPDFImportModal({
     // Default subject selection
     React.useEffect(() => {
         if (subjectsList.length > 0 && !globalSubjectId) {
-            setGlobalSubjectId(subjectsList[0].id);
+            setGlobalSubjectId("");
         }
     }, [subjectsList, globalSubjectId]);
 
@@ -573,7 +575,7 @@ export function AIPDFImportModal({
 
             alert(`Berhasil mengimpor ${stagingQuestions.length} soal ke database!`);
             onSuccessImport();
-            onClose();
+            if (onClose) onClose();
         } catch (err: any) {
             alert("Gagal menyimpan ke database: " + (err.message || err));
         } finally {
@@ -603,9 +605,10 @@ export function AIPDFImportModal({
         modalProps.disabled = isSubmitting;
     }
 
-    return (
-        <AdminActionModal {...modalProps}>
-            <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+    const scrollClass = variant === "section" ? "space-y-6" : "space-y-6 max-h-[75vh] overflow-y-auto pr-1";
+
+    const content = (
+        <div className={scrollClass}>
                 {/* Navigation Tabs */}
                 <div className="flex items-center justify-between border-b pb-3">
                     <div className="flex items-center gap-2">
@@ -808,9 +811,10 @@ export function AIPDFImportModal({
                                         onChange={e => setGlobalSubjectId(e.target.value)}
                                         className="w-full px-3 py-2 text-xs rounded-xl border bg-background font-medium"
                                     >
+                                        <option value="">-- Pilih Mata Pelajaran Target --</option>
                                         {subjectsList.map(s => (
                                             <option key={s.id} value={s.id}>
-                                                {s.name}
+                                                {s.name} ({s.level_code || "?"})
                                             </option>
                                         ))}
                                     </select>
@@ -1210,6 +1214,11 @@ export function AIPDFImportModal({
                     </div>
                 )}
             </div>
-        </AdminActionModal>
     );
+
+    if (variant === "section") {
+        return <div>{content}</div>;
+    }
+
+    return <AdminActionModal {...modalProps}>{content}</AdminActionModal>;
 }

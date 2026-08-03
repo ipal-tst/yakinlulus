@@ -1,21 +1,16 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import MediaPicker from "@/components/media-picker";
 import { Dialog } from "@/components/ui/dialog";
 import {
     useMaterials,
-    useCreateMaterial,
-    useUpdateMaterial,
     useDeleteMaterial,
     usePublishMaterial,
     useSubjects,
-    useChapters,
-    useTopics,
-    apiFetch
 } from "@/lib/api";
 import {
     BookOpen,
@@ -25,14 +20,9 @@ import {
     FileText,
     Sparkles,
     Eye,
-    Clock,
     Trash2,
     Edit3,
-    CheckCircle2,
-    AlertCircle,
-    X,
     Filter,
-    HelpCircle,
     Loader2
 } from "lucide-react";
 
@@ -42,8 +32,6 @@ export default function LearningMaterialsAdminPage() {
     const [selectedFormatFilter, setSelectedFormatFilter] = React.useState("ALL");
 
     // Modals state
-    const [isCreateOpen, setIsCreateOpen] = React.useState(false);
-    const [editingMaterial, setEditingMaterial] = React.useState<any>(null);
     const [deletingMaterial, setDeletingMaterial] = React.useState<any>(null);
     const [viewingMaterial, setViewingMaterial] = React.useState<any>(null);
     const [isAISummaryOpen, setIsAISummaryOpen] = React.useState(false);
@@ -51,121 +39,12 @@ export default function LearningMaterialsAdminPage() {
     const [aiResult, setAiResult] = React.useState<string | null>(null);
     const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
 
-    // Form state
-    const [formData, setFormData] = React.useState({
-        subject_id: "",
-        chapter_id: "",
-        topic_id: "",
-        title: "",
-        content_format: "MARKDOWN",
-        estimated_duration: 15,
-        content: "",
-        status: "PUBLISHED"
-    });
-
-    // Inline create state
-    const [showNewChapter, setShowNewChapter] = React.useState(false);
-    const [newChapterName, setNewChapterName] = React.useState("");
-    const [showNewTopic, setShowNewTopic] = React.useState(false);
-    const [newTopicName, setNewTopicName] = React.useState("");
-    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-    const insertMedia = (html: string) => {
-        if (textareaRef.current) {
-            const start = textareaRef.current.selectionStart;
-            const end = textareaRef.current.selectionEnd;
-            const text = textareaRef.current.value;
-            textareaRef.current.value = text.substring(0, start) + html + text.substring(end);
-            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + html.length;
-            textareaRef.current.focus();
-            setFormData(prev => ({ ...prev, content: textareaRef.current!.value }));
-        }
-    };
-
     // Queries & Mutations
     const { data: materialsList = [], isLoading, refetch } = useMaterials() as any;
     const { data: subjects = [] } = useSubjects() as any;
-    const { data: allChapters = [] } = useChapters() as any;
-    const { data: topics = [], refetch: refetchTopics } = useTopics(formData.chapter_id) as any;
 
-    const createMutation = useCreateMaterial();
-    const updateMutation = useUpdateMaterial();
     const deleteMutation = useDeleteMaterial();
     const publishMutation = usePublishMaterial();
-
-    const handleCreateChapter = async () => {
-        if (!newChapterName.trim() || !formData.subject_id) return;
-        try {
-            const res = await apiFetch('/academic/chapters', {
-                method: 'POST',
-                body: JSON.stringify({ subject_id: formData.subject_id, name: newChapterName.trim() })
-            });
-            setFormData(prev => ({ ...prev, chapter_id: (res as any)?.id || (res as any)?.chapter_id || "" }));
-            setNewChapterName("");
-            setShowNewChapter(false);
-            refetchTopics();
-        } catch { alert("Gagal membuat bab baru"); }
-    };
-
-    const handleCreateTopic = async () => {
-        if (!newTopicName.trim() || !formData.chapter_id) return;
-        try {
-            const res = await apiFetch('/academic/topics', {
-                method: 'POST',
-                body: JSON.stringify({ chapter_id: formData.chapter_id, name: newTopicName.trim() })
-            });
-            setFormData(prev => ({ ...prev, topic_id: (res as any)?.id || (res as any)?.topic_id || "" }));
-            setNewTopicName("");
-            setShowNewTopic(false);
-            refetchTopics();
-        } catch { alert("Gagal membuat sub topik baru"); }
-    };
-
-    const handleOpenCreate = () => {
-        setFormData({
-            subject_id: (Array.isArray(subjects) && subjects.length > 0) ? subjects[0].id : "",
-            chapter_id: "",
-            topic_id: "",
-            title: "",
-            content_format: "MARKDOWN",
-            estimated_duration: 15,
-            content: "",
-            status: "PUBLISHED"
-        });
-        setIsCreateOpen(true);
-    };
-
-    const handleOpenEdit = (m: any) => {
-        setEditingMaterial(m);
-        setFormData({
-            subject_id: m.subject_id || m.subjectId || "",
-            chapter_id: m.chapter_id || m.chapterId || "",
-            topic_id: m.topic_id || m.topicId || "",
-            title: m.title || "",
-            content_format: m.content_format || m.contentFormat || "MARKDOWN",
-            estimated_duration: m.estimated_duration || m.estimatedDuration || 15,
-            content: m.body || m.content || "",
-            status: m.status || "PUBLISHED"
-        });
-    };
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            if (editingMaterial) {
-                await updateMutation.mutateAsync({
-                    id: editingMaterial.id || editingMaterial.content_id,
-                    data: formData
-                });
-                setEditingMaterial(null);
-            } else {
-                await createMutation.mutateAsync(formData);
-                setIsCreateOpen(false);
-            }
-            refetch();
-        } catch (err: any) {
-            alert(err?.message || "Gagal menyimpan materi");
-        }
-    };
 
     const handleDelete = async () => {
         if (!deletingMaterial) return;
@@ -251,13 +130,11 @@ export default function LearningMaterialsAdminPage() {
                     >
                         <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" /> AI Material Summary
                     </Button>
-                    <Button
-                        onClick={handleOpenCreate}
-                        size="sm"
-                        className="text-xs font-bold shadow-md shadow-primary/20 cursor-pointer"
-                    >
-                        <Plus className="mr-2 h-4 w-4" /> Upload Materi Baru
-                    </Button>
+                    <Link href="/admin/materials/create">
+                        <Button size="sm" className="text-xs font-bold shadow-md shadow-primary/20 cursor-pointer">
+                            <Plus className="mr-2 h-4 w-4" /> Upload Materi Baru
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -318,7 +195,7 @@ export default function LearningMaterialsAdminPage() {
                     >
                         <option value="ALL">Semua Mata Pelajaran</option>
                         {Array.isArray(subjects) && subjects.map((s: any) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
+                            <option key={s.id} value={s.id}>{s.name} ({s.level_code || "?"})</option>
                         ))}
                     </select>
                     <select
@@ -401,15 +278,16 @@ export default function LearningMaterialsAdminPage() {
                                             >
                                                 <Eye className="h-3.5 w-3.5" />
                                             </Button>
-                                            <Button
-                                                onClick={() => handleOpenEdit(m)}
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary cursor-pointer"
-                                                title="Edit Modul"
-                                            >
-                                                <Edit3 className="h-3.5 w-3.5" />
-                                            </Button>
+                                            <Link href={`/admin/materials/${m.id || m.content_id}/edit`}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-primary cursor-pointer"
+                                                    title="Edit Modul"
+                                                >
+                                                    <Edit3 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </Link>
                                             <Button
                                                 onClick={() => setDeletingMaterial(m)}
                                                 variant="ghost"
@@ -427,194 +305,6 @@ export default function LearningMaterialsAdminPage() {
                     )}
                 </div>
             )}
-
-            {/* Create & Edit Modal */}
-            <Dialog
-                isOpen={isCreateOpen || editingMaterial !== null}
-                onClose={() => { setIsCreateOpen(false); setEditingMaterial(null); }}
-                title={editingMaterial ? "Edit Modul Pembelajaran" : "Tambah Modul Pembelajaran Baru"}
-                description="Lengkapi detail materi pembelajaran untuk dipublikasikan ke siswa."
-            >
-                <form onSubmit={handleSave} className="space-y-4 text-xs">
-                    <div>
-                        <label className="font-semibold block mb-1">Judul Modul Materi *</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="Contoh: Hukum II Newton & Dinamika Gerak"
-                            value={formData.title}
-                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            className="w-full px-3 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="font-semibold block mb-1">Mata Pelajaran *</label>
-                            <select
-                                value={formData.subject_id}
-                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value, chapter_id: "", topic_id: "" })}
-                                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
-                            >
-                                {Array.isArray(subjects) && subjects.map((s: any) => (
-                                    <option key={s.id} value={s.id}>{s.name || s.title}</option>
-                                ))}
-                                {(!subjects || subjects.length === 0) && (
-                                    <option value="">Literasi & Penalaran (Default)</option>
-                                )}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="font-semibold block mb-1">Bab / Chapter</label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={formData.chapter_id}
-                                    onChange={(e) => setFormData({ ...formData, chapter_id: e.target.value, topic_id: "" })}
-                                    className="flex-1 px-3 py-2 border rounded-lg bg-background text-foreground"
-                                >
-                                    <option value="">-- Pilih Bab --</option>
-                                    {Array.isArray(allChapters) && allChapters
-                                        .filter((ch: any) => !formData.subject_id || ch.subject_id === formData.subject_id)
-                                        .map((ch: any) => (
-                                            <option key={ch.id} value={ch.id}>{ch.name}</option>
-                                        ))}
-                                </select>
-                                {formData.subject_id && (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowNewChapter(!showNewChapter)}
-                                        className="shrink-0 text-xs cursor-pointer"
-                                    >
-                                        + Bab
-                                    </Button>
-                                )}
-                            </div>
-                            {showNewChapter && (
-                                <div className="mt-2 flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Nama bab baru..."
-                                        value={newChapterName}
-                                        onChange={(e) => setNewChapterName(e.target.value)}
-                                        className="flex-1 px-3 py-1.5 text-xs border rounded-lg bg-background"
-                                        autoFocus
-                                    />
-                                    <Button type="button" size="sm" onClick={handleCreateChapter} className="text-xs cursor-pointer">Simpan</Button>
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => { setShowNewChapter(false); setNewChapterName(""); }} className="text-xs cursor-pointer">Batal</Button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="font-semibold block mb-1">Sub Topik (Opsional)</label>
-                        <div className="flex gap-2">
-                            <select
-                                value={formData.topic_id}
-                                onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
-                                className="flex-1 px-3 py-2 border rounded-lg bg-background text-foreground"
-                            >
-                                <option value="">-- Pilih Sub Topik --</option>
-                                {Array.isArray(topics) && topics.map((t: any) => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                            </select>
-                            {formData.chapter_id && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowNewTopic(!showNewTopic)}
-                                    className="shrink-0 text-xs cursor-pointer"
-                                >
-                                    + Sub Topik
-                                </Button>
-                            )}
-                        </div>
-                        {showNewTopic && (
-                            <div className="mt-2 flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="Nama sub topik baru..."
-                                    value={newTopicName}
-                                    onChange={(e) => setNewTopicName(e.target.value)}
-                                    className="flex-1 px-3 py-1.5 text-xs border rounded-lg bg-background"
-                                    autoFocus
-                                />
-                                <Button type="button" size="sm" onClick={handleCreateTopic} className="text-xs cursor-pointer">Simpan</Button>
-                                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowNewTopic(false); setNewTopicName(""); }} className="text-xs cursor-pointer">Batal</Button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="font-semibold block mb-1">Estimasi Waktu Belajar (Menit)</label>
-                            <input
-                                type="number"
-                                min={1}
-                                value={formData.estimated_duration}
-                                onChange={(e) => setFormData({ ...formData, estimated_duration: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border rounded-lg bg-background"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="font-semibold block mb-1">Status Publikasi</label>
-                            <select
-                                value={formData.status}
-                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
-                            >
-                                <option value="PUBLISHED">PUBLISHED (Dapat Diakses Siswa)</option>
-                                <option value="DRAFT">DRAFT (Dalam Penyusunan)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="font-semibold block mb-1">Isi & Ringkasan Modul Materi *</label>
-                        <div className="flex gap-2">
-                            <textarea
-                                ref={textareaRef}
-                                rows={5}
-                                required
-                                placeholder="Tuliskan materi pembelajaran lengkap, formula LaTeX, atau catatan penting..."
-                                value={formData.content}
-                                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                className="flex-1 px-3 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:outline-none font-mono text-xs"
-                            />
-                            <MediaPicker onInsert={insertMedia} />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2 border-t">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { setIsCreateOpen(false); setEditingMaterial(null); }}
-                            className="cursor-pointer"
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            type="submit"
-                            size="sm"
-                            disabled={createMutation.isPending || updateMutation.isPending}
-                            className="font-bold cursor-pointer"
-                        >
-                            {(createMutation.isPending || updateMutation.isPending) && (
-                                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            )}
-                            Simpan Modul
-                        </Button>
-                    </div>
-                </form>
-            </Dialog>
 
             {/* Delete Modal */}
             <Dialog

@@ -247,7 +247,7 @@ export default function MasterDataChaptersPage() {
                                 <option value="">-- Pilih Mata Pelajaran --</option>
                                 {subjects.map((s: any) => (
                                     <option key={s.id} value={s.id}>
-                                        {s.name}
+                                        {s.name} ({s.level_code || "?"})
                                     </option>
                                 ))}
                             </select>
@@ -301,7 +301,7 @@ export default function MasterDataChaptersPage() {
                                 <option value="">-- Pilih Mata Pelajaran --</option>
                                 {subjects.map((s: any) => (
                                     <option key={s.id} value={s.id}>
-                                        {s.name}
+                                        {s.name} ({s.level_code || "?"})
                                     </option>
                                 ))}
                             </select>

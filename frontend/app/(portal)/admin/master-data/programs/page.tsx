@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
+import { usePrograms } from "@/lib/api";
 import { apiClient } from "@/lib/api-client";
 import {
     Calendar,
@@ -31,18 +32,11 @@ interface ProgramItem {
     enrolled_students: number;
 }
 
-const INITIAL_PROGRAMS: ProgramItem[] = [
-    { id: "prg-1", code: "TA-2026-SNBT", name: "Super Intensive SNBT 2026", academic_year: "2025/2026", target_type: "SNBT_UTBK", status: "ACTIVE", description: "Bimbingan & Tryout CBT persiapan seleksi nasional berbasis tes 2026", enrolled_students: 1250 },
-    { id: "prg-2", code: "TA-2026-KED", name: "Program Kedinasan & STAN 2026", academic_year: "2025/2026", target_type: "KEDINASAN", status: "ACTIVE", description: "Persiapan Tes SKD TWK, TIU, TKP, dan Psikotes Sekolah Kedinasan", enrolled_students: 480 },
-    { id: "prg-3", code: "TA-2026-SUI", name: "Simulasi SIMAK UI & UTUL UGM", academic_year: "2025/2026", target_type: "SIMAK_UI", status: "UPCOMING", description: "Ujian mandiri PTN klaster papan atas dengan tingkat kesulitan tinggi", enrolled_students: 310 },
-    { id: "prg-4", code: "TA-2025-ARCH", name: "Tahun Ajaran 2024/2025 (Arsip)", academic_year: "2024/2025", target_type: "SNBT_UTBK", status: "ARCHIVED", description: "Arsip histori hasil ujian & bank soal angkatan 2025", enrolled_students: 2100 },
-];
-
 export default function MasterDataProgramsPage() {
-    const [programs, setPrograms] = React.useState<ProgramItem[]>(INITIAL_PROGRAMS);
+    const { data: apiPrograms = [], isLoading: loading, refetch: fetchPrograms } = usePrograms() as any;
+    const [programs, setPrograms] = React.useState<ProgramItem[]>([]);
     const [search, setSearch] = React.useState("");
     const [selectedStatusFilter, setSelectedStatusFilter] = React.useState<string>("ALL");
-    const [loading, setLoading] = React.useState(false);
     const [modalFeedback, setModalFeedback] = React.useState<string | null>(null);
 
     // Add modal state
@@ -67,44 +61,35 @@ export default function MasterDataProgramsPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
     const [deletingItem, setDeletingItem] = React.useState<ProgramItem | null>(null);
 
-    const fetchPrograms = React.useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await apiClient.academic.getPrograms();
-            if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-                setPrograms(res.data);
-            }
-        } catch (err) {
-            console.warn("Using fallback initial programs data:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
+    // Sync API data to local state for optimistic updates
     React.useEffect(() => {
-        fetchPrograms();
-    }, [fetchPrograms]);
+        if (Array.isArray(apiPrograms) && apiPrograms.length > 0) {
+            setPrograms(apiPrograms);
+        }
+    }, [apiPrograms]);
 
     // CREATE
     const handleCreateProgram = async () => {
         if (!formCode || !formName) return;
 
-        const newProgram: ProgramItem = {
-            id: `prg-${Date.now().toString().slice(-4)}`,
-            code: formCode,
-            name: formName,
-            academic_year: formYear,
-            target_type: formTarget,
-            status: "ACTIVE",
-            description: formDesc || "Program akademik baru",
-            enrolled_students: 0,
-        };
-
         try {
-            await apiClient.academic.createProgram(newProgram);
-        } catch (e) { }
+            const res = await apiClient.academic.createProgram({
+                code: formCode,
+                name: formName,
+                academic_year: formYear,
+                target_type: formTarget,
+                description: formDesc || "Program akademik baru",
+            });
+            if (!res.success) {
+                setModalFeedback(res.message || res.error || "Gagal menyimpan program.");
+                return;
+            }
+        } catch (e: any) {
+            setModalFeedback(`Error: ${e?.message || "Gagal terhubung ke backend"}`);
+            return;
+        }
 
-        setPrograms([newProgram, ...programs]);
+        await fetchPrograms();
         setModalFeedback("Program Akademik berhasil ditambahkan!");
         setTimeout(() => {
             setModalFeedback(null);
@@ -130,21 +115,26 @@ export default function MasterDataProgramsPage() {
     // SAVE EDIT
     const handleSaveEdit = async () => {
         if (!editingItem) return;
-        const updated: ProgramItem = {
-            ...editingItem,
-            code: editCode,
-            name: editName,
-            academic_year: editYear,
-            target_type: editTarget,
-            status: editStatus,
-            description: editDesc,
-        };
 
         try {
-            await apiClient.academic.updateProgram(editingItem.id, updated);
-        } catch (e) { }
+            const res = await apiClient.academic.updateProgram(editingItem.id, {
+                code: editCode,
+                name: editName,
+                academic_year: editYear,
+                target_type: editTarget,
+                status: editStatus,
+                description: editDesc,
+            });
+            if (!res.success) {
+                setModalFeedback(res.message || res.error || "Gagal menyimpan perubahan.");
+                return;
+            }
+        } catch (e: any) {
+            setModalFeedback(`Error: ${e?.message || "Gagal terhubung ke backend"}`);
+            return;
+        }
 
-        setPrograms(programs.map((item) => (item.id === editingItem.id ? updated : item)));
+        await fetchPrograms();
         setModalFeedback("Perubahan program berhasil disimpan!");
         setTimeout(() => {
             setModalFeedback(null);
@@ -163,10 +153,17 @@ export default function MasterDataProgramsPage() {
     const handleConfirmDelete = async () => {
         if (!deletingItem) return;
         try {
-            await apiClient.academic.deleteProgram(deletingItem.id);
-        } catch (e) { }
+            const res = await apiClient.academic.deleteProgram(deletingItem.id);
+            if (!res.success) {
+                setModalFeedback(res.message || res.error || "Gagal menghapus program.");
+                return;
+            }
+        } catch (e: any) {
+            setModalFeedback(`Error: ${e?.message || "Gagal terhubung ke backend"}`);
+            return;
+        }
 
-        setPrograms(programs.filter((item) => item.id !== deletingItem.id));
+        await fetchPrograms();
         setModalFeedback(`Program ${deletingItem.name} berhasil dihapus!`);
         setTimeout(() => {
             setModalFeedback(null);
@@ -243,46 +240,67 @@ export default function MasterDataProgramsPage() {
             </Card>
 
             {/* Grid Items */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredPrograms.map((prg) => (
-                    <Card key={prg.id} className="p-5 bg-white border-slate-200 shadow-sm hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Badge variant="outline" className="font-mono text-[10px] border-slate-200 bg-slate-50 text-slate-700">{prg.code}</Badge>
-                                <Badge
-                                    className={`text-[10px] font-bold ${prg.status === "ACTIVE"
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : prg.status === "UPCOMING"
-                                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                : "bg-slate-100 text-slate-600 border-slate-200"
-                                        }`}
-                                >
-                                    {prg.status}
-                                </Badge>
+            {loading && programs.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Card key={i} className="p-5 bg-white border-slate-200 shadow-sm space-y-4">
+                            <div className="h-5 w-24 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-4 w-3/4 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-3 w-full rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="pt-3 border-t border-slate-100 h-6" />
+                        </Card>
+                    ))}
+                </div>
+            ) : filteredPrograms.length === 0 ? (
+                <Card className="p-10 bg-white border-slate-200 shadow-sm text-center">
+                    <Calendar className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h3 className="font-bold text-slate-700">Belum ada program akademik</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                        Klik "Tambah Program" untuk membuat program persiapan pertama.
+                    </p>
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {filteredPrograms.map((prg) => (
+                        <Card key={prg.id} className="p-5 bg-white border-slate-200 shadow-sm hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Badge variant="outline" className="font-mono text-[10px] border-slate-200 bg-slate-50 text-slate-700">{prg.code}</Badge>
+                                    <Badge
+                                        className={`text-[10px] font-bold ${prg.status === "ACTIVE"
+                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                : prg.status === "UPCOMING"
+                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                                            }`}
+                                    >
+                                        {prg.status}
+                                    </Badge>
+                                </div>
+                                <h3 className="font-bold text-base text-slate-900 pt-1">{prg.name}</h3>
+                                <div className="text-[11px] text-blue-600 font-semibold flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> TA {prg.academic_year} • {prg.target_type}
+                                </div>
+                                <p className="text-xs text-slate-500 line-clamp-2">{prg.description}</p>
                             </div>
-                            <h3 className="font-bold text-base text-slate-900 pt-1">{prg.name}</h3>
-                            <div className="text-[11px] text-blue-600 font-semibold flex items-center gap-1">
-                                <Calendar className="w-3 h-3" /> TA {prg.academic_year} • {prg.target_type}
-                            </div>
-                            <p className="text-xs text-slate-500 line-clamp-2">{prg.description}</p>
-                        </div>
 
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-700 flex items-center gap-1">
-                                <Users className="w-3.5 h-3.5 text-blue-500" /> {prg.enrolled_students} Siswa Terdaftar
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(prg)} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
-                                    <Edit2 className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenDelete(prg)} className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <span className="font-semibold text-slate-700 flex items-center gap-1">
+                                    <Users className="w-3.5 h-3.5 text-blue-500" /> {prg.enrolled_students} Siswa Terdaftar
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(prg)} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleOpenDelete(prg)} className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             {/* ADD MODAL */}
             <AdminActionModal

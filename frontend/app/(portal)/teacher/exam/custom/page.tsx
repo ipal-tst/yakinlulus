@@ -54,7 +54,7 @@ export default function CustomExamBuilder() {
     const subjectOptions = React.useMemo(() => {
         if (!subjectsData) return [];
         const arr = Array.isArray(subjectsData) ? subjectsData : [];
-        return arr.map((s: any) => ({ value: s.id, label: s.name }));
+        return arr.map((s: any) => ({ value: s.id, label: `${s.name} (${s.level_code || "?"})` }));
     }, [subjectsData]);
 
     const [title, setTitle] = React.useState("");

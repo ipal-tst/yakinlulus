@@ -32,30 +32,19 @@ interface SubjectItem {
     chapters_count: number;
 }
 
-const INITIAL_SUBJECTS: SubjectItem[] = [
-    { id: "sbj-1", code: "PU", name: "Penalaran Umum", level: "SMA / UTBK", description: "Logika deduktif, induktif, kuantitatif, & penalaran teks", chapters_count: 14 },
-    { id: "sbj-2", code: "PBM", name: "Pemahaman Bacaan & Menulis", level: "SMA / UTBK", description: "Kaidah ejaan, tata bahasa, wacana, & penyuntingan teks", chapters_count: 10 },
-    { id: "sbj-3", code: "PPU", name: "Pengetahuan & Pemahaman Umum", level: "SMA / UTBK", description: "Kosakata, sinonim/antonim, bahasa Indonesia & Inggris", chapters_count: 12 },
-    { id: "sbj-4", code: "PK", name: "Pengetahuan Kuantitatif", level: "SMA / UTBK", description: "Aritmetika, aljabar, geometri, & statistik dasar", chapters_count: 16 },
-    { id: "sbj-5", code: "LB-IND", name: "Literasi Bahasa Indonesia", level: "SMA / UTBK", description: "Analisis teks sastra, populer, & karya ilmiah", chapters_count: 8 },
-    { id: "sbj-6", code: "LB-ENG", name: "Literasi Bahasa Inggris", level: "SMA / UTBK", description: "Reading comprehension, main idea, & inference", chapters_count: 8 },
-    { id: "sbj-7", code: "PM", name: "Penalaran Matematika", level: "SMA / UTBK", description: "Penerapan konsep matematika dalam konteks kehidupan nyata", chapters_count: 12 },
-];
-
 export default function MasterDataSubjectsPage() {
     const { data: apiSubjects = [], isLoading: loadingSubjects, refetch: refetchSubjects } = useSubjects() as any;
     const { data: apiLevels = [] } = useLevels() as any;
     const { data: apiGrades = [] } = useGrades() as any;
 
-    const [subjects, setSubjects] = React.useState<SubjectItem[]>(INITIAL_SUBJECTS);
+    const [subjects, setSubjects] = React.useState<SubjectItem[]>([]);
     const [search, setSearch] = React.useState("");
     const [selectedLevelFilter, setSelectedLevelFilter] = React.useState<string>("ALL");
     const [modalFeedback, setModalFeedback] = React.useState<string | null>(null);
 
     // Sync API data if available - use useEffect for proper lifecycle
-    const [synced, setSynced] = React.useState(false);
     React.useEffect(() => {
-        if (!synced && Array.isArray(apiSubjects) && apiSubjects.length > 0) {
+        if (Array.isArray(apiSubjects) && apiSubjects.length > 0) {
             // Create level lookup map - map by ID to code (SD, SMP, SMA, UTBK_GAPYEAR)
             const levelMap = new Map();
             if (Array.isArray(apiLevels)) {
@@ -71,9 +60,8 @@ export default function MasterDataSubjectsPage() {
                 chapters_count: s.chapters_count || s.chapters?.length || 0,
             }));
             setSubjects(mapped);
-            setSynced(true);
         }
-    }, [apiSubjects, apiLevels, synced]);
+    }, [apiSubjects, apiLevels]);
 
     // Add modal state
     const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -128,7 +116,6 @@ export default function MasterDataSubjectsPage() {
 
     const handleSync = async () => {
         await refetchSubjects();
-        setSynced(false);
     };
 
     // CREATE
@@ -154,7 +141,6 @@ export default function MasterDataSubjectsPage() {
         }
 
         await refetchSubjects();
-        setSynced(false);
         setTimeout(() => {
             setModalFeedback(null);
             setIsAddModalOpen(false);
@@ -199,7 +185,6 @@ export default function MasterDataSubjectsPage() {
         }
 
         await refetchSubjects();
-        setSynced(false);
         setTimeout(() => {
             setModalFeedback(null);
             setIsEditModalOpen(false);
@@ -230,7 +215,6 @@ export default function MasterDataSubjectsPage() {
         }
 
         await refetchSubjects();
-        setSynced(false);
         setTimeout(() => {
             setModalFeedback(null);
             setIsDeleteModalOpen(false);
@@ -306,7 +290,27 @@ export default function MasterDataSubjectsPage() {
             </Card>
 
             {/* Grid Items */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {loadingSubjects && subjects.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i} className="p-5 bg-white border-slate-200 shadow-sm space-y-4">
+                            <div className="h-5 w-24 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-4 w-3/4 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-3 w-full rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="pt-3 border-t border-slate-100 h-6" />
+                        </Card>
+                    ))}
+                </div>
+            ) : filteredSubjects.length === 0 ? (
+                <Card className="p-10 bg-white border-slate-200 shadow-sm text-center">
+                    <BookOpen className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h3 className="font-bold text-slate-700">Belum ada mata pelajaran</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                        Klik "Tambah Mata Pelajaran" untuk mendaftarkan mapel pertama.
+                    </p>
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredSubjects.map((sbj) => (
                     <Card key={sbj.id} className="p-5 bg-white border-slate-200 shadow-sm hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
                         <div className="space-y-3">
@@ -337,7 +341,8 @@ export default function MasterDataSubjectsPage() {
                         </div>
                     </Card>
                 ))}
-            </div>
+                </div>
+            )}
 
             {/* ADD MODAL */}
             <AdminActionModal

@@ -1,10 +1,13 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
-import { useLevels } from "@/lib/api";
+import { useGrades } from "@/lib/api";
+import { apiClient } from "@/lib/api-client";
 import {
     School,
     Plus,
@@ -60,10 +63,18 @@ const GRADE_OPTIONS_MAP: Record<LevelItem["stage"], { value: string; label: stri
 };
 
 export default function MasterDataLevelsPage() {
-    const [levels, setLevels] = React.useState<LevelItem[]>(INITIAL_LEVELS);
+    const { data: apiLevels = [], isLoading: levelsLoading, refetch } = useGrades() as any;
     const [search, setSearch] = React.useState("");
     const [selectedStage, setSelectedStage] = React.useState<string>("ALL");
-    const [loading, setLoading] = React.useState(false);
+    const [levels, setLevels] = React.useState<LevelItem[]>([]);
+
+    // Sync API data to local state for optimistic updates
+    React.useEffect(() => {
+        if (Array.isArray(apiLevels) && apiLevels.length > 0) {
+            const mapped = apiLevels.map(mapApiLevelToLevelItem);
+            setLevels(mapped);
+        }
+    }, [apiLevels]);
 
     // Add Modal state
     const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -171,31 +182,6 @@ export default function MasterDataLevelsPage() {
         };
     };
 
-    const fetchLevels = React.useCallback(async () => {
-        setLoading(true);
-        try {
-            const resGrades = await apiClient.academic.getGrades();
-            if (resGrades.success && Array.isArray(resGrades.data) && resGrades.data.length > 0) {
-                const mapped = resGrades.data.map(mapApiLevelToLevelItem);
-                setLevels(mapped);
-                return;
-            }
-            const res = await apiClient.academic.getLevels();
-            if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-                const mapped = res.data.map(mapApiLevelToLevelItem);
-                setLevels(mapped);
-            }
-        } catch (err) {
-            console.warn("Using fallback initial levels data:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    React.useEffect(() => {
-        fetchLevels();
-    }, [fetchLevels]);
-
     // CREATE
     const handleCreateLevel = async () => {
         setModalFeedback(null);
@@ -295,19 +281,6 @@ export default function MasterDataLevelsPage() {
         if (!deletingItem) return;
         setModalFeedback(null);
 
-        // If item ID is a mock/fallback ID (e.g. "lvl-1"), handle deletion locally
-        const isMockId = deletingItem.id.startsWith("lvl-") || !deletingItem.id.includes("-") || deletingItem.id.length < 20;
-        if (isMockId) {
-            setLevels((prev) => prev.filter((item) => item.id !== deletingItem.id));
-            setModalFeedback(`Jenjang ${deletingItem.code} berhasil dihapus!`);
-            setTimeout(() => {
-                setModalFeedback(null);
-                setIsDeleteModalOpen(false);
-                setDeletingItem(null);
-            }, 800);
-            return;
-        }
-
         try {
             let res = await apiClient.academic.deleteGrade(deletingItem.id);
             if (!res.success) {
@@ -359,8 +332,8 @@ export default function MasterDataLevelsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={fetchLevels} disabled={loading} className="text-xs font-semibold bg-white border-slate-200">
-                        <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin text-blue-600" : ""}`} />
+                    <Button variant="outline" size="sm" onClick={refetch} disabled={levelsLoading} className="text-xs font-semibold bg-white border-slate-200">
+                        <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${levelsLoading ? "animate-spin text-blue-600" : ""}`} />
                         Sync API
                     </Button>
                     <Button size="sm" onClick={() => setIsAddModalOpen(true)} className="text-xs font-bold shadow-md shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white">
@@ -397,34 +370,55 @@ export default function MasterDataLevelsPage() {
             </Card>
 
             {/* Grid Items */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredLevels.map((lvl) => (
-                    <Card key={lvl.id} className="p-5 bg-white border-slate-200 shadow-sm hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Badge variant="outline" className="font-mono text-[10px] border-slate-200 bg-slate-50 text-slate-700">{lvl.code}</Badge>
-                                <Badge className="text-[10px] font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200">{lvl.stage}</Badge>
+            {levelsLoading && levels.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <Card key={i} className="p-5 bg-white border-slate-200 shadow-sm space-y-4">
+                            <div className="h-5 w-24 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-4 w-3/4 rounded-lg bg-slate-200 animate-pulse" />
+                            <div className="h-3 w-full rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="pt-3 border-t border-slate-100 h-6" />
+                        </Card>
+                    ))}
+                </div>
+            ) : filteredLevels.length === 0 ? (
+                <Card className="p-10 bg-white border-slate-200 shadow-sm text-center">
+                    <Layers className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h3 className="font-bold text-slate-700">Belum ada jenjang/tingkat</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                        Klik "Tambah Jenjang" untuk membuat tingkatan pendidikan pertama.
+                    </p>
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {filteredLevels.map((lvl) => (
+                        <Card key={lvl.id} className="p-5 bg-white border-slate-200 shadow-sm hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Badge variant="outline" className="font-mono text-[10px] border-slate-200 bg-slate-50 text-slate-700">{lvl.code}</Badge>
+                                    <Badge className="text-[10px] font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200">{lvl.stage}</Badge>
+                                </div>
+                                <h3 className="font-bold text-base text-slate-900 pt-1">{lvl.name}</h3>
+                                <p className="text-xs text-slate-500 line-clamp-2">{lvl.description}</p>
                             </div>
-                            <h3 className="font-bold text-base text-slate-900 pt-1">{lvl.name}</h3>
-                            <p className="text-xs text-slate-500 line-clamp-2">{lvl.description}</p>
-                        </div>
 
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-700 flex items-center gap-1">
-                                <BookOpen className="w-3.5 h-3.5 text-blue-500" /> {lvl.active_students_count} Peserta
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(lvl)} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
-                                    <Edit2 className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenDelete(lvl)} className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <span className="font-semibold text-slate-700 flex items-center gap-1">
+                                    <BookOpen className="w-3.5 h-3.5 text-blue-500" /> {lvl.active_students_count} Peserta
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(lvl)} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleOpenDelete(lvl)} className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             {/* ADD MODAL */}
             <AdminActionModal

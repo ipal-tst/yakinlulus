@@ -635,7 +635,7 @@ export default function CBTOperationsAdminPage() {
                             >
                                 <option value="">-- Pilih Mapel --</option>
                                 {subjects.map((s: any) => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                    <option key={s.id} value={s.id}>{s.name} ({s.level_code || "?"})</option>
                                 ))}
                             </select>
                         </div>
@@ -1013,7 +1013,7 @@ export default function CBTOperationsAdminPage() {
                         >
                             <option value="">Semua Mapel</option>
                             {subjects.map((s: any) => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
+                                <option key={s.id} value={s.id}>{s.name} ({s.level_code || "?"})</option>
                             ))}
                         </select>
                     </div>

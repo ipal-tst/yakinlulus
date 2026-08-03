@@ -51,7 +51,7 @@ export default function StaffAcademicPage() {
                         <div className="space-y-1">
                             {(subjects as any).map((s: any) => (
                                 <div key={s.id} className="p-2 rounded-lg bg-surface-container-low text-xs flex justify-between">
-                                    <span className="font-medium">{s.name}</span>
+                                    <span className="font-medium">{s.name} ({s.level_code || "?"})</span>
                                     <span className="text-muted-foreground">{s.code || s.id}</span>
                                 </div>
                             ))}

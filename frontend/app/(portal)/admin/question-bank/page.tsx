@@ -1,21 +1,15 @@
-"use me";
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminActionModal } from "@/components/admin/AdminActionModal";
-import { AIPDFImportModal } from "@/components/admin/AIPDFImportModal";
-import MediaPicker from "@/components/media-picker";
-import { StagingQuestionCard } from "@/components/admin/StagingQuestionCard";
 import {
     useQuestions,
-    useCreateQuestion,
-    useUpdateQuestion,
     useDeleteQuestion,
     useSubjects,
-    useChapters,
     useGrades,
     useLevels,
     apiFetch,
@@ -28,13 +22,10 @@ import {
     ArrowRight,
     Calculator,
     FileSpreadsheet,
-    Download,
     Trash2,
     Edit3,
-    Eye,
     ChevronDown,
     ChevronUp,
-    AlertCircle,
     Check,
 } from "lucide-react";
 
@@ -72,201 +63,16 @@ export default function QuestionBankAdminPage() {
     const subjectsList: any[] = Array.isArray(subjects) ? subjects : subjects?.data || [];
 
     // Mutations
-    const createQuestionMutation = useCreateQuestion();
-    const updateQuestionMutation = useUpdateQuestion();
     const deleteQuestionMutation = useDeleteQuestion();
 
     // --- Modals State ---
-    const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
-    const [isBulkModalOpen, setIsBulkModalOpen] = React.useState(false);
-    const [isAiImportModalOpen, setIsAiImportModalOpen] = React.useState(false);
     const [isFsmModalOpen, setIsFsmModalOpen] = React.useState(false);
     const [isKatexModalOpen, setIsKatexModalOpen] = React.useState(false);
 
     const [activeQuestion, setActiveQuestion] = React.useState<any | null>(null);
     const [fsmSuccess, setFsmSuccess] = React.useState(false);
     const [newTargetStatus, setNewTargetStatus] = React.useState<string>("APPROVED");
-
-    // Form State (Create & Edit)
-    const [formData, setFormData] = React.useState({
-        level_id: "",
-        grade_id: "",
-        subject_id: "",
-        chapter_id: "",
-        difficulty: "MEDIUM",
-        question_type: "SINGLE_CHOICE",
-        content: "",
-        explanation: "",
-        score: 1.0,
-        negative_score: 0.0,
-        options: [
-            { label: "A", content: "", correct: true },
-            { label: "B", content: "", correct: false },
-            { label: "C", content: "", correct: false },
-            { label: "D", content: "", correct: false },
-            { label: "E", content: "", correct: false },
-        ],
-    });
-
-    const insertMedia = (field: "content" | "explanation") => (html: string) => {
-        setFormData(prev => ({ ...prev, [field]: prev[field] + "\n" + html + "\n" }));
-    };
-
-    // Form Chapter options query
-    const { data: chapters = [] } = useChapters(formData.subject_id || undefined) as any;
-    const chaptersList: any[] = Array.isArray(chapters) ? chapters : chapters?.data || [];
-
-    // Bulk Import State
-    const [importFile, setImportFile] = React.useState<File | null>(null);
-    const [parsedImportRows, setParsedImportRows] = React.useState<any[]>([]);
-
-    const handleUpdateImportRow = (idx: number, updated: any) => {
-        setParsedImportRows(prev => prev.map((r, i) => (i === idx ? updated : r)));
-    };
-
-    const handleRemoveImportRow = (idx: number) => {
-        setParsedImportRows(prev => prev.filter((_, i) => i !== idx));
-    };
-
-    const [importing, setImporting] = React.useState(false);
-    const [importResult, setImportResult] = React.useState<{ created: number; failed: number; errors: string[] } | null>(null);
-
-    // Default subject selection
-    React.useEffect(() => {
-        if (subjectsList.length > 0 && !formData.subject_id) {
-            setFormData((prev) => ({ ...prev, subject_id: subjectsList[0].id }));
-        }
-    }, [subjectsList]);
-
-    // Handle Open Create Modal
-    const handleOpenCreate = () => {
-        const defaultSubj = subjectsList.length > 0 ? subjectsList[0].id : "";
-        setFormData({
-            level_id: "",
-            grade_id: "",
-            subject_id: defaultSubj,
-            chapter_id: "",
-            difficulty: "MEDIUM",
-            question_type: "SINGLE_CHOICE",
-            content: "",
-            explanation: "",
-            score: 1.0,
-            negative_score: 0.0,
-            options: [
-                { label: "A", content: "", correct: true },
-                { label: "B", content: "", correct: false },
-                { label: "C", content: "", correct: false },
-                { label: "D", content: "", correct: false },
-                { label: "E", content: "", correct: false },
-            ],
-        });
-        setIsCreateModalOpen(true);
-    };
-
-    // Handle Open Edit Modal
-    const handleOpenEdit = (q: any) => {
-        setActiveQuestion(q);
-        const opts = q.options && q.options.length > 0
-            ? q.options.map((o: any) => ({
-                label: o.label || "A",
-                content: o.content || "",
-                correct: Boolean(o.is_correct || o.correct),
-            }))
-            : [
-                { label: "A", content: "", correct: true },
-                { label: "B", content: "", correct: false },
-                { label: "C", content: "", correct: false },
-                { label: "D", content: "", correct: false },
-                { label: "E", content: "", correct: false },
-            ];
-
-        // Find grade and level from question data
-        const grade = gradesList.find((g: any) => g.id === q.grade_id);
-        const levelId = grade?.education_level_id || "";
-
-        setFormData({
-            level_id: levelId,
-            grade_id: q.grade_id || "",
-            subject_id: q.subject_id || "",
-            chapter_id: q.chapter_id || "",
-            difficulty: q.difficulty || "MEDIUM",
-            question_type: q.question_type || "SINGLE_CHOICE",
-            content: q.content || "",
-            explanation: q.explanation || "",
-            score: q.score || 1.0,
-            negative_score: q.negative_score || 0.0,
-            options: opts,
-        });
-        setIsEditModalOpen(true);
-    };
-
-    // Submit Create Question
-    const handleCreateSubmit = async () => {
-        if (!formData.subject_id) {
-            alert("Silakan pilih Mata Pelajaran");
-            return;
-        }
-        if (!formData.content.trim()) {
-            alert("Teks Soal tidak boleh kosong");
-            return;
-        }
-
-        try {
-            const payload = {
-                subject_id: formData.subject_id,
-                chapter_id: formData.chapter_id || undefined,
-                difficulty: formData.difficulty,
-                question_type: formData.question_type,
-                content: formData.content,
-                explanation: formData.explanation,
-                score: Number(formData.score),
-                negative_score: Number(formData.negative_score),
-                options: formData.options.filter((o) => o.content.trim() !== ""),
-            };
-
-            await createQuestionMutation.mutateAsync(payload);
-            setIsCreateModalOpen(false);
-            refetch();
-        } catch (err: any) {
-            alert("Gagal membuat soal: " + (err.message || err));
-        }
-    };
-
-    // Submit Edit Question
-    const handleEditSubmit = async () => {
-        if (!activeQuestion) return;
-        if (!formData.subject_id) {
-            alert("Silakan pilih Mata Pelajaran");
-            return;
-        }
-        if (!formData.content.trim()) {
-            alert("Teks Soal tidak boleh kosong");
-            return;
-        }
-
-        try {
-            const payload = {
-                subject_id: formData.subject_id,
-                chapter_id: formData.chapter_id || undefined,
-                difficulty: formData.difficulty,
-                question_type: formData.question_type,
-                content: formData.content,
-                explanation: formData.explanation,
-                score: Number(formData.score),
-                negative_score: Number(formData.negative_score),
-                options: formData.options.filter((o) => o.content.trim() !== ""),
-            };
-
-            await updateQuestionMutation.mutateAsync({ id: activeQuestion.id, data: payload });
-            setIsEditModalOpen(false);
-            setActiveQuestion(null);
-            refetch();
-        } catch (err: any) {
-            alert("Gagal memperbarui soal: " + (err.message || err));
-        }
-    };
 
     // Submit Delete Question
     const handleDeleteSubmit = async () => {
@@ -307,338 +113,6 @@ export default function QuestionBankAdminPage() {
         }
     };
 
-    // Options Handlers for Create/Edit Form
-    const handleOptionChange = (index: number, field: "content" | "correct" | "label", value: any) => {
-        const newOpts = [...formData.options];
-        if (!newOpts[index]) return;
-        if (field === "correct") {
-            if (formData.question_type === "SINGLE_CHOICE") {
-                newOpts.forEach((o, i) => (o.correct = i === index));
-            } else {
-                newOpts[index].correct = Boolean(value);
-            }
-        } else if (field === "content") {
-            newOpts[index].content = String(value);
-        } else if (field === "label") {
-            newOpts[index].label = String(value);
-        }
-        setFormData({ ...formData, options: newOpts });
-    };
-
-    const addOptionRow = () => {
-        const labels = ["A", "B", "C", "D", "E", "F", "G", "H"];
-        const nextLabel = labels[formData.options.length] || `Opsi ${formData.options.length + 1}`;
-        setFormData({
-            ...formData,
-            options: [...formData.options, { label: nextLabel, content: "", correct: false }],
-        });
-    };
-
-    const removeOptionRow = (index: number) => {
-        if (formData.options.length <= 2) {
-            alert("Minimal 2 pilihan jawaban");
-            return;
-        }
-        const newOpts = formData.options.filter((_, i) => i !== index);
-        setFormData({ ...formData, options: newOpts });
-    };
-
-    // --- Bulk Import Parsing & Submission ---
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setImportFile(file);
-        setImportResult(null);
-
-        const XLSX = await import("xlsx");
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: "binary" });
-                const wsname = wb.SheetNames[0];
-                if (!wsname) return;
-                const ws = wb.Sheets[wsname];
-                if (!ws) return;
-                const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
-
-                if (rawRows.length === 0) {
-                    alert("File spreadsheet kosong!");
-                    return;
-                }
-
-                // Map spreadsheet columns into API ImportRow format
-                const defaultSubjectId = subjectsList.length > 0 ? subjectsList[0].id : "";
-
-                const mapped = rawRows.map((r: any, idx: number) => {
-                    const contentBase = r["Teks Soal"] || r["soal"] || r["content"] || r["Question"] || "";
-                    const imgQ = r["Gambar Soal (URL)"] || "";
-                    const content = imgQ ? `${contentBase}\n\n![gambar soal](${imgQ})` : contentBase;
-                    const difficulty = (r["Kesulitan"] || r["difficulty"] || "MEDIUM").toString().toUpperCase();
-                    const questionType = (r["Tipe Soal"] || r["question_type"] || "SINGLE_CHOICE").toString().toUpperCase();
-                    const explanationBase = r["Pembahasan"] || r["explanation"] || "";
-                    const imgP = r["Gambar Pembahasan (URL)"] || "";
-                    const explanation = imgP ? `${explanationBase}\n\n![gambar pembahasan](${imgP})` : explanationBase;
-
-                    const subjInput = (r["Mata Pelajaran ID"] || r["subject_id"] || r["Mata Pelajaran"] || "").toString().trim();
-                    let matchedSubjId = defaultSubjectId;
-                    if (subjInput) {
-                        const matchByName = subjectsList.find(
-                            (s) => s.id.toLowerCase() === subjInput.toLowerCase() || s.name.toLowerCase() === subjInput.toLowerCase()
-                        );
-                        if (matchByName) matchedSubjId = matchByName.id;
-                        else if (subjInput.length > 20) matchedSubjId = subjInput;
-                    }
-
-                    const correctOptStr = (r["Jawaban Benar"] || r["correct_option"] || r["Jawaban"] || "A").toString().toUpperCase().trim();
-                    const labels = ["A", "B", "C", "D", "E"];
-                    const optText = [r["Opsi A"], r["Opsi B"], r["Opsi C"], r["Opsi D"], r["Opsi E"]];
-                    const optImg = [r["Gambar A (URL)"], r["Gambar B (URL)"], r["Gambar C (URL)"], r["Gambar D (URL)"], r["Gambar E (URL)"]];
-
-                    const optionsList: any[] = [];
-                    labels.forEach((label, i) => {
-                        const text = optText[i] || "";
-                        const img = optImg[i] || "";
-                        if (!text && !img) return;
-                        const content = img ? `${text} ![gambar](${img})` : text;
-                        optionsList.push({ label, content, is_correct: correctOptStr.includes(label) || correctOptStr === String(i + 1) });
-                    });
-
-                    const score = parseFloat(r["Skor"]) || 1;
-                    const negScore = parseFloat(r["Skor Negatif"]) || 0;
-                    const estTime = parseInt(r["Estimasi Waktu (detik)"]) || 60;
-                    const bloom = r["Level Kognitif"] || "";
-                    const source = r["Sumber"] || "MANUAL";
-
-                    return {
-                        rowNum: idx + 2,
-                        content: String(content),
-                        difficulty: ["EASY", "MEDIUM", "HARD"].includes(difficulty) ? difficulty : "MEDIUM",
-                        question_type: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "ESSAY", "SHORT_ANSWER"].includes(questionType) ? questionType : "SINGLE_CHOICE",
-                        subject_id: matchedSubjId,
-                        explanation: String(explanation),
-                        options: optionsList,
-                        score,
-                        negative_score: negScore,
-                        estimated_time: estTime,
-                        bloom_level: bloom || undefined,
-                        source: source || undefined,
-                    };
-                });
-
-                setParsedImportRows(mapped);
-            } catch (err) {
-                console.error("Failed to parse file:", err);
-                alert("Format file tidak valid. Harap unggah file .xlsx, .xls, atau .csv");
-            }
-        };
-        reader.readAsBinaryString(file);
-    };
-
-    const handleExecuteBulkImport = async () => {
-        if (parsedImportRows.length === 0) return;
-        setImporting(true);
-        setImportResult(null);
-
-        try {
-            const res: any = await apiFetch("/questions/import", {
-                method: "POST",
-                body: JSON.stringify(parsedImportRows),
-            });
-
-            setImportResult(res);
-            refetch();
-        } catch (err: any) {
-            alert("Gagal melakukan import: " + (err.message || err));
-        } finally {
-            setImporting(false);
-        }
-    };
-
-    // Download Sample Excel Template
-    const handleDownloadTemplate = async () => {
-        const XLSX = await import("xlsx");
-        const sampleSubj = subjectsList.length > 0 ? subjectsList[0].name : "Penalaran Umum";
-        const sampleSubjId = subjectsList.length > 0 ? subjectsList[0].id : "UUID-SUBJECT-ID";
-
-        // Sheet 1: Template Data with comprehensive examples
-        const sampleData = [
-            {
-                "Tipe Soal": "SINGLE_CHOICE",
-                "Teks Soal": "Berapakah hasil dari 2^3 + 4^2?",
-                "Gambar Soal (URL)": "",
-                "Mata Pelajaran": sampleSubj,
-                "Mata Pelajaran ID": sampleSubjId,
-                "Bab ID": "",
-                "Topik ID": "",
-                "Kesulitan": "MEDIUM",
-                "Level Kognitif": "C3",
-                "Skor": 1,
-                "Skor Negatif": 0,
-                "Estimasi Waktu (detik)": 60,
-                "Sumber": "MANUAL",
-                "Opsi A": "20",
-                "Gambar A (URL)": "",
-                "Opsi B": "24",
-                "Gambar B (URL)": "",
-                "Opsi C": "28",
-                "Gambar C (URL)": "",
-                "Opsi D": "32",
-                "Gambar D (URL)": "",
-                "Opsi E": "36",
-                "Gambar E (URL)": "",
-                "Jawaban Benar": "B",
-                "Pembahasan": "2^3 = 8 dan 4^2 = 16. Maka 8 + 16 = 24.",
-                "Gambar Pembahasan (URL)": "",
-            },
-            {
-                "Tipe Soal": "MULTIPLE_CHOICE",
-                "Teks Soal": "Manakah dari berikut ini yang termasuk bilangan prima?",
-                "Gambar Soal (URL)": "",
-                "Mata Pelajaran": sampleSubj,
-                "Mata Pelajaran ID": sampleSubjId,
-                "Bab ID": "",
-                "Topik ID": "",
-                "Kesulitan": "EASY",
-                "Level Kognitif": "C1",
-                "Skor": 1,
-                "Skor Negatif": 0,
-                "Estimasi Waktu (detik)": 45,
-                "Sumber": "MANUAL",
-                "Opsi A": "2",
-                "Gambar A (URL)": "",
-                "Opsi B": "4",
-                "Gambar B (URL)": "",
-                "Opsi C": "7",
-                "Gambar C (URL)": "",
-                "Opsi D": "9",
-                "Gambar D (URL)": "",
-                "Opsi E": "11",
-                "Gambar E (URL)": "",
-                "Jawaban Benar": "A,C,E",
-                "Pembahasan": "Bilangan prima: 2, 3, 5, 7, 11, 13, ...",
-                "Gambar Pembahasan (URL)": "",
-            },
-            {
-                "Tipe Soal": "TRUE_FALSE",
-                "Teks Soal": "Bumi berbentuk bulat sempurna.",
-                "Gambar Soal (URL)": "https://cdn.example.com/globe.png",
-                "Mata Pelajaran": sampleSubj,
-                "Mata Pelajaran ID": sampleSubjId,
-                "Bab ID": "",
-                "Topik ID": "",
-                "Kesulitan": "EASY",
-                "Level Kognitif": "C1",
-                "Skor": 1,
-                "Skor Negatif": 0,
-                "Estimasi Waktu (detik)": 30,
-                "Sumber": "MANUAL",
-                "Opsi A": "Benar",
-                "Gambar A (URL)": "",
-                "Opsi B": "Salah",
-                "Gambar B (URL)": "",
-                "Opsi C": "",
-                "Gambar C (URL)": "",
-                "Opsi D": "",
-                "Gambar D (URL)": "",
-                "Opsi E": "",
-                "Gambar E (URL)": "",
-                "Jawaban Benar": "B",
-                "Pembahasan": "Bumi berbentuk ellipsoid (geoid), tidak bulat sempurna karena pipih di kutub.",
-                "Gambar Pembahasan (URL)": "",
-            },
-            {
-                "Tipe Soal": "ESSAY",
-                "Teks Soal": "Jelaskan proses fotosintesis pada tumbuhan!",
-                "Gambar Soal (URL)": "",
-                "Mata Pelajaran": sampleSubj,
-                "Mata Pelajaran ID": sampleSubjId,
-                "Bab ID": "",
-                "Topik ID": "",
-                "Kesulitan": "HARD",
-                "Level Kognitif": "C4",
-                "Skor": 5,
-                "Skor Negatif": 0,
-                "Estimasi Waktu (detik)": 300,
-                "Sumber": "MANUAL",
-                "Opsi A": "",
-                "Gambar A (URL)": "",
-                "Opsi B": "",
-                "Gambar B (URL)": "",
-                "Opsi C": "",
-                "Gambar C (URL)": "",
-                "Opsi D": "",
-                "Gambar D (URL)": "",
-                "Opsi E": "",
-                "Gambar E (URL)": "",
-                "Jawaban Benar": "",
-                "Pembahasan": "Fotosintesis: 6CO2 + 6H2O → C6H12O6 + 6O2",
-                "Gambar Pembahasan (URL)": "",
-            },
-        ];
-
-        const ws = XLSX.utils.json_to_sheet(sampleData);
-        ws['!cols'] = [
-            { wch: 18 }, { wch: 50 }, { wch: 40 }, { wch: 20 }, { wch: 20 },
-            { wch: 48 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 8 },
-            { wch: 10 }, { wch: 12 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
-            { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
-            { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
-        ];
-
-        // Sheet 2: Instructions
-        const instructionsData = [
-            { "Petunjuk": "TEMPLATE IMPORT BANK SOAL YAKINLULUS.ID" },
-            { "Petunjuk": "" },
-            { "Petunjuk": "TIPE SOAL:" },
-            { "Petunjuk": "  SINGLE_CHOICE   → satu jawaban benar. Isi Jawaban Benar dengan huruf opsi (A/B/C/D/E)" },
-            { "Petunjuk": "  MULTIPLE_CHOICE → lebih dari satu jawaban benar. Isi Jawaban Benar dengan huruf dipisah koma (A,C,E)" },
-            { "Petunjuk": "  TRUE_FALSE      → pernyataan benar/salah. Opsi A = Benar, Opsi B = Salah. Jawaban Benar = A atau B" },
-            { "Petunjuk": "  ESSAY           → jawaban uraian. Opsional: isi Opsi A dengan kata kunci. Jawaban Benar dikosongkan" },
-            { "Petunjuk": "  SHORT_ANSWER    → jawaban singkat. Opsi A = kata kunci. Jawaban Benar dikosongkan" },
-            { "Petunjuk": "" },
-            { "Petunjuk": "KOLOM LAINNYA:" },
-            { "Petunjuk": "  Kesulitan: EASY | MEDIUM | HARD" },
-            { "Petunjuk": "  Level Kognitif (Bloom): C1 | C2 | C3 | C4 | C5 | C6" },
-            { "Petunjuk": "  Sumber: MANUAL | AI_GENERATED | IMPORTED" },
-            { "Petunjuk": "  Skor: bobot nilai soal (default 1)" },
-            { "Petunjuk": "  Skor Negatif: pengurangan nilai jika salah (default 0)" },
-            { "Petunjuk": "" },
-            { "Petunjuk": "CARA INPUT GAMBAR (Supabase Storage):" },
-            { "Petunjuk": "  1. Buka menu Media Manager di form soal → Upload gambar → otomatis tersimpan di Supabase Storage bucket 'media'." },
-            { "Petunjuk": "  2. Klik gambar → disisipkan sebagai markdown: ![nama](https://.../object/public/media/uploads/xxx.png)" },
-            { "Petunjuk": "  3. ATAU upload manual ke Supabase → Storage → bucket 'media' → copy public URL." },
-            { "Petunjuk": "  4. Tempel URL ke kolom 'Gambar Soal (URL)' / 'Gambar A (URL)' / 'Gambar Pembahasan (URL)'." },
-            { "Petunjuk": "  5. Gambar juga bisa ditulis LANGSUNG di 'Teks Soal' / 'Pembahasan' / teks opsi dalam format markdown:" },
-            { "Petunjuk": "     ![deskripsi](https://...supabase.co/storage/v1/object/public/media/uploads/soal1.png)" },
-            { "Petunjuk": "     Format ini menampilkan gambar DI TENGAH teks pada posisi yang diinginkan." },
-            { "Petunjuk": "" },
-            { "Petunjuk": "FORMAT MARKDOWN & RUMUS (didukung di Teks Soal, Pembahasan, dan teks opsi):" },
-            { "Petunjuk": "  Rumus inline:  $x^2 + 5x - 6 = 0$  → dirender rapi oleh KaTeX" },
-            { "Petunjuk": "  Rumus blok:    $$E = mc^2$$" },
-            { "Petunjuk": "  Gambar tengah:  teks...  ![grafik](URL)  ...teks" },
-            { "Petunjuk": "  Tabel / list / bold: gunakan sintaks markdown standar" },
-            { "Petunjuk": "" },
-            { "Petunjuk": "CATATAN: Kolom 'Gambar X (URL)' hanya mendukung SATU gambar per kolom." },
-            { "Petunjuk": "Jika butuh banyak gambar di posisi berbeda, tulis markdown langsung di kolom teks." },
-        ];
-        const ws2 = XLSX.utils.json_to_sheet(instructionsData);
-        ws2['!cols'] = [{ wch: 120 }];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Template Bank Soal");
-        XLSX.utils.book_append_sheet(wb, ws2, "Petunjuk");
-
-        // Bold header row
-        const headerRange = XLSX.utils.decode_range(ws['!ref'] || "A1:Y1");
-        for (let c = headerRange.s.c; c <= headerRange.e.c; c++) {
-            const addr = XLSX.utils.encode_cell({ r: 0, c });
-            if (ws[addr]) ws[addr].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1565C0" } } };
-        }
-
-        XLSX.writeFile(wb, "Template_Import_Bank_Soal_YakinLulus.xlsx");
-    };
-
     // Filter questions in list
     const filteredQuestions = questions.filter((q: any) => {
         const text = q.content || q.questionText || "";
@@ -665,30 +139,29 @@ export default function QuestionBankAdminPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setIsAiImportModalOpen(true)}
-                        className="text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-md"
-                    >
-                        <Sparkles className="mr-2 h-4 w-4" /> ✨ Import AI PDF / Gambar
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            setImportFile(null);
-                            setParsedImportRows([]);
-                            setImportResult(null);
-                            setIsBulkModalOpen(true);
-                        }}
-                        className="text-xs font-semibold border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                    >
-                        <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Excel / CSV
-                    </Button>
-                    <Button size="sm" onClick={handleOpenCreate} className="text-xs font-bold shadow-md shadow-primary/20">
-                        <Plus className="mr-2 h-4 w-4" /> Buat Soal Baru
-                    </Button>
+                    <Link href="/admin/question-bank/import">
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-md cursor-pointer"
+                        >
+                            <Sparkles className="mr-2 h-4 w-4" /> ✨ Import AI PDF / Gambar
+                        </Button>
+                    </Link>
+                    <Link href="/admin/question-bank/import">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs font-semibold border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+                        >
+                            <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Excel / CSV
+                        </Button>
+                    </Link>
+                    <Link href="/admin/question-bank/create">
+                        <Button size="sm" className="text-xs font-bold shadow-md shadow-primary/20 cursor-pointer">
+                            <Plus className="mr-2 h-4 w-4" /> Buat Soal Baru
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -731,7 +204,7 @@ export default function QuestionBankAdminPage() {
                             <option value="ALL">Semua Mata Pelajaran</option>
                             {subjectsList.map((s: any) => (
                                 <option key={s.id} value={s.id}>
-                                    {s.name}
+                                    {s.name} ({s.level_code || "?"})
                                 </option>
                             ))}
                         </select>
@@ -919,14 +392,15 @@ export default function QuestionBankAdminPage() {
                                         >
                                             FSM <ArrowRight className="ml-1 h-3.5 w-3.5" />
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleOpenEdit(q)}
-                                            className="text-[11px] h-8 font-semibold text-blue-600 border-blue-200 hover:bg-blue-50"
-                                        >
-                                            <Edit3 className="mr-1 h-3.5 w-3.5" /> Edit
-                                        </Button>
+                                        <Link href={`/admin/question-bank/${q.id}/edit`}>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-[11px] h-8 font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
+                                            >
+                                                <Edit3 className="mr-1 h-3.5 w-3.5" /> Edit
+                                            </Button>
+                                        </Link>
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -950,407 +424,6 @@ export default function QuestionBankAdminPage() {
                 )}
             </div>
 
-            {/* --- CREATE QUESTION MODAL --- */}
-            <AdminActionModal
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                title="Buat Soal Baru"
-                description="Tambahkan soal baru ke dalam Bank Soal dan database PostgreSQL."
-                onSubmit={handleCreateSubmit}
-                submitLabel="Simpan Soal Baru"
-            >
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Jenjang</label>
-                            <select
-                                value={formData.level_id || ""}
-                                onChange={(e) => {
-                                    const levelId = e.target.value;
-                                    setFormData({ ...formData, level_id: levelId, grade_id: "", subject_id: "", chapter_id: "" });
-                                }}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Semua Jenjang --</option>
-                                {levelsList.map((l: any) => (
-                                    <option key={l.id} value={l.id}>
-                                        {l.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Kelas</label>
-                            <select
-                                value={formData.grade_id || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, grade_id: e.target.value, subject_id: "", chapter_id: "" });
-                                }}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Semua Kelas --</option>
-                                {gradesList
-                                    .filter((g: any) => !formData.level_id || g.education_level_id === formData.level_id)
-                                    .map((g: any) => (
-                                        <option key={g.id} value={g.id}>
-                                            {g.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Mata Pelajaran *</label>
-                            <select
-                                value={formData.subject_id}
-                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value, chapter_id: "" })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Pilih Mata Pelajaran --</option>
-                                {subjectsList
-                                    .filter((s: any) => !formData.grade_id || s.grade_id === formData.grade_id)
-                                    .map((s: any) => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Bab / Chapter (Opsional)</label>
-                            <select
-                                value={formData.chapter_id}
-                                onChange={(e) => setFormData({ ...formData, chapter_id: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Tanpa Bab --</option>
-                                {chaptersList.map((c: any) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Tipe Soal</label>
-                            <select
-                                value={formData.question_type}
-                                onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="SINGLE_CHOICE">Pilihan Ganda (Single)</option>
-                                <option value="MULTIPLE_CHOICE">Pilihan Ganda Kompleks</option>
-                                <option value="TRUE_FALSE">Benar / Salah</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Tingkat Kesulitan</label>
-                            <select
-                                value={formData.difficulty}
-                                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="EASY">EASY (Mudah)</option>
-                                <option value="MEDIUM">MEDIUM (Sedang)</option>
-                                <option value="HARD">HARD (Sulit)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Bobot Skor</label>
-                            <input
-                                type="number"
-                                step="0.5"
-                                value={formData.score}
-                                onChange={(e) => setFormData({ ...formData, score: parseFloat(e.target.value) || 1.0 })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                            Teks Soal / Pertanyaan * (Mendukung KaTeX: contoh $E = mc^2$)
-                        </label>
-                        <div className="flex gap-2">
-                            <textarea
-                                rows={4}
-                                value={formData.content}
-                                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                placeholder="Tuliskan teks pertanyaan di sini..."
-                                className="flex-1 p-3 text-xs rounded-xl border bg-background font-mono focus:ring-2 focus:ring-primary focus:outline-none"
-                            />
-                            <MediaPicker onInsert={insertMedia("content")} />
-                        </div>
-                    </div>
-
-                    {/* Options Editor */}
-                    <div className="space-y-2 border-t pt-3">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-foreground">Pilihan Jawaban (Opsi)</label>
-                            <Button type="button" variant="outline" size="sm" onClick={addOptionRow} className="text-[10px] h-7">
-                                + Tambah Opsi
-                            </Button>
-                        </div>
-
-                        {formData.options.map((opt, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-bold w-6 text-center">{opt.label}</span>
-                                <input
-                                    type="text"
-                                    placeholder={`Isi opsi ${opt.label}...`}
-                                    value={opt.content}
-                                    onChange={(e) => handleOptionChange(i, "content", e.target.value)}
-                                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border bg-background"
-                                />
-                                <label className="flex items-center gap-1 shrink-0 text-[11px] cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={opt.correct}
-                                        onChange={(e) => handleOptionChange(i, "correct", e.target.checked)}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary h-3.5 w-3.5"
-                                    />
-                                    <span className={opt.correct ? "font-bold text-emerald-700" : "text-muted-foreground"}>
-                                        Benar
-                                    </span>
-                                </label>
-                                {formData.options.length > 2 && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeOptionRow(i)}
-                                        className="text-rose-500 h-7 w-7 p-0"
-                                    >
-                                        &times;
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Pembahasan Soal</label>
-                        <div className="flex gap-2">
-                            <textarea
-                                rows={3}
-                                value={formData.explanation}
-                                onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                                placeholder="Tuliskan langkah penyelesaian atau penjelasan soal..."
-                                className="flex-1 p-3 text-xs rounded-xl border bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                            />
-                            <MediaPicker onInsert={insertMedia("explanation")} />
-                        </div>
-                    </div>
-                </div>
-            </AdminActionModal>
-
-            {/* --- EDIT QUESTION MODAL --- */}
-            <AdminActionModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                title="Edit Soal"
-                description={`Penyuntingan soal ID ${activeQuestion?.id?.substring(0, 8)}`}
-                onSubmit={handleEditSubmit}
-                submitLabel="Simpan Perubahan"
-            >
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Jenjang</label>
-                            <select
-                                value={formData.level_id || ""}
-                                onChange={(e) => {
-                                    const levelId = e.target.value;
-                                    setFormData({ ...formData, level_id: levelId, grade_id: "", subject_id: "", chapter_id: "" });
-                                }}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Semua Jenjang --</option>
-                                {levelsList.map((l: any) => (
-                                    <option key={l.id} value={l.id}>
-                                        {l.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Kelas</label>
-                            <select
-                                value={formData.grade_id || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, grade_id: e.target.value, subject_id: "", chapter_id: "" });
-                                }}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Semua Kelas --</option>
-                                {gradesList
-                                    .filter((g: any) => !formData.level_id || g.education_level_id === formData.level_id)
-                                    .map((g: any) => (
-                                        <option key={g.id} value={g.id}>
-                                            {g.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Mata Pelajaran *</label>
-                            <select
-                                value={formData.subject_id}
-                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value, chapter_id: "" })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Pilih Mata Pelajaran --</option>
-                                {subjectsList
-                                    .filter((s: any) => !formData.grade_id || s.grade_id === formData.grade_id)
-                                    .map((s: any) => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Bab / Chapter</label>
-                            <select
-                                value={formData.chapter_id}
-                                onChange={(e) => setFormData({ ...formData, chapter_id: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="">-- Tanpa Bab --</option>
-                                {chaptersList.map((c: any) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Tipe Soal</label>
-                            <select
-                                value={formData.question_type}
-                                onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="SINGLE_CHOICE">Pilihan Ganda (Single)</option>
-                                <option value="MULTIPLE_CHOICE">Pilihan Ganda Kompleks</option>
-                                <option value="TRUE_FALSE">Benar / Salah</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Tingkat Kesulitan</label>
-                            <select
-                                value={formData.difficulty}
-                                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            >
-                                <option value="EASY">EASY (Mudah)</option>
-                                <option value="MEDIUM">MEDIUM (Sedang)</option>
-                                <option value="HARD">HARD (Sulit)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Bobot Skor</label>
-                            <input
-                                type="number"
-                                step="0.5"
-                                value={formData.score}
-                                onChange={(e) => setFormData({ ...formData, score: parseFloat(e.target.value) || 1.0 })}
-                                className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Teks Soal / Pertanyaan *</label>
-                        <div className="flex gap-2">
-                            <textarea
-                                rows={4}
-                                value={formData.content}
-                                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                className="flex-1 p-3 text-xs rounded-xl border bg-background font-mono focus:ring-2 focus:ring-primary focus:outline-none"
-                            />
-                            <MediaPicker onInsert={insertMedia("content")} />
-                        </div>
-                    </div>
-
-                    {/* Options Editor */}
-                    <div className="space-y-2 border-t pt-3">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-foreground">Pilihan Jawaban (Opsi)</label>
-                            <Button type="button" variant="outline" size="sm" onClick={addOptionRow} className="text-[10px] h-7">
-                                + Tambah Opsi
-                            </Button>
-                        </div>
-
-                        {formData.options.map((opt, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-bold w-6 text-center">{opt.label}</span>
-                                <input
-                                    type="text"
-                                    value={opt.content}
-                                    onChange={(e) => handleOptionChange(i, "content", e.target.value)}
-                                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border bg-background"
-                                />
-                                <label className="flex items-center gap-1 shrink-0 text-[11px] cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={opt.correct}
-                                        onChange={(e) => handleOptionChange(i, "correct", e.target.checked)}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary h-3.5 w-3.5"
-                                    />
-                                    <span className={opt.correct ? "font-bold text-emerald-700" : "text-muted-foreground"}>
-                                        Benar
-                                    </span>
-                                </label>
-                                {formData.options.length > 2 && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeOptionRow(i)}
-                                        className="text-rose-500 h-7 w-7 p-0"
-                                    >
-                                        &times;
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Pembahasan Soal</label>
-                        <div className="flex gap-2">
-                            <textarea
-                                rows={3}
-                                value={formData.explanation}
-                                onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                                className="flex-1 p-3 text-xs rounded-xl border bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                            />
-                            <MediaPicker onInsert={insertMedia("explanation")} />
-                        </div>
-                    </div>
-                </div>
-            </AdminActionModal>
-
             {/* --- DELETE QUESTION CONFIRMATION MODAL --- */}
             <AdminActionModal
                 isOpen={isDeleteModalOpen}
@@ -1365,92 +438,6 @@ export default function QuestionBankAdminPage() {
                     <p className="font-mono bg-rose-100/80 p-2 rounded border border-rose-300">
                         {activeQuestion?.content}
                     </p>
-                </div>
-            </AdminActionModal>
-
-            {/* --- BULK IMPORT MODAL (EXCEL / CSV) --- */}
-            <AdminActionModal
-                isOpen={isBulkModalOpen}
-                onClose={() => setIsBulkModalOpen(false)}
-                title="Bulk Import Soal Massal (Excel & CSV)"
-                description="Unggah file spreadsheet Excel (.xlsx) atau CSV (.csv) untuk menambah banyak soal secara langsung."
-                onSubmit={handleExecuteBulkImport}
-                submitLabel={importing ? "Memproses Import..." : `Import ${parsedImportRows.length} Soal ke Database`}
-            >
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    {/* Download Sample Template */}
-                    <div className="flex items-center justify-between p-3.5 rounded-xl border bg-emerald-50/60 border-emerald-200">
-                        <div>
-                            <span className="text-xs font-bold text-emerald-900 block">Belum punya format file?</span>
-                            <span className="text-[11px] text-emerald-700">Unduh sampel template Excel resmi YakinLulus.id.</span>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadTemplate}
-                            className="text-xs font-bold text-emerald-800 border-emerald-300 bg-white hover:bg-emerald-100"
-                        >
-                            <Download className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> Download Template
-                        </Button>
-                    </div>
-
-                    {/* File Dropzone */}
-                    <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                            Pilih File Spreadsheet (.xlsx, .xls, .csv) — pratinjau bisa diedit sebelum import
-                        </label>
-                        <input
-                            type="file"
-                            accept=".xlsx, .xls, .csv"
-                            onChange={handleFileUpload}
-                            className="w-full px-3 py-2 text-xs rounded-xl border bg-background cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                        />
-                    </div>
-
-                    {/* Results Alert */}
-                    {importResult && (
-                        <div
-                            className={`p-3.5 rounded-xl border text-xs space-y-1 ${importResult.failed === 0
-                                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                                : "bg-amber-50 border-amber-200 text-amber-900"
-                                }`}
-                        >
-                            <p className="font-bold flex items-center gap-1.5">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Import Selesai: {importResult.created} berhasil dibuat, {importResult.failed} gagal.
-                            </p>
-                            {importResult.errors && importResult.errors.length > 0 && (
-                                <ul className="list-disc pl-5 text-[11px] space-y-0.5 mt-1 text-rose-700">
-                                    {importResult.errors.map((errStr, idx) => (
-                                        <li key={idx}>{errStr}</li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Parsed Preview: editable question cards */}
-                    {parsedImportRows.length > 0 && (
-                        <div className="space-y-2 border-t pt-3">
-                            <span className="text-xs font-bold text-foreground block">
-                                Pratinjau & Edit Data ({parsedImportRows.length} soal terdeteksi)
-                            </span>
-                            <div className="max-h-[45vh] overflow-y-auto pr-1 space-y-2">
-                                {parsedImportRows.map((row, idx) => (
-                                    <StagingQuestionCard
-                                        key={row.rowNum}
-                                        row={row}
-                                        index={idx}
-                                        onChange={(updated) => handleUpdateImportRow(idx, updated)}
-                                        onDelete={() => handleRemoveImportRow(idx)}
-                                    />
-                                ))}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground italic">
-                                Klik soal untuk edit. Tandai kunci jawaban lewat radio, tambah/hapus opsi, sisipkan gambar, lalu Import.
-                            </p>
-                        </div>
-                    )}
                 </div>
             </AdminActionModal>
 
@@ -1512,14 +499,6 @@ export default function QuestionBankAdminPage() {
                     </div>
                 </div>
             </AdminActionModal>
-            {/* --- AI PDF / IMAGE / EXCEL IMPORT MODAL --- */}
-            <AIPDFImportModal
-                isOpen={isAiImportModalOpen}
-                onClose={() => setIsAiImportModalOpen(false)}
-                subjectsList={subjectsList}
-                chaptersList={chaptersList}
-                onSuccessImport={() => refetch()}
-            />
         </div>
     );
 }
