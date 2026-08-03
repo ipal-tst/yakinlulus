@@ -64,7 +64,9 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const correctLabel = row.options.find(o => o.is_correct)?.label ?? "—";
+  const correctLabel = row.question_type === "TRUE_FALSE" || row.question_type === "MULTIPLE_CHOICE"
+    ? (row.options.filter(o => o.is_correct).map(o => o.label).join(",") || "—")
+    : (row.options.find(o => o.is_correct)?.label ?? "—");
 
   const update = (patch: Partial<StagingRow>) => onChange({ ...row, ...patch });
   const updateOption = (optIndex: number, patch: Partial<StagingOption>) => {
@@ -99,6 +101,7 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
         </Button>
         <span className="font-mono text-xs font-bold text-muted-foreground shrink-0">#{row.rowNum}</span>
         <span className="text-xs font-medium truncate flex-1 min-w-0">{row.content || "(kosong)"}</span>
+        <Badge variant="outline" className={`text-[10px] shrink-0 ${row.question_type === "MULTIPLE_CHOICE" ? "border-purple-300 text-purple-700 bg-purple-50" : row.question_type === "TRUE_FALSE" ? "border-amber-300 text-amber-700 bg-amber-50" : "border-blue-300 text-blue-700 bg-blue-50"}`}>{row.question_type === "SINGLE_CHOICE" ? "PG" : row.question_type === "MULTIPLE_CHOICE" ? "PG Kompleks" : row.question_type === "TRUE_FALSE" ? "B/S" : row.question_type}</Badge>
         <Badge variant="outline" className="text-[10px] shrink-0">{row.difficulty}</Badge>
         <Badge variant="outline" className="text-[10px] shrink-0">{row.options.length} opsi · {correctLabel}</Badge>
         <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-destructive" onClick={onDelete} aria-label="Hapus soal">
@@ -133,81 +136,127 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pilihan Jawaban</label>
-              {row.question_type !== "TRUE_FALSE" && (
-                <Button type="button" variant="outline" size="sm" onClick={handleAddOption} className="text-[10px] h-7">
-                  <Plus className="mr-1 h-3 w-3" /> Tambah Opsi
-                </Button>
-              )}
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {row.question_type === "TRUE_FALSE"
+                  ? "Pernyataan (Tabel Benar / Salah)"
+                  : row.question_type === "MULTIPLE_CHOICE"
+                  ? "Pilihan Jawaban (Checkbox = Kunci Jawaban Benar)"
+                  : "Pilihan Jawaban (Radio Button = Kunci Jawaban Benar)"}
+              </label>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddOption} className="text-[10px] h-7">
+                <Plus className="mr-1 h-3 w-3" /> {row.question_type === "TRUE_FALSE" ? "Tambah Pernyataan" : "Tambah Opsi"}
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              {row.question_type === "TRUE_FALSE" ? (
-                <>
-                  {["Benar", "Salah"].map((tf, tfIdx) => (
-                    <div key={tf} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`correct-${row.rowNum}`}
-                        checked={!!row.options[tfIdx]?.is_correct}
-                        onChange={() => {
-                          const options = [
-                            { label: "A", content: "Benar", is_correct: tfIdx === 0 },
-                            { label: "B", content: "Salah", is_correct: tfIdx === 1 },
-                          ];
-                          update({ options });
-                        }}
-                        className="h-4 w-4 cursor-pointer"
-                        aria-label={`Kunci ${tf}`}
-                      />
-                      <span className={`font-bold text-xs w-5 shrink-0 ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>
-                        {row.options[tfIdx]?.label || (tfIdx === 0 ? "A" : "B")}.
-                      </span>
-                      <span className={`text-xs font-semibold ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>{tf}</span>
-                      {!!row.options[tfIdx]?.is_correct && (
-                        <Badge variant="success" className="text-[9px]">Kunci</Badge>
-                      )}
-                    </div>
-                  ))}
-                </>
-              ) : (
-                row.options.map((opt, optIdx) => (
-                <div key={opt.label + optIdx} className="flex items-center gap-2">
-                  <input
-                    type={row.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
-                    name={`correct-${row.rowNum}`}
-                    checked={opt.is_correct}
-                    onChange={() => toggleCorrect(optIdx)}
-                    className="h-4 w-4 cursor-pointer"
-                    aria-label={`Kunci ${opt.label}`}
-                  />
-                  <span className="font-bold text-xs w-5 shrink-0">{opt.label}.</span>
-                  <input
-                    type="text"
-                    value={opt.content}
-                    onChange={e => updateOption(optIdx, { content: e.target.value })}
-                    aria-label={`Opsi ${opt.label}`}
-                    className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border bg-background min-w-0"
-                  />
-                  <MediaPicker onInsert={insertMedia(optIdx)} entityType="QUESTION">
-                    <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Gambar opsi ${opt.label}`}>
-                      <ImagePlus className="h-3.5 w-3.5" />
+            {row.question_type === "TRUE_FALSE" ? (
+              <div className="border border-sky-600/30 rounded-xl overflow-hidden bg-card shadow-2xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#0284C7] text-white text-xs font-bold tracking-wide">
+                      <th className="p-2.5 border-r border-sky-500/30">Pernyataan</th>
+                      <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Benar</th>
+                      <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Salah</th>
+                      <th className="p-2.5 w-14 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs">
+                    {row.options.map((opt, optIdx) => (
+                      <tr key={optIdx} className="hover:bg-sky-50/20 transition-colors">
+                        <td className="p-2 border-r border-border font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs w-5 shrink-0 text-muted-foreground">{opt.label || String.fromCharCode(65 + optIdx)}.</span>
+                            <input
+                              type="text"
+                              value={opt.content}
+                              onChange={e => updateOption(optIdx, { content: e.target.value })}
+                              placeholder={`Pernyataan ${opt.label || optIdx + 1}`}
+                              className="flex-1 px-2.5 py-1 text-xs rounded-lg border bg-background font-medium focus:ring-1 focus:ring-primary"
+                            />
+                            <MediaPicker onInsert={insertMedia(optIdx)} entityType="QUESTION">
+                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" aria-label={`Gambar opsi ${optIdx + 1}`}>
+                                <ImagePlus className="h-3.5 w-3.5" />
+                              </Button>
+                            </MediaPicker>
+                          </div>
+                        </td>
+                        <td className="p-2 text-center border-r border-border bg-emerald-50/20">
+                          <label className="inline-flex items-center justify-center cursor-pointer p-1">
+                            <input
+                              type="checkbox"
+                              checked={opt.is_correct === true}
+                              onChange={() => updateOption(optIdx, { is_correct: true })}
+                              className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </label>
+                        </td>
+                        <td className="p-2 text-center border-r border-border bg-rose-50/20">
+                          <label className="inline-flex items-center justify-center cursor-pointer p-1">
+                            <input
+                              type="checkbox"
+                              checked={opt.is_correct === false}
+                              onChange={() => updateOption(optIdx, { is_correct: false })}
+                              className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                            />
+                          </label>
+                        </td>
+                        <td className="p-2 text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive"
+                            disabled={row.options.length <= 2}
+                            onClick={() => handleRemoveOption(optIdx)}
+                            aria-label={`Hapus opsi ${optIdx + 1}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {row.options.map((opt, optIdx) => (
+                  <div key={opt.label + optIdx} className="flex items-center gap-2 p-2 rounded-lg border bg-background">
+                    <span className="font-bold text-xs w-5 shrink-0 text-muted-foreground">{opt.label}.</span>
+                    <input
+                      type="text"
+                      value={opt.content}
+                      onChange={e => updateOption(optIdx, { content: e.target.value })}
+                      placeholder={`Opsi ${opt.label}`}
+                      aria-label={`Opsi ${opt.label}`}
+                      className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border bg-background min-w-0 font-medium"
+                    />
+                    <input
+                      type={row.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
+                      name={`correct-${row.rowNum}`}
+                      checked={opt.is_correct}
+                      onChange={() => toggleCorrect(optIdx)}
+                      className="h-4 w-4 cursor-pointer"
+                      aria-label={`Kunci ${opt.label}`}
+                    />
+                    <MediaPicker onInsert={insertMedia(optIdx)} entityType="QUESTION">
+                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Gambar opsi ${opt.label}`}>
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      </Button>
+                    </MediaPicker>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive"
+                      disabled={row.options.length <= 2}
+                      onClick={() => handleRemoveOption(optIdx)}
+                      aria-label={`Hapus opsi ${opt.label}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  </MediaPicker>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive"
-                    disabled={row.options.length <= 2}
-                    onClick={() => handleRemoveOption(optIdx)}
-                    aria-label={`Hapus opsi ${opt.label}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                ))
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -227,7 +276,37 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Tipe Soal</label>
+              <select
+                value={row.question_type}
+                onChange={e => {
+                  const newType = e.target.value;
+                  const patch: Partial<StagingRow> = { question_type: newType };
+                  if (newType === "TRUE_FALSE") {
+                    patch.options = [
+                      { label: "A", content: "Benar", is_correct: true },
+                      { label: "B", content: "Salah", is_correct: false },
+                    ];
+                  } else if (row.question_type === "TRUE_FALSE" && newType !== "TRUE_FALSE") {
+                    patch.options = [
+                      { label: "A", content: "", is_correct: true },
+                      { label: "B", content: "", is_correct: false },
+                      { label: "C", content: "", is_correct: false },
+                      { label: "D", content: "", is_correct: false },
+                      { label: "E", content: "", is_correct: false },
+                    ];
+                  }
+                  update(patch);
+                }}
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border bg-background"
+              >
+                <option value="SINGLE_CHOICE">Pilihan Ganda (1 Jawaban)</option>
+                <option value="MULTIPLE_CHOICE">Pilihan Ganda Kompleks (Multi)</option>
+                <option value="TRUE_FALSE">Benar / Salah</option>
+              </select>
+            </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Kesulitan</label>
               <select
@@ -258,26 +337,78 @@ export function StagingQuestionCard({ row, index, onChange, onDelete }: {
               <div className="text-xs text-muted-foreground font-mono mb-1">Soal No. {index + 1}</div>
               <MathKaTeXPreview content={row.content || "(soal kosong)"} />
             </div>
-            <div className="space-y-1.5">
-              {row.options.map((opt, optIdx) => (
-                <div
-                  key={opt.label + optIdx}
-                  className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${opt.is_correct
-                    ? "border-emerald-400 bg-emerald-50"
-                    : "border-border bg-card"}`}
-                >
-                  <span className={`font-bold shrink-0 ${opt.is_correct ? "text-emerald-600" : "text-muted-foreground"}`}>
-                    {opt.label}.
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <MathKaTeXPreview content={opt.content || "(kosong)"} />
+
+            {row.question_type === "TRUE_FALSE" ? (
+              <div className="border border-sky-600/30 rounded-xl overflow-hidden bg-card shadow-2xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#0284C7] text-white text-xs md:text-sm font-bold tracking-wide">
+                      <th className="p-2.5 border-r border-sky-500/30">Pernyataan</th>
+                      <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Benar</th>
+                      <th className="p-2.5 w-20 text-center">Salah</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs md:text-sm">
+                    {row.options.map((opt, optIdx) => {
+                      const textStartsWithNumber = /^\(\d+\)/.test((opt.content || "").trim());
+                      const displayLabel = `(${opt.label && !isNaN(Number(opt.label)) ? opt.label : optIdx + 1})`;
+
+                      return (
+                        <tr key={optIdx} className="hover:bg-sky-50/20 transition-colors">
+                          <td className="p-2.5 text-foreground border-r border-border font-medium leading-relaxed">
+                            <div className="flex items-start gap-2">
+                              {!textStartsWithNumber && (
+                                <span className="font-bold text-muted-foreground shrink-0">{displayLabel}</span>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <MathKaTeXPreview content={opt.content || "(pernyataan kosong)"} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-2.5 text-center border-r border-border bg-emerald-50/20">
+                            <input
+                              type="checkbox"
+                              disabled
+                              checked={opt.is_correct === true}
+                              className="h-4 w-4 rounded text-emerald-600 border-emerald-400 cursor-not-allowed"
+                            />
+                          </td>
+                          <td className="p-2.5 text-center bg-rose-50/20">
+                            <input
+                              type="checkbox"
+                              disabled
+                              checked={opt.is_correct === false}
+                              className="h-4 w-4 rounded text-rose-600 border-rose-400 cursor-not-allowed"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {row.options.map((opt, optIdx) => (
+                  <div
+                    key={opt.label + optIdx}
+                    className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${opt.is_correct
+                      ? "border-emerald-400 bg-emerald-50"
+                      : "border-border bg-card"}`}
+                  >
+                    <span className={`font-bold shrink-0 ${opt.is_correct ? "text-emerald-600" : "text-muted-foreground"}`}>
+                      {opt.label}.
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <MathKaTeXPreview content={opt.content || "(kosong)"} />
+                    </div>
+                    {opt.is_correct && (
+                      <Badge variant="success" className="text-[9px] shrink-0">Kunci</Badge>
+                    )}
                   </div>
-                  {opt.is_correct && (
-                    <Badge variant="success" className="text-[9px] shrink-0">Kunci</Badge>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             {row.explanation && (
               <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
                 <span className="text-[10px] font-bold text-amber-700 block mb-1">Pembahasan:</span>

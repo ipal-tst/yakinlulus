@@ -63,53 +63,56 @@ export function CBTOptionSelector({
                 </div>
 
                 {/* Grid Table Layout */}
-                <div className="border border-[#CBD5E1] rounded-lg overflow-hidden bg-white shadow-2xs">
+                <div className="border border-[#CBD5E1] rounded-xl overflow-hidden bg-white shadow-2xs">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-[#E2E8F0] border-b border-[#CBD5E1] text-[#1E293B] text-xs font-extrabold uppercase tracking-wide">
-                                <th className="p-3 w-10 text-center border-r border-[#CBD5E1]">#</th>
-                                <th className="p-3 border-r border-[#CBD5E1]">Pernyataan</th>
-                                <th className="p-3 w-24 text-center border-r border-[#CBD5E1]">Benar</th>
+                            <tr className="bg-[#0284C7] text-white text-xs md:text-sm font-extrabold tracking-wide">
+                                <th className="p-3 border-r border-sky-400/30">Pernyataan</th>
+                                <th className="p-3 w-24 text-center border-r border-sky-400/30">Benar</th>
                                 <th className="p-3 w-24 text-center">Salah</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E2E8F0] text-xs md:text-sm">
                             {statements.length === 0 && options.length > 0 ? (
-                                // Fallback: convert options to statements if passed via options prop
                                 options.map((opt, idx) => {
                                     const stmtId = opt.id || String(idx);
                                     const currentVal = tfAnswers[stmtId];
-                                    const rowLabel = opt.label || String.fromCharCode(65 + idx);
+                                    const textStartsWithNumber = /^\(\d+\)/.test((opt.text || "").trim());
+                                    const displayLabel = `(${opt.label && !isNaN(Number(opt.label)) ? opt.label : idx + 1})`;
 
                                     return (
                                         <tr key={stmtId} className="hover:bg-[#F8FAFC] transition-colors">
-                                            <td className="p-3 font-bold text-[#64748B] text-center border-r border-[#CBD5E1]">
-                                                {rowLabel}
-                                            </td>
                                             <td className="p-3 text-[#1E293B] border-r border-[#CBD5E1] font-medium leading-relaxed">
-                                                <MathKaTeXPreview content={opt.text} invertDark={false} />
+                                                <div className="flex items-start gap-2">
+                                                    {!textStartsWithNumber && (
+                                                        <span className="font-bold text-[#64748B] shrink-0">{displayLabel}</span>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <MathKaTeXPreview content={opt.text} invertDark={false} />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="p-3 text-center border-r border-[#CBD5E1] bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
                                                     <input
-                                                        type="radio"
-                                                        name={`tf-${stmtId}`}
+                                                        type="checkbox"
+                                                        name={`tf-b-${stmtId}`}
                                                         checked={currentVal === true}
                                                         onChange={() => handleTFChange(stmtId, true)}
                                                         disabled={disabled}
-                                                        className="h-4 w-4 text-[#1565C0] focus:ring-0 cursor-pointer"
+                                                        className="h-4 w-4 rounded text-[#0284C7] focus:ring-0 cursor-pointer"
                                                     />
                                                 </label>
                                             </td>
                                             <td className="p-3 text-center bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
                                                     <input
-                                                        type="radio"
-                                                        name={`tf-${stmtId}`}
+                                                        type="checkbox"
+                                                        name={`tf-s-${stmtId}`}
                                                         checked={currentVal === false}
                                                         onChange={() => handleTFChange(stmtId, false)}
                                                         disabled={disabled}
-                                                        className="h-4 w-4 text-[#E11D48] focus:ring-0 cursor-pointer"
+                                                        className="h-4 w-4 rounded text-[#E11D48] focus:ring-0 cursor-pointer"
                                                     />
                                                 </label>
                                             </td>
@@ -120,37 +123,42 @@ export function CBTOptionSelector({
                                 statements.map((stmt, idx) => {
                                     const stmtId = stmt.id || String(idx);
                                     const currentVal = tfAnswers[stmtId];
-                                    const rowLabel = stmt.label || String.fromCharCode(65 + idx);
+                                    const textStartsWithNumber = /^\(\d+\)/.test((stmt.statement || "").trim());
+                                    const displayLabel = `(${stmt.label && !isNaN(Number(stmt.label)) ? stmt.label : idx + 1})`;
 
                                     return (
                                         <tr key={stmtId} className="hover:bg-[#F8FAFC] transition-colors">
-                                            <td className="p-3 font-bold text-[#64748B] text-center border-r border-[#CBD5E1]">
-                                                {rowLabel}
-                                            </td>
                                             <td className="p-3 text-[#1E293B] border-r border-[#CBD5E1] font-medium leading-relaxed">
-                                                <MathKaTeXPreview content={stmt.statement} invertDark={false} />
+                                                <div className="flex items-start gap-2">
+                                                    {!textStartsWithNumber && (
+                                                        <span className="font-bold text-[#64748B] shrink-0">{displayLabel}</span>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <MathKaTeXPreview content={stmt.statement} invertDark={false} />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="p-3 text-center border-r border-[#CBD5E1] bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
                                                     <input
-                                                        type="radio"
-                                                        name={`tf-${stmtId}`}
+                                                        type="checkbox"
+                                                        name={`tf-b-${stmtId}`}
                                                         checked={currentVal === true}
                                                         onChange={() => handleTFChange(stmtId, true)}
                                                         disabled={disabled}
-                                                        className="h-4 w-4 text-[#1565C0] focus:ring-0 cursor-pointer"
+                                                        className="h-4 w-4 rounded text-[#0284C7] focus:ring-0 cursor-pointer"
                                                     />
                                                 </label>
                                             </td>
                                             <td className="p-3 text-center bg-[#F8FAFC]/50">
                                                 <label className="inline-flex items-center justify-center cursor-pointer p-1">
                                                     <input
-                                                        type="radio"
-                                                        name={`tf-${stmtId}`}
+                                                        type="checkbox"
+                                                        name={`tf-s-${stmtId}`}
                                                         checked={currentVal === false}
                                                         onChange={() => handleTFChange(stmtId, false)}
                                                         disabled={disabled}
-                                                        className="h-4 w-4 text-[#E11D48] focus:ring-0 cursor-pointer"
+                                                        className="h-4 w-4 rounded text-[#E11D48] focus:ring-0 cursor-pointer"
                                                     />
                                                 </label>
                                             </td>

@@ -8,6 +8,7 @@ import { AdminActionModal } from "@/components/admin/AdminActionModal";
 import { apiFetch } from "@/lib/api";
 import { renderPdfToPages } from "@/components/editor/pdf-render";
 import { docxToStagingRows } from "@/components/editor/docx-to-rows";
+import { parseSpreadsheetRowToQuestion } from "@/lib/excel-parser";
 import { MathKaTeXPreview } from "@/components/editor/MathKaTeXPreview";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -31,6 +32,7 @@ import {
     Key,
     ClipboardList,
     ExternalLink,
+    Save,
 } from "lucide-react";
 
 export interface StagingQuestionRow {
@@ -295,42 +297,23 @@ export function AIPDFImportModal({
                         const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
                         const rows: StagingQuestionRow[] = rawRows.map((r, idx) => {
-                            const content = r["Teks Soal"] || r["soal"] || r["content"] || r["Question"] || "";
-                            const explanation = r["Pembahasan"] || r["explanation"] || "";
-                            const diff = (r["Kesulitan"] || r["difficulty"] || "MEDIUM").toString().toUpperCase();
-                            const bloom = (r["Bloom"] || r["bloom_level"] || "C3").toString().toUpperCase();
-                            const source = r["Sumber"] || r["source"] || globalSource;
-
-                            const correctOptStr = (r["Jawaban Benar"] || r["correct_option"] || r["Jawaban"] || "A").toString().toUpperCase().trim();
-                            const optA = r["Opsi A"] || r["option_a"] || r["A"] || "";
-                            const optB = r["Opsi B"] || r["option_b"] || r["B"] || "";
-                            const optC = r["Opsi C"] || r["option_c"] || r["C"] || "";
-                            const optD = r["Opsi D"] || r["option_d"] || r["D"] || "";
-                            const optE = r["Opsi E"] || r["option_e"] || r["E"] || "";
-
-                            const options = [
-                                { label: "A", option_text: String(optA), is_correct: correctOptStr.includes("A") || correctOptStr === "1" },
-                                { label: "B", option_text: String(optB), is_correct: correctOptStr.includes("B") || correctOptStr === "2" },
-                                { label: "C", option_text: String(optC), is_correct: correctOptStr.includes("C") || correctOptStr === "3" },
-                                { label: "D", option_text: String(optD), is_correct: correctOptStr.includes("D") || correctOptStr === "4" },
-                                { label: "E", option_text: String(optE), is_correct: correctOptStr.includes("E") || correctOptStr === "5" },
-                            ].filter(o => o.option_text.trim() !== "");
-
+                            const parsed = parseSpreadsheetRowToQuestion(r, idx, globalSubjectId);
                             return {
-                                id: `q-${Date.now()}-${idx}`,
-                                question_type: "SINGLE_CHOICE",
-                                content: String(content),
-                                difficulty: ["EASY", "MEDIUM", "HARD"].includes(diff) ? diff : "MEDIUM",
-                                bloom_level: ["C1", "C2", "C3", "C4", "C5", "C6"].includes(bloom) ? bloom : "C3",
-                                source: String(source),
+                                id: parsed.id,
+                                question_type: parsed.question_type,
+                                content: parsed.content,
+                                difficulty: parsed.difficulty,
+                                bloom_level: parsed.bloom_level,
+                                source: parsed.source || globalSource,
                                 subject_id: globalSubjectId,
                                 chapter_id: globalChapterId || "",
-                                explanation: String(explanation),
-                                has_image: false,
-                                options: options.length > 0 ? options : [
-                                    { label: "A", option_text: "Opsi A", is_correct: true },
-                                    { label: "B", option_text: "Opsi B", is_correct: false },
-                                ],
+                                explanation: parsed.explanation,
+                                has_image: parsed.has_image,
+                                options: parsed.options.map((o: any) => ({
+                                    label: o.label,
+                                    option_text: o.option_text || o.content,
+                                    is_correct: o.is_correct,
+                                })),
                             };
                         });
 
@@ -553,7 +536,7 @@ export function AIPDFImportModal({
         setIsSubmitting(true);
         try {
             const payloadRows = stagingQuestions.map(q => ({
-                subject_id: globalSubjectId || q.subject_id,
+                subject_id: globalSubjectId || q.subject_id || (subjectsList.length > 0 ? subjectsList[0]?.id : ""),
                 chapter_id: globalChapterId || q.chapter_id || "",
                 content: q.content,
                 difficulty: q.difficulty,
@@ -564,18 +547,27 @@ export function AIPDFImportModal({
                 options: q.options.map(o => ({
                     label: o.label,
                     content: o.option_text,
-                    is_correct: o.is_correct,
+                    is_correct: Boolean(o.is_correct),
                 })),
             }));
 
-            await apiFetch("/questions/import", {
+            const res: any = await apiFetch("/questions/import", {
                 method: "POST",
                 body: JSON.stringify(payloadRows),
             });
 
-            alert(`Berhasil mengimpor ${stagingQuestions.length} soal ke database!`);
-            onSuccessImport();
-            if (onClose) onClose();
+            const createdCount = res?.createdCount ?? res?.created ?? stagingQuestions.length;
+            const failedCount = res?.failedCount ?? res?.failed ?? 0;
+
+            if (createdCount > 0) {
+                alert(`Berhasil mengimpor ${createdCount} soal ke database!${failedCount > 0 ? ` (${failedCount} gagal)` : ''}`);
+                setStagingQuestions([]);
+                setActiveTab("upload");
+                onSuccessImport();
+                if (onClose) onClose();
+            } else {
+                alert(`Gagal mengimpor ke database: ${res?.errors?.join("; ") || "Format data tidak sesuai"}`);
+            }
         } catch (err: any) {
             alert("Gagal menyimpan ke database: " + (err.message || err));
         } finally {
@@ -1028,6 +1020,36 @@ export function AIPDFImportModal({
 
                         {/* Interactive Table */}
                         <div className="space-y-4">
+                            {stagingQuestions.length > 0 && (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border bg-emerald-50/70 border-emerald-200 shadow-xs mb-4">
+                                    <div>
+                                        <h4 className="text-sm font-extrabold text-emerald-950 flex items-center gap-2">
+                                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" /> Pratinjau Siap Disimpan ({stagingQuestions.length} Soal)
+                                        </h4>
+                                        <p className="text-xs text-emerald-800/80 mt-0.5">
+                                            Periksa dan sesuaikan soal di bawah, lalu klik tombol di kanan untuk menyimpan langsung ke Database Supabase.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="default"
+                                        disabled={isSubmitting || stagingQuestions.length === 0}
+                                        onClick={handleCommitToDatabase}
+                                        className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-6 py-2 shrink-0 rounded-xl cursor-pointer"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan ke Database...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="mr-2 h-4 w-4" /> Simpan {stagingQuestions.length} Soal ke Database
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
+
                             {stagingQuestions.map((q, idx) => (
                                 <Card key={q.id} className="p-4 space-y-3 border hover:border-primary/50 transition-all">
                                     <div className="flex items-start justify-between gap-3 border-b pb-2">
@@ -1035,6 +1057,45 @@ export function AIPDFImportModal({
                                             <Badge variant="outline" className="text-[10px] font-mono">
                                                 #{idx + 1}
                                             </Badge>
+                                            <select
+                                                value={q.question_type}
+                                                onChange={e => {
+                                                    const newType = e.target.value;
+                                                    handleUpdateRowField(q.id, "question_type", newType);
+                                                    if (newType === "TRUE_FALSE") {
+                                                        setStagingQuestions(prev =>
+                                                            prev.map(row => row.id !== q.id ? row : {
+                                                                ...row,
+                                                                question_type: newType,
+                                                                options: [
+                                                                    { label: "A", option_text: "Benar", is_correct: true },
+                                                                    { label: "B", option_text: "Salah", is_correct: false },
+                                                                ],
+                                                            })
+                                                        );
+                                                    } else if (q.question_type === "TRUE_FALSE" && newType !== "TRUE_FALSE") {
+                                                        setStagingQuestions(prev =>
+                                                            prev.map(row => row.id !== q.id ? row : {
+                                                                ...row,
+                                                                question_type: newType,
+                                                                options: [
+                                                                    { label: "A", option_text: "", is_correct: true },
+                                                                    { label: "B", option_text: "", is_correct: false },
+                                                                    { label: "C", option_text: "", is_correct: false },
+                                                                    { label: "D", option_text: "", is_correct: false },
+                                                                    { label: "E", option_text: "", is_correct: false },
+                                                                ],
+                                                            })
+                                                        );
+                                                    }
+                                                }}
+                                                className="px-2 py-0.5 text-[10px] font-bold rounded border bg-background"
+                                            >
+                                                <option value="SINGLE_CHOICE">PG (1 Jawaban)</option>
+                                                <option value="MULTIPLE_CHOICE">PG Kompleks</option>
+                                                <option value="TRUE_FALSE">Benar/Salah</option>
+                                            </select>
+
                                             <select
                                                 value={q.difficulty}
                                                 onChange={e => handleUpdateRowField(q.id, "difficulty", e.target.value)}
@@ -1133,34 +1194,86 @@ export function AIPDFImportModal({
                                     {/* Options Editor */}
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                                            Pilihan Jawaban (Radio Button = Kunci Jawaban Benar)
+                                            {q.question_type === "TRUE_FALSE"
+                                                ? "Pernyataan (Tabel Benar / Salah)"
+                                                : q.question_type === "MULTIPLE_CHOICE"
+                                                ? "Pilihan Jawaban (Checkbox = Kunci Jawaban Benar)"
+                                                : "Pilihan Jawaban (Radio Button = Kunci Jawaban Benar)"}
                                         </label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {q.options.map((opt, optIdx) => (
-                                                <div
-                                                    key={optIdx}
-                                                    className={`p-2 rounded-xl border flex items-center gap-2 text-xs ${opt.is_correct ? "bg-emerald-50 border-emerald-300" : "bg-background"
-                                                        }`}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name={`correct-${q.id}`}
-                                                        checked={opt.is_correct}
-                                                        onChange={() => handleUpdateOption(q.id, optIdx, "is_correct", true)}
-                                                        className="cursor-pointer"
-                                                    />
-                                                    <span className="font-bold text-[11px] px-1.5 py-0.5 rounded bg-muted">
-                                                        {opt.label}
-                                                    </span>
-                                                    <input
-                                                        type="text"
-                                                        value={opt.option_text}
-                                                        onChange={e => handleUpdateOption(q.id, optIdx, "option_text", e.target.value)}
-                                                        className="w-full px-2 py-1 text-xs rounded border bg-background font-medium"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
+                                        {q.question_type === "TRUE_FALSE" ? (
+                                            <div className="border border-sky-600/30 rounded-xl overflow-hidden bg-card shadow-2xs">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-[#0284C7] text-white text-xs font-bold tracking-wide">
+                                                            <th className="p-2 border-r border-sky-500/30">Pernyataan</th>
+                                                            <th className="p-2 w-20 text-center border-r border-sky-500/30">Benar</th>
+                                                            <th className="p-2 w-20 text-center">Salah</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-border text-xs">
+                                                        {q.options.map((opt, optIdx) => (
+                                                            <tr key={optIdx} className="hover:bg-sky-50/20 transition-colors">
+                                                                <td className="p-2 border-r border-border font-medium">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-bold text-xs shrink-0 text-muted-foreground">{opt.label}.</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={opt.option_text}
+                                                                            onChange={e => handleUpdateOption(q.id, optIdx, "option_text", e.target.value)}
+                                                                            placeholder={`Pernyataan ${opt.label}`}
+                                                                            className="w-full px-2 py-1 text-xs rounded border bg-background font-medium"
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-2 text-center border-r border-border bg-emerald-50/20">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={opt.is_correct === true}
+                                                                        onChange={() => handleUpdateOption(q.id, optIdx, "is_correct", true)}
+                                                                        className="h-4 w-4 rounded text-emerald-600 cursor-pointer"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 text-center bg-rose-50/20">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={opt.is_correct === false}
+                                                                        onChange={() => handleUpdateOption(q.id, optIdx, "is_correct", false)}
+                                                                        className="h-4 w-4 rounded text-rose-600 cursor-pointer"
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {q.options.map((opt, optIdx) => (
+                                                    <div
+                                                        key={optIdx}
+                                                        className={`p-2 rounded-xl border flex items-center gap-2 text-xs ${opt.is_correct ? "bg-emerald-50 border-emerald-300" : "bg-background"
+                                                            }`}
+                                                    >
+                                                        <input
+                                                            type={q.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
+                                                            name={`correct-${q.id}`}
+                                                            checked={opt.is_correct}
+                                                            onChange={() => handleUpdateOption(q.id, optIdx, "is_correct", !opt.is_correct)}
+                                                            className="cursor-pointer"
+                                                        />
+                                                        <span className="font-bold text-[11px] px-1.5 py-0.5 rounded bg-muted">
+                                                            {opt.label}
+                                                        </span>
+                                                        <input
+                                                            type="text"
+                                                            value={opt.option_text}
+                                                            onChange={e => handleUpdateOption(q.id, optIdx, "option_text", e.target.value)}
+                                                            className="w-full px-2 py-1 text-xs rounded border bg-background font-medium"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Explanation Editor */}
@@ -1179,6 +1292,31 @@ export function AIPDFImportModal({
                                 </Card>
                             ))}
                         </div>
+
+                        {stagingQuestions.length > 0 && (
+                            <div className="flex items-center justify-between p-4 rounded-xl border bg-emerald-50/70 border-emerald-200 mt-4 shadow-xs">
+                                <span className="text-xs font-bold text-emerald-900">
+                                    Total {stagingQuestions.length} soal terdeteksi. Siap disimpan ke database.
+                                </span>
+                                <Button
+                                    type="button"
+                                    size="default"
+                                    disabled={isSubmitting || stagingQuestions.length === 0}
+                                    onClick={handleCommitToDatabase}
+                                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-6 py-2 rounded-xl cursor-pointer"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan ke Database...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="mr-2 h-4 w-4" /> Simpan {stagingQuestions.length} Soal ke Database
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
 

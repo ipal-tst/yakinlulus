@@ -102,7 +102,9 @@ export function QuestionFormSection({
         onSubmit(buildQuestionPayload(formData));
     };
 
-    const correctLabel = formData.options.find((o) => o.correct)?.label || "—";
+    const correctLabel = formData.question_type === "TRUE_FALSE" || formData.question_type === "MULTIPLE_CHOICE"
+        ? (formData.options.filter((o) => o.correct).map((o) => o.label).join(",") || "—")
+        : (formData.options.find((o) => o.correct)?.label || "—");
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -184,12 +186,7 @@ export function QuestionFormSection({
                             <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Tipe Soal</label>
                             <select
                                 value={formData.question_type}
-                                onChange={(e) => {
-                                    const qtype = e.target.value;
-                                    const isMulti = qtype === "MULTIPLE_CHOICE";
-                                    const opts = formData.options.map((o, i) => ({ ...o, correct: isMulti ? false : i === 0 }));
-                                    setFormData({ ...formData, question_type: qtype, options: opts });
-                                }}
+                                onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
                                 className="w-full px-3 py-2 text-xs rounded-xl border bg-background"
                             >
                                 <option value="SINGLE_CHOICE">SINGLE_CHOICE (Pilihan Ganda)</option>
@@ -230,70 +227,117 @@ export function QuestionFormSection({
 
                     <div>
                         <div className="flex items-center justify-between mb-1">
-                            <label className="text-[11px] font-semibold text-muted-foreground">Pilihan Jawaban</label>
-                            {formData.question_type !== "TRUE_FALSE" && (
-                                <Button type="button" variant="outline" size="sm" onClick={addOptionRow} className="text-[11px]">
-                                    + Tambah Opsi
-                                </Button>
-                            )}
+                            <label className="text-[11px] font-semibold text-muted-foreground">
+                                {formData.question_type === "TRUE_FALSE"
+                                    ? "Pernyataan (Tabel Benar / Salah)"
+                                    : formData.question_type === "MULTIPLE_CHOICE"
+                                    ? "Pilihan Jawaban (Checkbox = Kunci Jawaban Benar)"
+                                    : "Pilihan Jawaban (Radio Button = Kunci Jawaban Benar)"}
+                            </label>
+                            <Button type="button" variant="outline" size="sm" onClick={addOptionRow} className="text-[11px]">
+                                {formData.question_type === "TRUE_FALSE" ? "+ Tambah Pernyataan" : "+ Tambah Opsi"}
+                            </Button>
                         </div>
-                        <div className="space-y-2">
-                            {formData.question_type === "TRUE_FALSE"
-                                ? ["Benar", "Salah"].map((tf, tfIdx) => (
-                                      <div key={tf} className="flex items-center gap-2">
-                                          <input
-                                              type="radio"
-                                              name="tf-correct"
-                                              checked={formData.options[tfIdx]?.correct}
-                                              onChange={() => {
-                                                  const options = [
-                                                      { label: "A", content: "Benar", correct: tfIdx === 0 },
-                                                      { label: "B", content: "Salah", correct: tfIdx === 1 },
-                                                  ];
-                                                  setFormData({ ...formData, options });
-                                              }}
-                                              className="h-4 w-4 cursor-pointer"
-                                          />
-                                          <span className={`font-bold text-xs w-5 ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>
-                                              {tf === "Benar" ? "A" : "B"}.
-                                          </span>
-                                          <span className={`text-xs font-semibold ${tfIdx === 0 ? "text-success" : "text-destructive"}`}>{tf}</span>
-                                          {formData.options[tfIdx]?.correct && <Badge variant="success" className="text-[9px]">Kunci</Badge>}
-                                      </div>
-                                  ))
-                                : formData.options.map((opt, i) => (
-                                      <div key={i} className="flex items-center gap-2">
-                                          <input
-                                              type={formData.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
-                                              name="correct-opt"
-                                              checked={opt.correct}
-                                              onChange={() => handleOptionChange(i, "correct", !opt.correct)}
-                                              className="h-4 w-4 cursor-pointer"
-                                              aria-label={`Kunci ${opt.label}`}
-                                          />
-                                          <span className="font-bold text-xs w-5 shrink-0">{opt.label}.</span>
-                                          <input
-                                              type="text"
-                                              value={opt.content}
-                                              onChange={(e) => handleOptionChange(i, "content", e.target.value)}
-                                              placeholder={`Opsi ${opt.label}`}
-                                              className="flex-1 px-3 py-1.5 text-xs rounded-lg border bg-background min-w-0"
-                                              aria-label={`Opsi ${opt.label}`}
-                                          />
-                                          {formData.options.length > 2 && (
-                                              <Button
-                                                  type="button"
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  onClick={() => removeOptionRow(i)}
-                                                  className="text-rose-500 h-7 w-7 p-0"
-                                              >
-                                                  &times;
-                                              </Button>
-                                          )}
-                                      </div>
-                                  ))}
-                        </div>
+                        {formData.question_type === "TRUE_FALSE" ? (
+                            <div className="border border-sky-600/30 rounded-xl overflow-hidden bg-card shadow-2xs">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-[#0284C7] text-white text-xs font-bold tracking-wide">
+                                            <th className="p-2.5 border-r border-sky-500/30">Pernyataan</th>
+                                            <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Benar</th>
+                                            <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Salah</th>
+                                            <th className="p-2.5 w-12 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border text-xs">
+                                        {formData.options.map((opt, i) => (
+                                            <tr key={i} className="hover:bg-sky-50/20 transition-colors">
+                                                <td className="p-2 border-r border-border font-medium">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-xs shrink-0 text-muted-foreground">{opt.label || String.fromCharCode(65 + i)}.</span>
+                                                        <input
+                                                            type="text"
+                                                            value={opt.content}
+                                                            onChange={(e) => handleOptionChange(i, "content", e.target.value)}
+                                                            placeholder={`Pernyataan ${opt.label || i + 1}`}
+                                                            className="flex-1 px-2.5 py-1 text-xs rounded-lg border bg-background font-medium focus:ring-1 focus:ring-primary"
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td className="p-2 text-center border-r border-border bg-emerald-50/20">
+                                                    <label className="inline-flex items-center justify-center cursor-pointer p-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={opt.correct === true}
+                                                            onChange={() => handleOptionChange(i, "correct", true)}
+                                                            className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                        />
+                                                    </label>
+                                                </td>
+                                                <td className="p-2 text-center border-r border-border bg-rose-50/20">
+                                                    <label className="inline-flex items-center justify-center cursor-pointer p-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={opt.correct === false}
+                                                            onChange={() => handleOptionChange(i, "correct", false)}
+                                                            className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                                        />
+                                                    </label>
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                    {formData.options.length > 2 && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => removeOptionRow(i)}
+                                                            className="text-rose-500 h-7 w-7 p-0"
+                                                        >
+                                                            &times;
+                                                        </Button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {formData.options.map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg border bg-background">
+                                        <span className="font-bold text-xs w-5 shrink-0 text-muted-foreground">{opt.label}.</span>
+                                        <input
+                                            type="text"
+                                            value={opt.content}
+                                            onChange={(e) => handleOptionChange(i, "content", e.target.value)}
+                                            placeholder={`Opsi ${opt.label}`}
+                                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border bg-background min-w-0 font-medium"
+                                            aria-label={`Opsi ${opt.label}`}
+                                        />
+                                        <input
+                                            type={formData.question_type === "MULTIPLE_CHOICE" ? "checkbox" : "radio"}
+                                            name="correct-opt"
+                                            checked={opt.correct}
+                                            onChange={() => handleOptionChange(i, "correct", !opt.correct)}
+                                            className="h-4 w-4 cursor-pointer"
+                                            aria-label={`Kunci ${opt.label}`}
+                                        />
+                                        {formData.options.length > 2 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeOptionRow(i)}
+                                                className="text-rose-500 h-7 w-7 p-0"
+                                            >
+                                                &times;
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div>
@@ -371,20 +415,54 @@ export function QuestionFormSection({
 
                     <div className="space-y-1.5">
                         {formData.question_type === "TRUE_FALSE" ? (
-                            ["Benar", "Salah"].map((tf, tfIdx) => (
-                                <div
-                                    key={tf}
-                                    className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${formData.options[tfIdx]?.correct
-                                        ? "border-emerald-400 bg-emerald-50"
-                                        : "border-border bg-card"}`}
-                                >
-                                    <span className={`font-bold shrink-0 ${formData.options[tfIdx]?.correct ? "text-emerald-600" : "text-muted-foreground"}`}>
-                                        {tf === "Benar" ? "A" : "B"}.
-                                    </span>
-                                    <span className="flex-1">{tf}</span>
-                                    {formData.options[tfIdx]?.correct && <Badge variant="success" className="text-[9px]">Kunci</Badge>}
-                                </div>
-                            ))
+                            <div className="border border-sky-600/30 rounded-xl overflow-hidden bg-card shadow-2xs">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-[#0284C7] text-white text-xs font-bold tracking-wide">
+                                            <th className="p-2.5 border-r border-sky-500/30">Pernyataan</th>
+                                            <th className="p-2.5 w-20 text-center border-r border-sky-500/30">Benar</th>
+                                            <th className="p-2.5 w-20 text-center">Salah</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border text-xs">
+                                        {formData.options.map((opt, optIdx) => {
+                                            const textStartsWithNumber = /^\(\d+\)/.test((opt.content || "").trim());
+                                            const displayLabel = `(${opt.label && !isNaN(Number(opt.label)) ? opt.label : optIdx + 1})`;
+
+                                            return (
+                                                <tr key={optIdx} className="hover:bg-sky-50/20 transition-colors">
+                                                    <td className="p-2.5 text-foreground border-r border-border font-medium leading-relaxed">
+                                                        <div className="flex items-start gap-2">
+                                                            {!textStartsWithNumber && (
+                                                                <span className="font-bold text-muted-foreground shrink-0">{displayLabel}</span>
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <MathKaTeXPreview content={opt.content || "(pernyataan kosong)"} />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-2.5 text-center border-r border-border bg-emerald-50/20">
+                                                        <input
+                                                            type="checkbox"
+                                                            disabled
+                                                            checked={opt.correct === true}
+                                                            className="h-4 w-4 rounded text-emerald-600 border-emerald-400 cursor-not-allowed"
+                                                        />
+                                                    </td>
+                                                    <td className="p-2.5 text-center bg-rose-50/20">
+                                                        <input
+                                                            type="checkbox"
+                                                            disabled
+                                                            checked={opt.correct === false}
+                                                            className="h-4 w-4 rounded text-rose-600 border-rose-400 cursor-not-allowed"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         ) : (
                             formData.options.map((opt, i) => (
                                 <div

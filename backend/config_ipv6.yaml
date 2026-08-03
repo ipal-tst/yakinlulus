@@ -1,0 +1,2 @@
+database:
+  url: "postgresql://postgres:kqhHtPV72xUL1PYv1@[2406:da18:167b:f900:4479:cc3f:4f0b:f0af]:5432/postgres?sslmode=disable"

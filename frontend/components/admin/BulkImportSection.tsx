@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StagingQuestionCard, type StagingRow } from "@/components/admin/StagingQuestionCard";
 import { apiFetch } from "@/lib/api";
-import { CheckCircle2, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, Loader2, Save } from "lucide-react";
+
+import { parseSpreadsheetRowToQuestion } from "@/lib/excel-parser";
 
 interface BulkImportSectionProps {
     subjectsList: any[];
@@ -41,64 +43,9 @@ export function BulkImportSection({ subjectsList, onSuccessImport }: BulkImportS
                 }
 
                 const defaultSubjectId = subjectsList.length > 0 ? subjectsList[0]?.id || "" : "";
-
-                const mapped: StagingRow[] = rawRows.map((r: any, idx: number) => {
-                    const contentBase = r["Teks Soal"] || r["soal"] || r["content"] || r["Question"] || "";
-                    const imgQ = r["Gambar Soal (URL)"] || "";
-                    const content = imgQ ? `${contentBase}\n\n![gambar soal](${imgQ})` : contentBase;
-                    const difficulty = (r["Kesulitan"] || r["difficulty"] || "MEDIUM").toString().toUpperCase();
-                    const questionType = (r["Tipe Soal"] || r["question_type"] || "SINGLE_CHOICE").toString().toUpperCase();
-                    const explanationBase = r["Pembahasan"] || r["explanation"] || "";
-                    const imgP = r["Gambar Pembahasan (URL)"] || "";
-                    const explanation = imgP ? `${explanationBase}\n\n![gambar pembahasan](${imgP})` : explanationBase;
-
-                    const subjInput = (r["Mata Pelajaran ID"] || r["subject_id"] || r["Mata Pelajaran"] || "").toString().trim();
-                    let matchedSubjId = defaultSubjectId;
-                    if (subjInput) {
-                        const matchByName = subjectsList.find(
-                            (s) => s.id.toLowerCase() === subjInput.toLowerCase() || s.name.toLowerCase() === subjInput.toLowerCase()
-                        );
-                        if (matchByName) matchedSubjId = matchByName.id;
-                        else if (subjInput.length > 20) matchedSubjId = subjInput;
-                    }
-
-                    const correctOptStr = (r["Jawaban Benar"] || r["correct_option"] || r["Jawaban"] || "A").toString().toUpperCase().trim();
-                    const labels = ["A", "B", "C", "D", "E"];
-                    const optText = [r["Opsi A"], r["Opsi B"], r["Opsi C"], r["Opsi D"], r["Opsi E"]];
-                    const optImg = [r["Gambar A (URL)"], r["Gambar B (URL)"], r["Gambar C (URL)"], r["Gambar D (URL)"], r["Gambar E (URL)"]];
-
-                    const optionsList: any[] = [];
-                    labels.forEach((label, i) => {
-                        const text = optText[i] || "";
-                        const img = optImg[i] || "";
-                        if (!text && !img) return;
-                        const content = img ? `${text} ![gambar](${img})` : text;
-                        optionsList.push({ label, content, is_correct: correctOptStr.includes(label) || correctOptStr === String(i + 1) });
-                    });
-
-                    const score = parseFloat(r["Skor"]) || 1;
-                    const negScore = parseFloat(r["Skor Negatif"]) || 0;
-                    const estTime = parseInt(r["Estimasi Waktu (detik)"]) || 60;
-                    const bloom = r["Level Kognitif"] || "";
-                    const source = r["Sumber"] || "MANUAL";
-
-                    return {
-                        rowNum: idx + 2,
-                        content: String(content),
-                        difficulty: ["EASY", "MEDIUM", "HARD"].includes(difficulty) ? difficulty : "MEDIUM",
-                        question_type: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "ESSAY", "SHORT_ANSWER"].includes(questionType) ? questionType : "SINGLE_CHOICE",
-                        subject_id: matchedSubjId,
-                        explanation: String(explanation),
-                        options: optionsList.length > 0
-                            ? optionsList
-                            : [{ label: "A", content: "Opsi A", is_correct: true }, { label: "B", content: "Opsi B", is_correct: false }],
-                        score,
-                        negative_score: negScore,
-                        estimated_time: estTime,
-                        bloom_level: bloom || undefined,
-                        source: source || undefined,
-                    };
-                });
+                const mapped: StagingRow[] = rawRows.map((r: any, idx: number) =>
+                    parseSpreadsheetRowToQuestion(r, idx, defaultSubjectId)
+                );
 
                 setParsedImportRows(mapped);
             } catch (err) {
@@ -123,13 +70,33 @@ export function BulkImportSection({ subjectsList, onSuccessImport }: BulkImportS
         setImportResult(null);
 
         try {
+            const payloadRows = parsedImportRows.map(r => ({
+                ...r,
+                subject_id: r.subject_id || (subjectsList.length > 0 ? subjectsList[0]?.id : ""),
+                options: r.options.map((o: any) => ({
+                    label: o.label,
+                    content: o.content || o.option_text || "",
+                    is_correct: Boolean(o.is_correct),
+                })),
+            }));
+
             const res: any = await apiFetch("/questions/import", {
                 method: "POST",
-                body: JSON.stringify(parsedImportRows),
+                body: JSON.stringify(payloadRows),
             });
 
-            setImportResult(res);
-            onSuccessImport();
+            const createdCount = res?.createdCount ?? res?.created ?? 0;
+            const failedCount = res?.failedCount ?? res?.failed ?? 0;
+            const errors = res?.errors || [];
+
+            setImportResult({ created: createdCount, failed: failedCount, errors });
+            if (createdCount > 0) {
+                alert(`Berhasil mengimpor ${createdCount} soal ke database!`);
+                setParsedImportRows([]);
+                onSuccessImport();
+            } else {
+                alert(`Gagal mengimpor ke database: ${errors.join("; ") || "Format data tidak sesuai"}`);
+            }
         } catch (err: any) {
             alert("Gagal melakukan import: " + (err.message || err));
         } finally {
@@ -375,10 +342,35 @@ export function BulkImportSection({ subjectsList, onSuccessImport }: BulkImportS
             )}
 
             {parsedImportRows.length > 0 && (
-                <div className="space-y-3">
-                    <span className="text-xs font-bold text-foreground block">
-                        Pratinjau & Edit Data ({parsedImportRows.length} soal terdeteksi)
-                    </span>
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border bg-emerald-50/70 border-emerald-200 shadow-xs">
+                        <div>
+                            <h4 className="text-sm font-extrabold text-emerald-950 flex items-center gap-2">
+                                <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" /> Pratinjau Excel/CSV ({parsedImportRows.length} Soal)
+                            </h4>
+                            <p className="text-xs text-emerald-800/80 mt-0.5">
+                                Soal berhasil diproses dari Excel. Klik tombol di kanan untuk menyimpan langsung ke database.
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            size="default"
+                            disabled={importing || parsedImportRows.length === 0}
+                            onClick={handleExecuteBulkImport}
+                            className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-6 py-2 shrink-0 rounded-xl"
+                        >
+                            {importing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memproses Import...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="mr-2 h-4 w-4" /> Simpan {parsedImportRows.length} Soal ke Database
+                                </>
+                            )}
+                        </Button>
+                    </div>
+
                     <div className="space-y-2">
                         {parsedImportRows.map((row, idx) => (
                             <StagingQuestionCard
@@ -391,14 +383,18 @@ export function BulkImportSection({ subjectsList, onSuccessImport }: BulkImportS
                         ))}
                     </div>
                     <p className="text-[10px] text-muted-foreground italic">
-                        Klik soal untuk edit. Tandai kunci jawaban lewat radio, tambah/hapus opsi, sisipkan gambar, lalu Import.
+                        Klik soal untuk edit. Tandai kunci jawaban lewat radio/checkbox, tambah/hapus opsi, sisipkan gambar, lalu Simpan ke Database.
                     </p>
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-between p-4 rounded-xl border bg-emerald-50/70 border-emerald-200 shadow-xs">
+                        <span className="text-xs font-bold text-emerald-900">
+                            Total {parsedImportRows.length} soal terdeteksi. Siap disimpan ke database.
+                        </span>
                         <Button
-                            size="sm"
+                            type="button"
+                            size="default"
                             disabled={importing || parsedImportRows.length === 0}
                             onClick={handleExecuteBulkImport}
-                            className="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+                            className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-6 py-2 rounded-xl"
                         >
                             {importing ? (
                                 <>
@@ -406,7 +402,7 @@ export function BulkImportSection({ subjectsList, onSuccessImport }: BulkImportS
                                 </>
                             ) : (
                                 <>
-                                    <Download className="mr-2 h-4 w-4" /> Import {parsedImportRows.length} Soal ke Database
+                                    <Save className="mr-2 h-4 w-4" /> Simpan {parsedImportRows.length} Soal ke Database
                                 </>
                             )}
                         </Button>

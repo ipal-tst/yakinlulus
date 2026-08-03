@@ -1095,12 +1095,23 @@ func (h *Handler) Import(c *fiber.Ctx) error {
 		rawBytes, _ := json.Marshal(row)
 		subjID, err := uuid.Parse(row.SubjectID)
 		if err != nil {
-			errStr := "Invalid subject_id: " + row.SubjectID
-			errors = append(errors, errStr)
-			if jobID != uuid.Nil {
-				_ = h.svc.repo.CreateImportRowLog(c.Context(), jobID, idx+1, rawBytes, "ERROR", errStr, nil)
+			var foundID uuid.UUID
+			err2 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM subjects WHERE name ILIKE $1 OR code ILIKE $1 LIMIT 1`, strings.TrimSpace(row.SubjectID)).Scan(&foundID)
+			if err2 == nil {
+				subjID = foundID
+			} else {
+				err3 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM subjects ORDER BY created_at ASC LIMIT 1`).Scan(&foundID)
+				if err3 == nil {
+					subjID = foundID
+				} else {
+					errStr := "Invalid subject_id: '" + row.SubjectID + "' and no subject found in database"
+					errors = append(errors, errStr)
+					if jobID != uuid.Nil {
+						_ = h.svc.repo.CreateImportRowLog(c.Context(), jobID, idx+1, rawBytes, "ERROR", errStr, nil)
+					}
+					continue
+				}
 			}
-			continue
 		}
 		var chID *uuid.UUID
 		if row.ChapterID != nil && *row.ChapterID != "" {
@@ -1168,6 +1179,10 @@ func (h *Handler) Import(c *fiber.Ctx) error {
 		}
 		errLog := strings.Join(errors, "\n")
 		_ = h.svc.repo.UpdateImportJob(c.Context(), jobID, created, len(errors), status, errLog)
+	}
+
+	if created == 0 && len(errors) > 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Gagal mengimpor ke database: "+strings.Join(errors, "; ")))
 	}
 
 	return c.Status(200).JSON(shared.Success(fiber.Map{
