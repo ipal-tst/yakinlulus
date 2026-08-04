@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS question.question_tag;
+DROP TABLE IF EXISTS question.question_skill;
+DROP TABLE IF EXISTS question.question_competency;
+DROP TABLE IF EXISTS question.question_topic;
+DROP TABLE IF EXISTS question.question_subchapter;
+DROP TABLE IF EXISTS question.question_chapter;
+DROP TABLE IF EXISTS question.question_curriculum;
+DROP TABLE IF EXISTS question.question_major;
+DROP TABLE IF EXISTS question.question_grade;
+DROP TABLE IF EXISTS question.question_subject;
