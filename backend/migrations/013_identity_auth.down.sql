@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS identity.user_agreement;
+DROP TABLE IF EXISTS identity.refresh_token_blacklist;
+DROP TABLE IF EXISTS identity.mfa_configuration;
+DROP TABLE IF EXISTS identity.api_token;
+DROP TABLE IF EXISTS identity.email_verification;
+DROP TABLE IF EXISTS identity.password_reset;
+DROP TABLE IF EXISTS identity.password_history;
+DROP TABLE IF EXISTS identity.otp_request;
+DROP TABLE IF EXISTS identity.trusted_device;
+DROP TABLE IF EXISTS identity.device;
+DROP TABLE IF EXISTS identity.login_session;
