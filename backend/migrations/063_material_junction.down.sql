@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS content.material_tag;
+DROP TABLE IF EXISTS content.material_skill;
+DROP TABLE IF EXISTS content.material_competency;
+DROP TABLE IF EXISTS content.material_topic;
+DROP TABLE IF EXISTS content.material_subchapter;
+DROP TABLE IF EXISTS content.material_chapter;
+DROP TABLE IF EXISTS content.material_curriculum;
+DROP TABLE IF EXISTS content.material_major;
+DROP TABLE IF EXISTS content.material_grade;
+DROP TABLE IF EXISTS content.material_subject;
