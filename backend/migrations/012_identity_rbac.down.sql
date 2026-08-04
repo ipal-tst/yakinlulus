@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS identity.role_menu;
+DROP TABLE IF EXISTS identity.menu;
+DROP TABLE IF EXISTS identity.user_permission_override;
+DROP TABLE IF EXISTS identity.user_role;
+DROP TABLE IF EXISTS identity.permission_scope;
+DROP TABLE IF EXISTS identity.role_permission;
+DROP TABLE IF EXISTS identity.permission;
+DROP TABLE IF EXISTS identity.permission_resource;
+DROP TABLE IF EXISTS identity.permission_module;
+DROP TABLE IF EXISTS identity.role;
