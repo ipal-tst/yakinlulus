@@ -1,0 +1,1004 @@
+Untuk **YakinLulus.id**, saya menyarankan agar **Materi Pembelajaran (Learning Content Management System / LCMS)** diperlakukan sebagai domain yang **terpisah dari Bank Soal**, namun tetap menggunakan referensi yang sama ke **Master Akademik**, **Asset Management**, dan **User & RBAC**.
+
+Materi pembelajaran bukan sekadar artikel atau PDF. Domain ini harus mampu mengelola:
+
+* Materi teks
+* Video pembelajaran
+* Audio
+* Presentasi
+* PDF
+* E-book
+* Infografis
+* Simulasi interaktif
+* Animasi
+* AI Tutor
+* Quiz di dalam materi
+* Catatan siswa
+* Bookmark
+* Progress belajar
+* Sertifikat penyelesaian
+* Versioning
+* Review & Approval
+
+Saya merekomendasikan arsitektur yang siap berkembang menjadi **Learning Content Management System (LCMS)**.
+
+---
+
+# 1. Domain Learning Material
+
+```text
+Learning Material
+│
+├── Material Core
+│
+├── Material Content
+│
+├── Material Structure
+│
+├── Material Assessment
+│
+├── Material Media
+│
+├── Material Mapping
+│
+├── Material Version
+│
+├── Material Workflow
+│
+├── Material Progress
+│
+├── Material Analytics
+│
+└── Material AI
+```
+
+Total sekitar **55–70 tabel**.
+
+---
+
+# 2. Material Core
+
+## learning_material
+
+Master materi.
+
+```sql
+learning_material
+
+id UUID
+
+material_code
+
+title
+
+slug
+
+summary
+
+material_type_id
+
+current_version_id
+
+status_id
+
+owner_id
+
+created_by
+
+updated_by
+
+published_at
+
+created_at
+
+updated_at
+
+deleted_at
+```
+
+Tidak menyimpan isi materi.
+
+---
+
+## material_type
+
+```sql
+material_type
+
+id
+
+code
+
+ARTICLE
+
+VIDEO
+
+COURSE
+
+MODULE
+
+BOOK
+
+PDF
+
+AUDIO
+
+SLIDE
+
+INTERACTIVE
+
+LIVE_CLASS
+```
+
+---
+
+## material_status
+
+```sql
+material_status
+
+id
+
+code
+
+DRAFT
+
+REVIEW
+
+REVISION
+
+APPROVED
+
+PUBLISHED
+
+ARCHIVED
+```
+
+---
+
+## material_metadata
+
+```sql
+material_metadata
+
+id
+
+material_id
+
+estimated_minutes
+
+reading_level
+
+difficulty_level
+
+language
+
+is_premium
+
+certificate_enabled
+
+downloadable
+
+printable
+```
+
+---
+
+# 3. Material Version
+
+## material_version
+
+```sql
+material_version
+
+id
+
+material_id
+
+version_no
+
+change_summary
+
+created_by
+
+created_at
+
+is_current
+```
+
+---
+
+## material_history
+
+```sql
+material_history
+
+id
+
+material_id
+
+old_json
+
+new_json
+
+changed_by
+
+created_at
+```
+
+---
+
+# 4. Material Content
+
+Sama seperti Question.
+
+## material_block
+
+```sql
+material_block
+
+id
+
+material_version_id
+
+block_order
+
+block_type
+
+content
+
+asset_id
+
+style_json
+```
+
+Block Type
+
+```text
+PARAGRAPH
+
+IMAGE
+
+VIDEO
+
+AUDIO
+
+LATEX
+
+TABLE
+
+SVG
+
+GRAPH
+
+CODE
+
+HTML
+
+MARKDOWN
+
+QUIZ
+
+CALLOUT
+
+TIMELINE
+
+EMBED
+
+ACCORDION
+
+CHECKLIST
+```
+
+---
+
+## material_section
+
+Bab.
+
+```sql
+material_section
+
+id
+
+material_version_id
+
+title
+
+description
+
+order_no
+```
+
+---
+
+## material_section_block
+
+```sql
+material_section_block
+
+id
+
+section_id
+
+block_order
+
+block_type
+
+content
+
+asset_id
+```
+
+---
+
+## material_table_of_content
+
+```sql
+material_table_of_content
+
+id
+
+material_id
+
+parent_id
+
+title
+
+order_no
+```
+
+---
+
+# 5. Mapping Akademik
+
+Karena satu materi bisa dipakai di banyak kelas.
+
+## material_subject
+
+```sql
+material_subject
+
+material_id
+
+subject_id
+```
+
+---
+
+## material_grade
+
+```sql
+material_grade
+
+material_id
+
+grade_id
+```
+
+---
+
+## material_major
+
+```sql
+material_major
+
+material_id
+
+major_id
+```
+
+---
+
+## material_curriculum
+
+```sql
+material_curriculum
+
+material_id
+
+curriculum_id
+```
+
+---
+
+## material_chapter
+
+```sql
+material_chapter
+
+material_id
+
+chapter_id
+```
+
+---
+
+## material_subchapter
+
+```sql
+material_subchapter
+
+material_id
+
+subchapter_id
+```
+
+---
+
+## material_topic
+
+```sql
+material_topic
+
+material_id
+
+topic_id
+```
+
+---
+
+## material_competency
+
+```sql
+material_competency
+
+material_id
+
+competency_id
+```
+
+---
+
+## material_skill
+
+```sql
+material_skill
+
+material_id
+
+skill_id
+```
+
+---
+
+## material_tag
+
+```sql
+material_tag
+
+material_id
+
+tag_id
+```
+
+---
+
+# 6. Material Media
+
+## material_attachment
+
+```sql
+material_attachment
+
+id
+
+material_id
+
+asset_id
+
+attachment_type
+
+PRIMARY
+
+SUPPORT
+
+DOWNLOAD
+```
+
+---
+
+## material_thumbnail
+
+```sql
+material_thumbnail
+
+id
+
+material_id
+
+asset_id
+```
+
+---
+
+## material_subtitle
+
+```sql
+material_subtitle
+
+id
+
+material_id
+
+language
+
+asset_id
+```
+
+---
+
+## material_transcript
+
+```sql
+material_transcript
+
+id
+
+material_id
+
+content
+```
+
+---
+
+# 7. Learning Assessment
+
+## material_quiz
+
+```sql
+material_quiz
+
+id
+
+material_id
+
+title
+```
+
+---
+
+## material_quiz_question
+
+```sql
+material_quiz_question
+
+id
+
+quiz_id
+
+question_id
+```
+
+Memakai Bank Soal.
+
+---
+
+## material_assignment
+
+```sql
+material_assignment
+
+id
+
+material_id
+
+title
+
+instruction
+```
+
+---
+
+## material_assignment_submission
+
+```sql
+material_assignment_submission
+
+id
+
+assignment_id
+
+student_id
+
+asset_id
+
+submitted_at
+```
+
+---
+
+# 8. Workflow
+
+## material_review
+
+```sql
+material_review
+
+id
+
+material_id
+
+reviewer_id
+
+status
+
+comment
+```
+
+---
+
+## material_approval
+
+```sql
+material_approval
+
+id
+
+material_id
+
+approved_by
+
+approved_at
+```
+
+---
+
+## material_validation
+
+```sql
+material_validation
+
+id
+
+material_id
+
+issue_type
+
+description
+```
+
+---
+
+# 9. Progress Belajar
+
+## learning_progress
+
+```sql
+learning_progress
+
+id
+
+student_id
+
+material_id
+
+progress_percent
+
+last_position
+
+completed
+
+completed_at
+```
+
+---
+
+## material_session
+
+```sql
+material_session
+
+id
+
+student_id
+
+material_id
+
+started_at
+
+ended_at
+
+duration_second
+```
+
+---
+
+## material_bookmark
+
+```sql
+material_bookmark
+
+id
+
+student_id
+
+material_id
+
+block_id
+```
+
+---
+
+## material_note
+
+```sql
+material_note
+
+id
+
+student_id
+
+material_id
+
+block_id
+
+note
+```
+
+---
+
+## material_highlight
+
+```sql
+material_highlight
+
+id
+
+student_id
+
+block_id
+
+start_offset
+
+end_offset
+
+color
+```
+
+---
+
+# 10. Sertifikat
+
+## material_certificate
+
+```sql
+material_certificate
+
+id
+
+material_id
+
+certificate_template
+
+passing_score
+```
+
+---
+
+## student_certificate
+
+```sql
+student_certificate
+
+id
+
+student_id
+
+material_id
+
+asset_id
+
+issued_at
+```
+
+---
+
+# 11. Analitik
+
+## material_statistics
+
+```sql
+material_statistics
+
+material_id
+
+view_count
+
+completion_count
+
+average_duration
+
+rating
+```
+
+---
+
+## material_rating
+
+```sql
+material_rating
+
+id
+
+material_id
+
+student_id
+
+rating
+
+review
+```
+
+---
+
+## material_feedback
+
+```sql
+material_feedback
+
+id
+
+material_id
+
+student_id
+
+feedback
+```
+
+---
+
+## material_popularity
+
+```sql
+material_popularity
+
+material_id
+
+score
+```
+
+---
+
+# 12. AI
+
+## material_ai_summary
+
+```sql
+material_ai_summary
+
+id
+
+material_id
+
+summary
+```
+
+---
+
+## material_ai_keyword
+
+```sql
+material_ai_keyword
+
+id
+
+material_id
+
+keyword
+```
+
+---
+
+## material_embedding
+
+```sql
+material_embedding
+
+id
+
+material_id
+
+embedding_id
+```
+
+Untuk pgvector.
+
+---
+
+## material_recommendation
+
+```sql
+material_recommendation
+
+material_id
+
+recommended_material_id
+```
+
+---
+
+# 13. Relasi Besar
+
+```text
+Learning Material
+│
+├── Material Version
+│      │
+│      ├── Material Block
+│      │
+│      ├── Section
+│      │      └── Section Block
+│      │
+│      └── Table of Content
+│
+├── Metadata
+├── Status
+├── History
+│
+├── Subject Mapping
+├── Grade Mapping
+├── Curriculum Mapping
+├── Chapter Mapping
+├── Topic Mapping
+├── Competency Mapping
+├── Skill Mapping
+├── Tag Mapping
+│
+├── Attachment
+├── Thumbnail
+├── Subtitle
+├── Transcript
+│
+├── Quiz
+│      └── Question (Bank Soal)
+│
+├── Assignment
+│      └── Submission
+│
+├── Review
+├── Approval
+├── Validation
+│
+├── Progress
+├── Session
+├── Bookmark
+├── Note
+├── Highlight
+│
+├── Certificate
+├── Rating
+├── Feedback
+├── Statistics
+│
+└── AI
+       ├── Summary
+       ├── Keyword
+       ├── Embedding
+       └── Recommendation
+```
+
+# 14. Integrasi dengan Domain Lain
+
+| Domain           | Integrasi                                                                        |
+| ---------------- | -------------------------------------------------------------------------------- |
+| Master Akademik  | Subject, Grade, Curriculum, Chapter, Topic, Competency, Skill                    |
+| User & RBAC      | Guru sebagai author/reviewer, siswa sebagai learner, pengaturan hak akses        |
+| Asset Management | Video, PDF, gambar, audio, subtitle, thumbnail, lampiran                         |
+| Bank Soal        | Quiz di dalam materi menggunakan `question_id` tanpa menduplikasi soal           |
+| CBT/Ujian        | Materi sebagai prasyarat atau remedial sebelum/selesai ujian                     |
+| AI Tutor         | Ringkasan otomatis, embedding untuk RAG, rekomendasi materi, chatbot kontekstual |
+| Membership       | Menentukan apakah materi gratis atau premium, serta akses berdasarkan paket      |
+
+# 15. Rekomendasi Arsitektur untuk YakinLulus.id
+
+Untuk menjaga konsistensi dengan Domain Bank Soal dan memudahkan pengembangan jangka panjang, saya merekomendasikan:
+
+1. **Gunakan arsitektur berbasis blok (`material_block`)** untuk seluruh konten. Dengan pendekatan ini, editor dapat mendukung teks, gambar, video, audio, tabel, rumus, kode, maupun komponen interaktif tanpa mengubah struktur database.
+2. **Seluruh media disimpan di Domain Asset Management**, sedangkan tabel materi hanya menyimpan referensi `asset_id`.
+3. **Pisahkan struktur materi dan metadata**. Informasi seperti status, versi, klasifikasi akademik, analitik, dan progress tidak dicampur dengan isi materi.
+4. **Gunakan mapping table** untuk keterkaitan dengan mata pelajaran, kelas, kurikulum, topik, dan kompetensi agar satu materi dapat digunakan kembali di berbagai konteks pembelajaran.
+5. **Bangun materi sebagai objek yang dapat di-*versioning***, direview, disetujui, dianalisis AI, dan dipantau progres belajarnya.
+6. **Integrasikan langsung dengan Bank Soal**, sehingga quiz dalam materi cukup mereferensikan `question_id` tanpa menduplikasi isi soal.
+
+Dengan desain ini, Domain Materi Pembelajaran siap berkembang dari sekadar penyimpanan konten menjadi **Learning Content Management System (LCMS)** yang mendukung pembelajaran adaptif, AI Tutor, analitik, dan skala pengguna yang besar.
