@@ -1,0 +1,4 @@
+DROP FUNCTION IF EXISTS shared.set_updated_at();
+DROP EXTENSION IF EXISTS vector;
+DROP EXTENSION IF EXISTS "uuid-ossp";
+DROP EXTENSION IF EXISTS pgcrypto;
