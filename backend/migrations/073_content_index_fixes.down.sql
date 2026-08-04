@@ -1,0 +1,12 @@
+DROP INDEX IF EXISTS idx_practice_set_created_by;
+DROP INDEX IF EXISTS idx_student_certificate_asset;
+DROP INDEX IF EXISTS idx_material_note_block;
+DROP INDEX IF EXISTS idx_material_note_material;
+DROP INDEX IF EXISTS idx_material_bookmark_block;
+DROP INDEX IF EXISTS idx_material_approval_approved_by;
+DROP INDEX IF EXISTS idx_material_thumbnail_asset;
+DROP INDEX IF EXISTS idx_material_history_changed_by;
+DROP INDEX IF EXISTS idx_material_version_created_by;
+DROP INDEX IF EXISTS idx_material_updated_by;
+DROP INDEX IF EXISTS idx_material_created_by;
+DROP INDEX IF EXISTS idx_material_current_version;
