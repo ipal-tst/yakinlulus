@@ -40,9 +40,12 @@ func (r *repository) CreateContent(ctx context.Context, c *Content) error {
 	}
 
 	if c.GradeID == uuid.Nil {
-		_ = r.pool.QueryRow(ctx, "SELECT grade_id FROM subjects WHERE id = $1", c.SubjectID).Scan(&c.GradeID)
-		if c.GradeID == uuid.Nil {
-			_ = r.pool.QueryRow(ctx, "SELECT id FROM grades LIMIT 1").Scan(&c.GradeID)
+		var gID *uuid.UUID
+		_ = r.pool.QueryRow(ctx, "SELECT grade_id FROM subjects WHERE id = $1 AND grade_id IS NOT NULL", c.SubjectID).Scan(&gID)
+		if gID != nil && *gID != uuid.Nil {
+			c.GradeID = *gID
+		} else {
+			_ = r.pool.QueryRow(ctx, "SELECT id FROM grades ORDER BY created_at ASC LIMIT 1").Scan(&c.GradeID)
 		}
 	}
 
@@ -138,12 +141,12 @@ func (r *repository) DeleteContent(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
-	var gradeID uuid.UUID
+	var gradeID *uuid.UUID
 	err := r.pool.QueryRow(ctx, `SELECT grade_id FROM users WHERE id = $1`, userID).Scan(&gradeID)
 	if err != nil {
 		return nil, err
 	}
-	return &gradeID, nil
+	return gradeID, nil
 }
 
 func (r *repository) ListContent(ctx context.Context, filter ContentFilter) ([]Content, int, error) {
@@ -743,8 +746,8 @@ func (r *repository) ListExams(ctx context.Context, filter ExamFilter) ([]ExamFu
 	args := []interface{}{}
 	argN := 1
 
-	if filter.GradeID != nil {
-		where += fmt.Sprintf(" AND c.grade_id = $%d", argN)
+	if filter.GradeID != nil && *filter.GradeID != uuid.Nil {
+		where += fmt.Sprintf(" AND (c.grade_id = $%d OR c.grade_id IS NULL OR c.grade_id IN (SELECT g.id FROM grades g WHERE g.education_level_id = (SELECT g2.education_level_id FROM grades g2 WHERE g2.id = $%d)))", argN, argN)
 		args = append(args, *filter.GradeID)
 		argN++
 	}

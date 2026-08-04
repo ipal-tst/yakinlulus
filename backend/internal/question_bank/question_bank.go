@@ -103,11 +103,16 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 		q.Score = 1.0
 	}
 
-	// Look up grade_id from subject
+	// Look up grade_id from q.GradeID or subject's grade_id, fallback to first valid grade in database
 	var gradeID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT COALESCE(grade_id, '00000000-0000-0000-0000-000000000000')::uuid FROM subjects WHERE id=$1`, q.SubjectID).Scan(&gradeID)
-	if err != nil {
-		return err
+	if q.GradeID != nil && *q.GradeID != uuid.Nil {
+		gradeID = *q.GradeID
+	} else {
+		_ = tx.QueryRow(ctx, `SELECT grade_id FROM subjects WHERE id=$1 AND grade_id IS NOT NULL`, q.SubjectID).Scan(&gradeID)
+	}
+
+	if gradeID == uuid.Nil {
+		_ = tx.QueryRow(ctx, `SELECT id FROM grades ORDER BY created_at ASC LIMIT 1`).Scan(&gradeID)
 	}
 
 	title := q.Content

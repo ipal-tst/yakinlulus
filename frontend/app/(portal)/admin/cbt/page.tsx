@@ -218,14 +218,81 @@ export default function CBTOperationsAdminPage() {
     const [questionsPerStudent, setQuestionsPerStudent] = React.useState(0);
     const [pickerSearch, setPickerSearch] = React.useState("");
     const [pickerSubject, setPickerSubject] = React.useState("");
+    const [pickerType, setPickerType] = React.useState("");
     const [selectedPickIds, setSelectedPickIds] = React.useState<Set<string>>(new Set());
 
+    const questionParams = React.useMemo(() => {
+        const params: Record<string, string> = { limit: "500" };
+        if (pickerSubject) params.subject_id = pickerSubject;
+        return params;
+    }, [pickerSubject]);
+
     const { data: questionsExam } = useExam(questionsExamId || "") as any;
-    const { data: allQuestions = [] } = useQuestions(pickerSubject ? { subject_id: pickerSubject } : undefined) as any;
+    const { data: allQuestionsData } = useQuestions(questionParams) as any;
     const addQuestion = useAddExamQuestion();
     const removeQuestion = useRemoveExamQuestion();
 
     const examQuestions: any[] = questionsExam?.questions || [];
+
+    const availableQuestions: any[] = React.useMemo(() => {
+        if (!allQuestionsData) return [];
+        if (Array.isArray(allQuestionsData)) return allQuestionsData;
+        if (allQuestionsData.data && Array.isArray(allQuestionsData.data)) return allQuestionsData.data;
+        if (allQuestionsData.items && Array.isArray(allQuestionsData.items)) return allQuestionsData.items;
+        return [];
+    }, [allQuestionsData]);
+
+    const questionsMap = React.useMemo(() => {
+        const map = new Map<string, any>();
+        availableQuestions.forEach((q: any) => {
+            const id = q.id || q.content_id || q.content?.id;
+            if (id) map.set(id, q);
+        });
+        return map;
+    }, [availableQuestions]);
+
+    const getQuestionContentPreview = (q: any) => {
+        if (!q) return "Teks soal tidak tersedia";
+        const raw = q.content || q.body || q.Content?.Body || q.title || q.question_title || q.Content?.Title || "";
+        const cleaned = raw.replace(/!\[IMAGE\]\(.*?\)/gi, " [Gambar] ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        if (!cleaned) return "Teks soal tidak tersedia";
+        return cleaned;
+    };
+
+    const hasQuestionImage = (q: any) => {
+        if (!q) return false;
+        const raw = q.content || q.body || q.Content?.Body || q.image_url || "";
+        return raw.includes("![IMAGE]") || Boolean(q.image_url);
+    };
+
+    const getQuestionTypeBadge = (type?: string) => {
+        switch (type) {
+            case "SINGLE_CHOICE":
+            case "MULTIPLE_CHOICE":
+                return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200 text-[10px] py-0 font-medium shrink-0">PG (1 Jawaban)</Badge>;
+            case "COMPLEX_MULTIPLE_CHOICE":
+                return <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-200 text-[10px] py-0 font-medium shrink-0">PG Kompleks</Badge>;
+            case "TRUE_FALSE":
+                return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200 text-[10px] py-0 font-medium shrink-0">Benar / Salah</Badge>;
+            case "ESSAY":
+                return <Badge variant="outline" className="bg-teal-500/10 text-teal-600 border-teal-200 text-[10px] py-0 font-medium shrink-0">Esai / Uraian</Badge>;
+            default:
+                return <Badge variant="outline" className="text-[10px] py-0 shrink-0">{type || "Pilihan Ganda"}</Badge>;
+        }
+    };
+
+    const getDifficultyBadge = (difficulty?: string) => {
+        switch (difficulty?.toUpperCase()) {
+            case "EASY":
+                return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200 text-[9px] py-0 shrink-0">Mudah</Badge>;
+            case "MEDIUM":
+                return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200 text-[9px] py-0 shrink-0">Sedang</Badge>;
+            case "HARD":
+                return <Badge variant="outline" className="bg-rose-500/10 text-rose-600 border-rose-200 text-[9px] py-0 shrink-0">Sulit</Badge>;
+            default:
+                return null;
+        }
+    };
 
     const handleOpenQuestions = (exam: any) => {
         const id = exam.Content?.ID || exam.id;
@@ -251,8 +318,34 @@ export default function CBTOperationsAdminPage() {
         catch { alert("Gagal menghapus soal"); }
     };
 
-    const availableQuestions = Array.isArray(allQuestions) ? allQuestions : [];
-    const existingIds = new Set(examQuestions.map((q: any) => q.question_content_id || q.id));
+    const existingIds = React.useMemo(() => {
+        return new Set(examQuestions.map((q: any) => q.question_content_id || q.id));
+    }, [examQuestions]);
+
+    const filteredAvailableQuestions = React.useMemo(() => {
+        return availableQuestions
+            .filter((q: any) => !existingIds.has(q.id || q.content_id))
+            .filter((q: any) => {
+                const text = (q.content || q.body || q.title || "").toLowerCase();
+                const sub = (q.subject_name || "").toLowerCase();
+                const matchesSearch = !pickerSearch || text.includes(pickerSearch.toLowerCase()) || sub.includes(pickerSearch.toLowerCase());
+                const matchesType = !pickerType || q.question_type === pickerType;
+                return matchesSearch && matchesType;
+            });
+    }, [availableQuestions, existingIds, pickerSearch, pickerType]);
+
+    const handleSelectAll = () => {
+        const next = new Set(selectedPickIds);
+        filteredAvailableQuestions.forEach((q: any) => {
+            const id = q.id || q.content_id;
+            if (id) next.add(id);
+        });
+        setSelectedPickIds(next);
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedPickIds(new Set());
+    };
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -965,24 +1058,47 @@ export default function CBTOperationsAdminPage() {
                         <Plus className="mr-1.5 h-3.5 w-3.5" /> Tambah Soal dari Bank Soal
                     </Button>
 
-                    <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg">
+                    <div className="max-h-72 overflow-y-auto space-y-2 p-1 border rounded-lg">
                         {examQuestions.length === 0 ? (
-                            <div className="p-4 text-center text-muted-foreground">Belum ada soal</div>
+                            <div className="p-6 text-center text-muted-foreground">Belum ada soal ditambahkan ke paket ujian ini</div>
                         ) : (
-                            examQuestions.map((q: any, i: number) => (
-                                <div key={q.id || i} className="flex items-start gap-2 p-2 border-b hover:bg-muted/30">
-                                    <span className="font-mono text-muted-foreground w-6 shrink-0">#{i + 1}</span>
-                                    <span className="flex-1 line-clamp-1">{q.question_title || q.title || "Soal"}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 w-6 p-0 text-destructive shrink-0"
-                                        onClick={() => handleRemoveQuestion(q.question_content_id || q.id)}
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
-                            ))
+                            examQuestions.map((eq: any, i: number) => {
+                                const qId = eq.question_content_id || eq.id;
+                                const qDetail = questionsMap.get(qId);
+                                const preview = getQuestionContentPreview(qDetail) || eq.question_title || eq.title || "Soal #" + (i + 1);
+                                const qType = qDetail?.question_type;
+                                const qDiff = qDetail?.difficulty;
+
+                                return (
+                                    <div key={eq.id || qId || i} className="flex items-start gap-2.5 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+                                        <span className="font-mono text-xs font-bold text-muted-foreground w-6 shrink-0 pt-0.5">#{i + 1}</span>
+                                        <div className="flex-1 space-y-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {getQuestionTypeBadge(qType)}
+                                                {getDifficultyBadge(qDiff)}
+                                                {hasQuestionImage(qDetail) && (
+                                                    <Badge variant="outline" className="bg-sky-500/10 text-sky-600 border-sky-200 text-[9px] py-0 shrink-0">📷 Gambar</Badge>
+                                                )}
+                                                {qDetail?.subject_name && (
+                                                    <span className="text-[10px] text-muted-foreground ml-auto">{qDetail.subject_name}</span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs font-medium text-foreground line-clamp-2 leading-snug">
+                                                {preview}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                            onClick={() => handleRemoveQuestion(qId)}
+                                            title="Hapus Soal dari Ujian"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
                 </div>
@@ -993,56 +1109,117 @@ export default function CBTOperationsAdminPage() {
                 isOpen={isPickerOpen}
                 onClose={() => setIsPickerOpen(false)}
                 title="Pilih Soal dari Bank Soal"
-                description="Centang soal yang ingin ditambahkan ke ujian"
+                description="Centang soal dari bank soal untuk ditambahkan ke dalam paket ujian ini"
                 onSubmit={handleAddSelectedQuestions}
-                submitLabel={`Tambah ${selectedPickIds.size} Soal`}
+                submitLabel={`Tambah ${selectedPickIds.size} Soal Terpilih`}
             >
                 <div className="space-y-3 text-xs">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
-                            placeholder="Cari soal..."
+                            placeholder="Cari kata kunci isi soal / mapel..."
                             value={pickerSearch}
                             onChange={(e) => setPickerSearch(e.target.value)}
-                            className="flex-1 px-3 py-1.5 border rounded-lg bg-background"
+                            className="flex-1 px-3 py-1.5 border rounded-lg bg-background text-xs"
                         />
                         <select
                             value={pickerSubject}
                             onChange={(e) => setPickerSubject(e.target.value)}
-                            className="px-3 py-1.5 border rounded-lg bg-background"
+                            className="px-2.5 py-1.5 border rounded-lg bg-background text-xs"
                         >
                             <option value="">Semua Mapel</option>
                             {subjects.map((s: any) => (
                                 <option key={s.id} value={s.id}>{s.name} ({s.level_code || "?"})</option>
                             ))}
                         </select>
+                        <select
+                            value={pickerType}
+                            onChange={(e) => setPickerType(e.target.value)}
+                            className="px-2.5 py-1.5 border rounded-lg bg-background text-xs"
+                        >
+                            <option value="">Semua Tipe Soal</option>
+                            <option value="SINGLE_CHOICE">Pilihan Ganda (PG)</option>
+                            <option value="COMPLEX_MULTIPLE_CHOICE">PG Kompleks</option>
+                            <option value="TRUE_FALSE">Benar / Salah</option>
+                            <option value="ESSAY">Esai / Uraian</option>
+                        </select>
                     </div>
 
-                    <div className="max-h-72 overflow-y-auto space-y-1 border rounded-lg">
-                        {availableQuestions
-                            .filter((q: any) => {
-                                const title = (q.title || q.body || "").toLowerCase();
-                                return !pickerSearch || title.includes(pickerSearch.toLowerCase());
-                            })
-                            .filter((q: any) => !existingIds.has(q.id))
-                            .map((q: any) => (
-                                <label key={q.id} className="flex items-start gap-2 p-2 border-b hover:bg-muted/30 cursor-pointer">
+                    <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                        <span>
+                            Menampilkan {filteredAvailableQuestions.length} soal yang tersedia
+                        </span>
+                        <div className="flex items-center gap-3">
+                            {filteredAvailableQuestions.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="text-primary font-semibold hover:underline flex items-center gap-1"
+                                >
+                                    ✓ Pilih Semua ({filteredAvailableQuestions.length})
+                                </button>
+                            )}
+                            {selectedPickIds.size > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleDeselectAll}
+                                    className="text-destructive font-semibold hover:underline"
+                                >
+                                    Batal Pilih ({selectedPickIds.size})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto space-y-2 p-1 border rounded-lg">
+                        {filteredAvailableQuestions.map((q: any) => {
+                            const qId = q.id || q.content_id;
+                            const isChecked = selectedPickIds.has(qId);
+                            const preview = getQuestionContentPreview(q);
+                            const optionsCount = Array.isArray(q.options) ? q.options.length : 0;
+
+                            return (
+                                <label
+                                    key={qId}
+                                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                        isChecked ? "bg-primary/5 border-primary/40" : "bg-card hover:bg-muted/40 border-border"
+                                    }`}
+                                >
                                     <input
                                         type="checkbox"
-                                        checked={selectedPickIds.has(q.id)}
+                                        checked={isChecked}
                                         onChange={(e) => {
                                             const next = new Set(selectedPickIds);
-                                            e.target.checked ? next.add(q.id) : next.delete(q.id);
+                                            e.target.checked ? next.add(qId) : next.delete(qId);
                                             setSelectedPickIds(next);
                                         }}
-                                        className="mt-0.5"
+                                        className="mt-1 h-4 w-4 rounded border-input text-primary"
                                     />
-                                    <span className="flex-1 line-clamp-1">{q.title || q.body || "Soal"}</span>
-                                    <span className="text-muted-foreground shrink-0">{q.difficulty || ""}</span>
+                                    <div className="flex-1 space-y-1.5 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {getQuestionTypeBadge(q.question_type)}
+                                            {getDifficultyBadge(q.difficulty)}
+                                            {hasQuestionImage(q)}
+                                            <div className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1.5 shrink-0">
+                                                {q.subject_name && <span className="font-semibold text-foreground/80">{q.subject_name}</span>}
+                                                {q.grade_name && <span>({q.grade_name})</span>}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs font-medium text-foreground line-clamp-2 leading-relaxed">
+                                            {preview}
+                                        </p>
+                                        {optionsCount > 0 && (
+                                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 pt-0.5">
+                                                <span className="font-semibold text-foreground/70">{optionsCount} Opsi Jawaban</span>
+                                                {q.question_type === "TRUE_FALSE" ? " (Pernyataan Benar/Salah)" : ""}
+                                            </div>
+                                        )}
+                                    </div>
                                 </label>
-                            ))}
-                        {availableQuestions.filter((q: any) => !existingIds.has(q.id)).length === 0 && (
-                            <div className="p-4 text-center text-muted-foreground">Semua soal sudah ditambahkan</div>
+                            );
+                        })}
+                        {filteredAvailableQuestions.length === 0 && (
+                            <div className="p-6 text-center text-muted-foreground">Semua soal pada filter ini sudah ditambahkan ke ujian</div>
                         )}
                     </div>
                 </div>

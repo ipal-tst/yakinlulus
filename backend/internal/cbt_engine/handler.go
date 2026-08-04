@@ -122,12 +122,12 @@ func (h *Handler) CreateExam(c *fiber.Ctx) error {
 		}
 	}
 
-	gradeID := uuid.MustParse("11000000-0000-0000-0000-000000000099") // Default UTBK Grade if omitted
+	var gradeID uuid.UUID
 	if req.GradeID != nil && *req.GradeID != uuid.Nil {
 		gradeID = *req.GradeID
 	}
 
-	subjectID := uuid.MustParse("21000000-0000-0000-0000-000000000002") // Default Penalaran Umum Subject if omitted
+	var subjectID uuid.UUID
 	if req.SubjectID != nil && *req.SubjectID != uuid.Nil {
 		subjectID = *req.SubjectID
 	}
@@ -216,12 +216,12 @@ func (h *Handler) ImportExams(c *fiber.Ctx) error {
 			duration = 90
 		}
 
-		gradeID := uuid.MustParse("11000000-0000-0000-0000-000000000099") // Default UTBK Grade if omitted
+		var gradeID uuid.UUID
 		if req.GradeID != nil && *req.GradeID != uuid.Nil {
 			gradeID = *req.GradeID
 		}
 
-		subjectID := uuid.MustParse("21000000-0000-0000-0000-000000000002") // Default Penalaran Umum Subject if omitted
+		var subjectID uuid.UUID
 		if req.SubjectID != nil && *req.SubjectID != uuid.Nil {
 			subjectID = *req.SubjectID
 		}

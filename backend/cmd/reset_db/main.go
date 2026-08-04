@@ -48,6 +48,54 @@ func main() {
 	}
 	pwHash := string(hashedPassword)
 
+	// -------------------------------------------------------------
+	// 3a. EDUCATION LEVELS & GRADES
+	// -------------------------------------------------------------
+	sdID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
+	smpID := uuid.MustParse("10000000-0000-0000-0000-000000000002")
+	smaID := uuid.MustParse("10000000-0000-0000-0000-000000000003")
+	utbkID := uuid.MustParse("10000000-0000-0000-0000-000000000004")
+
+	g7ID := uuid.MustParse("11000000-0000-0000-0000-000000000007")
+	g8ID := uuid.MustParse("11000000-0000-0000-0000-000000000008")
+	g9ID := uuid.MustParse("11000000-0000-0000-0000-000000000009")
+
+	g10ID := uuid.MustParse("11000000-0000-0000-0000-000000000010")
+	g11ID := uuid.MustParse("11000000-0000-0000-0000-000000000011")
+	g12ID := uuid.MustParse("11000000-0000-0000-0000-000000000012")
+	gUTBKID := uuid.MustParse("11000000-0000-0000-0000-000000000099")
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO education_levels (id, name, code, display_order)
+		VALUES 
+			($1, 'Sekolah Dasar', 'SD', 1),
+			($2, 'Sekolah Menengah Pertama', 'SMP', 2),
+			($3, 'Sekolah Menengah Atas / Kejuruan', 'SMA', 3),
+			($4, 'Persiapan UTBK / Gapyear', 'UTBK_GAPYEAR', 4)
+		ON CONFLICT DO NOTHING
+	`, sdID, smpID, smaID, utbkID)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO grades (id, education_level_id, name, alias, display_order)
+		VALUES 
+			(gen_random_uuid(), $1, 'Kelas 4 SD', '4', 1),
+			(gen_random_uuid(), $1, 'Kelas 5 SD', '5', 2),
+			(gen_random_uuid(), $1, 'Kelas 6 SD', '6', 3),
+			($9, $2, 'Kelas 7 SMP', '7', 4),
+			($10, $2, 'Kelas 8 SMP', '8', 5),
+			($11, $2, 'Kelas 9 SMP', '9', 6),
+			($3, $4, 'Kelas 10 SMA', '10', 7),
+			($5, $4, 'Kelas 11 SMA', '11', 8),
+			($6, $4, 'Kelas 12 SMA', '12', 9),
+			($7, $8, 'Pejuang UTBK / Gapyear', 'UTBK', 10)
+		ON CONFLICT DO NOTHING
+	`, sdID, smpID, g10ID, smaID, g11ID, g12ID, gUTBKID, utbkID, g7ID, g8ID, g9ID)
+
+	log.Println("Seeded Education Levels & Grades")
+
+	// -------------------------------------------------------------
+	// 3b. USERS
+	// -------------------------------------------------------------
 	adminID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	staffID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	teacherBudiID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
@@ -59,37 +107,45 @@ func main() {
 	student4ID := uuid.MustParse("00000000-0000-0000-0000-000000000013")
 	student5ID := uuid.MustParse("00000000-0000-0000-0000-000000000014")
 
+	studentBudiID := uuid.MustParse("00000000-0000-0000-0000-000000000020")
+	studentBudiAlt1ID := uuid.MustParse("00000000-0000-0000-0000-000000000021")
+	studentBudiAlt2ID := uuid.MustParse("00000000-0000-0000-0000-000000000022")
+
 	usersData := []struct {
 		id       uuid.UUID
 		email    string
 		fullName string
 		role     string
+		gradeID  *uuid.UUID
 	}{
-		{adminID, "admin@yakinlulus.id", "Super Admin YakinLulus", "ADMIN"},
-		{staffID, "staff@yakinlulus.id", "Staf Akademik YakinLulus", "STAFF"},
-		{teacherBudiID, "guru.budi@yakinlulus.id", "Drs. Budi Santoso, M.Pd", "TEACHER"},
-		{teacherSitiID, "guru.siti@yakinlulus.id", "Siti Rahmawati, S.Si", "TEACHER"},
-		{student1ID, "murid@yakinlulus.id", "Ahmad Pratama", "STUDENT"},
-		{student2ID, "student2@yakinlulus.id", "Nabila Putri", "STUDENT"},
-		{student3ID, "student3@yakinlulus.id", "Rizky Ramadhan", "STUDENT"},
-		{student4ID, "student4@yakinlulus.id", "Dewi Lestari", "STUDENT"},
-		{student5ID, "student5@yakinlulus.id", "Fikri Ardiansyah", "STUDENT"},
+		{adminID, "admin@yakinlulus.id", "Super Admin YakinLulus", "ADMIN", nil},
+		{staffID, "staff@yakinlulus.id", "Staf Akademik YakinLulus", "STAFF", nil},
+		{teacherBudiID, "guru.budi@yakinlulus.id", "Drs. Budi Santoso, M.Pd", "TEACHER", nil},
+		{teacherSitiID, "guru.siti@yakinlulus.id", "Siti Rahmawati, S.Si", "TEACHER", nil},
+		{student1ID, "murid@yakinlulus.id", "Ahmad Pratama", "STUDENT", &g7ID},
+		{student2ID, "student2@yakinlulus.id", "Nabila Putri", "STUDENT", &g7ID},
+		{student3ID, "student3@yakinlulus.id", "Rizky Ramadhan", "STUDENT", &g8ID},
+		{student4ID, "student4@yakinlulus.id", "Dewi Lestari", "STUDENT", &g9ID},
+		{student5ID, "student5@yakinlulus.id", "Fikri Ardiansyah", "STUDENT", &gUTBKID},
+		{studentBudiID, "budi@yakinlulus.id", "Budi Santoso (Siswa SMP)", "STUDENT", &g7ID},
+		{studentBudiAlt1ID, "budi.siswa@yakinlulus.id", "Budi Santoso (Siswa SMP)", "STUDENT", &g7ID},
+		{studentBudiAlt2ID, "siswa.budi@yakinlulus.id", "Budi Santoso (Siswa SMP)", "STUDENT", &g7ID},
 	}
 
 	for _, u := range usersData {
 		_, err = pool.Exec(ctx, `
-			INSERT INTO users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
-			ON CONFLICT DO NOTHING
-		`, u.id, u.email, pwHash, u.fullName, u.role)
+			INSERT INTO users (id, email, password_hash, full_name, role, grade_id, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+			ON CONFLICT (email) DO UPDATE SET grade_id = EXCLUDED.grade_id, full_name = EXCLUDED.full_name, role = EXCLUDED.role
+		`, u.id, u.email, pwHash, u.fullName, u.role, u.gradeID)
 		if err != nil {
 			log.Fatalf("Failed to seed user %s: %v", u.email, err)
 		}
 	}
-	log.Println("Seeded 9 core Users (Admin, Staff, Teachers, Students)")
+	log.Println("Seeded core Users with Grade assignments")
 
 	// -------------------------------------------------------------
-	// 3b. SCHOOLS
+	// 3c. SCHOOLS
 	// -------------------------------------------------------------
 	school1ID := uuid.MustParse("05000000-0000-0000-0000-000000000001")
 	school2ID := uuid.MustParse("05000000-0000-0000-0000-000000000002")
@@ -108,44 +164,9 @@ func main() {
 	}
 	log.Println("Seeded Schools data")
 
-	// -------------------------------------------------------------
-	// 3c. EDUCATION LEVELS & GRADES
-	// -------------------------------------------------------------
-	sdID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
-	smpID := uuid.MustParse("10000000-0000-0000-0000-000000000002")
-	smaID := uuid.MustParse("10000000-0000-0000-0000-000000000003")
-	utbkID := uuid.MustParse("10000000-0000-0000-0000-000000000004")
 
-	_, err = pool.Exec(ctx, `
-		INSERT INTO education_levels (id, name, code, display_order)
-		VALUES 
-			($1, 'Sekolah Dasar', 'SD', 1),
-			($2, 'Sekolah Menengah Pertama', 'SMP', 2),
-			($3, 'Sekolah Menengah Atas / Kejuruan', 'SMA', 3),
-			($4, 'Persiapan UTBK / Gapyear', 'UTBK_GAPYEAR', 4)
-		ON CONFLICT DO NOTHING
-	`, sdID, smpID, smaID, utbkID)
 
-	g10ID := uuid.MustParse("11000000-0000-0000-0000-000000000010")
-	g11ID := uuid.MustParse("11000000-0000-0000-0000-000000000011")
-	g12ID := uuid.MustParse("11000000-0000-0000-0000-000000000012")
-	gUTBKID := uuid.MustParse("11000000-0000-0000-0000-000000000099")
 
-	_, err = pool.Exec(ctx, `
-		INSERT INTO grades (id, education_level_id, name, alias, display_order)
-		VALUES 
-			(gen_random_uuid(), $1, 'Kelas 4 SD', '4', 1),
-			(gen_random_uuid(), $1, 'Kelas 5 SD', '5', 2),
-			(gen_random_uuid(), $1, 'Kelas 6 SD', '6', 3),
-			(gen_random_uuid(), $2, 'Kelas 7 SMP', '7', 4),
-			(gen_random_uuid(), $2, 'Kelas 8 SMP', '8', 5),
-			(gen_random_uuid(), $2, 'Kelas 9 SMP', '9', 6),
-			($3, $4, 'Kelas 10 SMA', '10', 7),
-			($5, $4, 'Kelas 11 SMA', '11', 8),
-			($6, $4, 'Kelas 12 SMA', '12', 9),
-			($7, $8, 'Pejuang UTBK / Gapyear', 'UTBK', 10)
-		ON CONFLICT DO NOTHING
-	`, sdID, smpID, g10ID, smaID, g11ID, g12ID, gUTBKID, utbkID)
 
 	log.Println("Seeded Education Levels & Grades")
 
@@ -169,6 +190,10 @@ func main() {
 	subjLitEngID := uuid.MustParse("21000000-0000-0000-0000-000000000004")
 	subjLitIndoID := uuid.MustParse("21000000-0000-0000-0000-000000000005")
 
+	subjSMPMatID := uuid.MustParse("21000000-0000-0000-0000-000000000007")
+	subjSMPIndoID := uuid.MustParse("21000000-0000-0000-0000-000000000008")
+	subjSMPIPAID := uuid.MustParse("21000000-0000-0000-0000-000000000009")
+
 	_, err = pool.Exec(ctx, `
 		INSERT INTO subjects (id, level_id, grade_id, curriculum_id, name, code, description)
 		VALUES 
@@ -176,11 +201,16 @@ func main() {
 			($5, $6, $7, $8, 'Penalaran Umum (PU)', 'PU-UTBK', 'Penalaran Induktif, Deduktif & Kuantitatif'),
 			($9, $6, $7, $8, 'Penalaran Kuantitatif (PK)', 'PK-UTBK', 'Matematika Dasar & Logika Angka'),
 			($10, $6, $7, $8, 'Literasi Bahasa Inggris', 'ENG-UTBK', 'Reading Comprehension & Critical Analysis'),
-			($11, $6, $7, $8, 'Literasi Bahasa Indonesia', 'IND-UTBK', 'Pemahaman Wacana & Ejaan Bahasa Indonesia')
+			($11, $6, $7, $8, 'Literasi Bahasa Indonesia', 'IND-UTBK', 'Pemahaman Wacana & Ejaan Bahasa Indonesia'),
+			($12, $13, $14, $4, 'Matematika SMP', 'MAT-SMP', 'Matematika Aljabar, Geometri & Logika SMP'),
+			($15, $13, $14, $4, 'Bahasa Indonesia SMP', 'IND-SMP', 'Literasi & Tatabahasa Bahasa Indonesia SMP'),
+			($16, $13, $14, $4, 'IPA Terpadu SMP', 'IPA-SMP', 'Fisika, Biologi & Kimia Dasar SMP')
 		ON CONFLICT DO NOTHING
 	`, subjFisikaID, smaID, g10ID, curMerdekaID,
 		subjPUID, utbkID, gUTBKID, curUTBKID,
-		subjPKID, subjLitEngID, subjLitIndoID)
+		subjPKID, subjLitEngID, subjLitIndoID,
+		subjSMPMatID, smpID, g7ID,
+		subjSMPIndoID, subjSMPIPAID)
 
 	log.Println("Seeded Curriculums & Subjects")
 
@@ -475,6 +505,9 @@ func main() {
 	exam2ID := uuid.MustParse("80000000-0000-0000-0000-000000000002")
 	exam3ID := uuid.MustParse("80000000-0000-0000-0000-000000000003")
 	exam4ID := uuid.MustParse("80000000-0000-0000-0000-000000000004")
+	examSMP1ID := uuid.MustParse("80000000-0000-0000-0000-000000000005")
+	examSMP2ID := uuid.MustParse("80000000-0000-0000-0000-000000000006")
+	examSMP3ID := uuid.MustParse("80000000-0000-0000-0000-000000000007")
 	attempt1ID := uuid.MustParse("90000000-0000-0000-0000-000000000001")
 
 	// Unified contents (EXAM subtype)
@@ -484,12 +517,16 @@ func main() {
 			($1, 'EXAM', $5, $6, $7, 'Tryout Akbar SNBT UTBK 2026 Paket #3', 'Simulasi Tryout Akbar SNBT UTBK 2026 dengan standar soal terbaru SNPMB.', 'PUBLISHED', $8, '{"code":"TO-SNBT-2026-03","duration_minutes":195,"passing_score":680}'::jsonb, NOW(), NOW(), NOW()),
 			($2, 'EXAM', $5, $6, $7, 'Simulasi Intensif Penalaran Kuantitatif #2', 'Simulasi khusus latihan cepat soal-soal Penalaran Kuantitatif.', 'PUBLISHED', $8, '{"code":"TO-TPS-KUANT-02","duration_minutes":50,"passing_score":720}'::jsonb, NOW(), NOW(), NOW()),
 			($3, 'EXAM', $5, $6, $7, 'Tryout Spesialis UM UGM Kuantitatif & Logika', 'Paket latihan intensif Ujian Mandiri UGM mata uji Kemampuan Dasar.', 'DRAFT', $8, '{"code":"TO-UM-UGM-2026","duration_minutes":100,"passing_score":650}'::jsonb, NULL, NOW(), NOW()),
-			($4, 'EXAM', $5, $6, $7, 'Kuis Pemetaan Diagnostik Kemampuan Awal (Pre-Test)', 'Pre-test evaluasi kemampuan awal siswa untuk menyusun rekomendasi belajar AI.', 'PUBLISHED', $8, '{"code":"TO-DIAG-INIT","duration_minutes":35,"passing_score":600}'::jsonb, NOW(), NOW(), NOW())
+			($4, 'EXAM', $5, $6, $7, 'Kuis Pemetaan Diagnostik Kemampuan Awal (Pre-Test)', 'Pre-test evaluasi kemampuan awal siswa untuk menyusun rekomendasi belajar AI.', 'PUBLISHED', $8, '{"code":"TO-DIAG-INIT","duration_minutes":35,"passing_score":600}'::jsonb, NOW(), NOW(), NOW()),
+			($9, 'EXAM', $10, $11, $7, 'Tryout Ujian Sekolah SMP / Asesmen Nasional SMP 2026', 'Paket Simulasi Ujian Sekolah SMP & Asesmen Nasional SMP.', 'PUBLISHED', $8, '{"code":"TO-SMP-2026-01","duration_minutes":120,"passing_score":700}'::jsonb, NOW(), NOW(), NOW()),
+			($12, 'EXAM', $10, $11, $7, 'Penilaian Tengah Semester (PTS) Matematika SMP Kelas 7', 'Latihan PTS Matematika Aljabar & Geometri SMP Kelas 7.', 'PUBLISHED', $8, '{"code":"PTS-MAT-SMP7","duration_minutes":90,"passing_score":750}'::jsonb, NOW(), NOW(), NOW()),
+			($13, 'EXAM', $10, $11, $7, 'Simulasi Ujian Akhir SMP IPA & Matematika', 'Simulasi Ujian Akhir SMP Terpadu IPA dan Matematika.', 'PUBLISHED', $8, '{"code":"TO-SMP-IPA-02","duration_minutes":90,"passing_score":720}'::jsonb, NOW(), NOW(), NOW())
 		ON CONFLICT (id) DO UPDATE SET
 			title = EXCLUDED.title,
 			status = EXCLUDED.status,
+			grade_id = EXCLUDED.grade_id,
 			updated_at = NOW()
-	`, exam1ID, exam2ID, exam3ID, exam4ID, gUTBKID, subjPKID, chapPKID, adminID)
+	`, exam1ID, exam2ID, exam3ID, exam4ID, gUTBKID, subjPKID, chapPKID, adminID, examSMP1ID, g7ID, subjSMPMatID, examSMP2ID, examSMP3ID)
 
 	// Subtype content_exams table
 	_, err = pool.Exec(ctx, `
@@ -498,11 +535,14 @@ func main() {
 			($1, 'Tryout Akbar SNBT UTBK 2026 Paket #3', 195, 680.00, true, true, 3),
 			($2, 'Simulasi Intensif Penalaran Kuantitatif #2', 50, 720.00, true, true, 5),
 			($3, 'Tryout Spesialis UM UGM Kuantitatif & Logika', 100, 650.00, true, true, 3),
-			($4, 'Kuis Pemetaan Diagnostik Kemampuan Awal (Pre-Test)', 35, 600.00, true, true, 1)
+			($4, 'Kuis Pemetaan Diagnostik Kemampuan Awal (Pre-Test)', 35, 600.00, true, true, 1),
+			($5, 'Tryout Ujian Sekolah SMP / Asesmen Nasional SMP 2026', 120, 700.00, true, true, 3),
+			($6, 'Penilaian Tengah Semester (PTS) Matematika SMP Kelas 7', 90, 750.00, true, true, 5),
+			($7, 'Simulasi Ujian Akhir SMP IPA & Matematika', 90, 720.00, true, true, 3)
 		ON CONFLICT (content_id) DO UPDATE SET
 			duration_minutes = EXCLUDED.duration_minutes,
 			passing_score = EXCLUDED.passing_score
-	`, exam1ID, exam2ID, exam3ID, exam4ID)
+	`, exam1ID, exam2ID, exam3ID, exam4ID, examSMP1ID, examSMP2ID, examSMP3ID)
 
 	// Link exam questions
 	_, err = pool.Exec(ctx, `
