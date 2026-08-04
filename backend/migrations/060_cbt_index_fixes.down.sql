@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS idx_publish_history_published_by;
+DROP INDEX IF EXISTS idx_grading_history_changed_by;
+DROP INDEX IF EXISTS idx_attempt_history_changed_by;
+DROP INDEX IF EXISTS idx_exam_history_changed_by;
+DROP INDEX IF EXISTS idx_grading_detail_q;
+DROP INDEX IF EXISTS idx_essay_answer_asset;
+DROP INDEX IF EXISTS idx_exam_question_pool_chapter;
+DROP INDEX IF EXISTS idx_exam_question_pool_subject;
+DROP INDEX IF EXISTS idx_exam_created_by;
