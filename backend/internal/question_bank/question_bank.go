@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"yakinlulus.id/backend/internal/content"
@@ -80,6 +81,209 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+const questionColumns = `
+	q.id,
+	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	grade.grade_id,
+	chapter.chapter_id,
+	COALESCE(b.content, '')::text,
+	''::text,
+	COALESCE(m.difficulty_level, 'MEDIUM')::text,
+	q.question_type::text,
+	NULL::text,
+	m.blooms_level,
+	COALESCE(m.language, 'id')::text,
+	m.source_name,
+	topic.topic_id,
+	NULL::uuid,
+	NULL::uuid,
+	COALESCE((SELECT MAX(op.score) FROM question.question_option op WHERE op.question_version_id = v.id AND op.is_correct AND op.score > 0), 1.0)::float8,
+	0.0::float8,
+	m.estimated_time,
+	m.cognitive_level,
+	COALESCE(e.content, '')::text,
+	COALESCE(st.code, 'DRAFT')::text,
+	COALESCE(q.created_by, '00000000-0000-0000-0000-000000000000')::uuid,
+	(SELECT MIN(h.created_at) FROM question.question_history h WHERE h.question_id = q.id AND h.new_json->>'status' = 'PUBLISHED'),
+	q.created_at,
+	q.updated_at,
+	COALESCE(s.name, '')::text,
+	COALESCE(ch.title, '')::text,
+	grade.grade_id,
+	COALESCE(g.name, '')::text,
+	COALESCE(l.name, '')::text,
+	COALESCE(l.code, '')::text`
+
+const questionFrom = `
+	FROM question.question q
+	LEFT JOIN question.question_status st ON st.id = q.status_id
+	LEFT JOIN question.question_version v ON v.id = q.current_version_id
+	LEFT JOIN question.question_block b ON b.question_version_id = v.id AND b.block_order = 0
+	LEFT JOIN question.explanation e ON e.question_version_id = v.id
+	LEFT JOIN question.question_metadata m ON m.question_id = q.id
+	LEFT JOIN LATERAL (SELECT subject_id FROM question.question_subject WHERE question_id = q.id LIMIT 1) subj ON true
+	LEFT JOIN LATERAL (SELECT grade_id FROM question.question_grade WHERE question_id = q.id LIMIT 1) grade ON true
+	LEFT JOIN LATERAL (SELECT chapter_id FROM question.question_chapter WHERE question_id = q.id LIMIT 1) chapter ON true
+	LEFT JOIN LATERAL (SELECT topic_id FROM question.question_topic WHERE question_id = q.id LIMIT 1) topic ON true
+	LEFT JOIN academic.subject s ON s.id = subj.subject_id
+	LEFT JOIN academic.chapter ch ON ch.id = chapter.chapter_id
+	LEFT JOIN academic.grade g ON g.id = grade.grade_id
+	LEFT JOIN academic.education_level l ON l.id = g.education_level_id`
+
+func scanQuestion(row pgx.Row) (*Question, error) {
+	q := &Question{}
+	var qType string
+	if err := row.Scan(
+		&q.ID, &q.SubjectID, &q.GradeID, &q.ChapterID, &q.Content, &q.ImageURL,
+		&q.Difficulty, &qType, &q.Topic, &q.BloomLevel, &q.Language, &q.Source,
+		&q.TopicID, &q.SubTopicID, &q.StimulusID, &q.Score, &q.NegativeScore,
+		&q.EstimatedTime, &q.ThinkingLevel, &q.Explanation, &q.Status, &q.CreatedBy,
+		&q.PublishedAt, &q.CreatedAt, &q.UpdatedAt,
+		&q.SubjectName, &q.ChapterName, &q.GradeID, &q.GradeName, &q.LevelName, &q.LevelCode); err != nil {
+		return nil, err
+	}
+	q.QuestionType = QuestionType(qType)
+	return q, nil
+}
+
+// ensureStatuses idempotently seeds the question_status lookup rows and
+// returns a code->id map. Safe to call on every write.
+func (r *Repository) ensureStatuses(ctx context.Context, tx pgx.Tx) (map[string]uuid.UUID, error) {
+	rows := [][2]string{
+		{"DRAFT", "Draft"},
+		{"REVIEW", "In Review"},
+		{"APPROVED", "Approved"},
+		{"PUBLISHED", "Published"},
+		{"ARCHIVED", "Archived"},
+	}
+	for _, s := range rows {
+		if _, err := tx.Exec(ctx, `INSERT INTO question.question_status (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`, s[0], s[1]); err != nil {
+			return nil, err
+		}
+	}
+	statuses := map[string]uuid.UUID{}
+	rws, err := tx.Query(ctx, `SELECT code, id FROM question.question_status WHERE code = ANY($1)`, []string{"DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"})
+	if err != nil {
+		return nil, err
+	}
+	defer rws.Close()
+	for rws.Next() {
+		var code string
+		var id uuid.UUID
+		if err := rws.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		statuses[code] = id
+	}
+	return statuses, rws.Err()
+}
+
+func (r *Repository) insertMetadata(ctx context.Context, tx pgx.Tx, q *Question) error {
+	var diff any
+	if q.Difficulty != "" {
+		diff = normalizeDifficulty(q.Difficulty)
+	}
+	var blooms any
+	if q.BloomLevel != nil {
+		if b := normalizeBloom(*q.BloomLevel); b != "" {
+			blooms = b
+		}
+	}
+	var lang any
+	if q.Language != "" {
+		lang = q.Language
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO question.question_metadata
+			(question_id, estimated_time, difficulty_level, blooms_level, cognitive_level, language, source_name,
+			 is_hots, is_calculator_allowed, is_randomizable)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, false, false, true)
+		ON CONFLICT (question_id) DO UPDATE SET
+			estimated_time = COALESCE(EXCLUDED.estimated_time, question_metadata.estimated_time),
+			difficulty_level = COALESCE(EXCLUDED.difficulty_level, question_metadata.difficulty_level),
+			blooms_level = COALESCE(EXCLUDED.blooms_level, question_metadata.blooms_level),
+			cognitive_level = COALESCE(EXCLUDED.cognitive_level, question_metadata.cognitive_level),
+			language = COALESCE(EXCLUDED.language, question_metadata.language),
+			source_name = COALESCE(EXCLUDED.source_name, question_metadata.source_name)`,
+		q.ID, q.EstimatedTime, diff, blooms, q.ThinkingLevel, lang, q.Source)
+	return err
+}
+
+// linkJunction inserts an N:M row only when the referenced academic row
+// exists, so an empty academic catalog degrades gracefully to nullable.
+func (r *Repository) linkJunction(ctx context.Context, tx pgx.Tx, junction, refTable, refCol string, questionID, refID uuid.UUID) error {
+	if refID == uuid.Nil {
+		return nil
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+refTable+` WHERE id = $1)`, refID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO question.`+junction+` (question_id, `+refCol+`) VALUES ($1, $2)`, questionID, refID)
+	return err
+}
+
+func (r *Repository) insertJunctions(ctx context.Context, tx pgx.Tx, q *Question) error {
+	if err := r.linkJunction(ctx, tx, "question_subject", "academic.subject", "subject_id", q.ID, q.SubjectID); err != nil {
+		return err
+	}
+	if q.GradeID != nil {
+		if err := r.linkJunction(ctx, tx, "question_grade", "academic.grade", "grade_id", q.ID, *q.GradeID); err != nil {
+			return err
+		}
+	}
+	if q.ChapterID != nil {
+		if err := r.linkJunction(ctx, tx, "question_chapter", "academic.chapter", "chapter_id", q.ID, *q.ChapterID); err != nil {
+			return err
+		}
+	}
+	if q.TopicID != nil {
+		if err := r.linkJunction(ctx, tx, "question_topic", "academic.topic", "topic_id", q.ID, *q.TopicID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) clearJunctions(ctx context.Context, tx pgx.Tx, questionID uuid.UUID) error {
+	for _, t := range []string{"question_subject", "question_grade", "question_chapter", "question_topic"} {
+		if _, err := tx.Exec(ctx, `DELETE FROM question.`+t+` WHERE question_id = $1`, questionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type historySnapshot struct {
+	Content     string           `json:"content"`
+	Difficulty  string           `json:"difficulty"`
+	Explanation *string          `json:"explanation,omitempty"`
+	Status      string           `json:"status"`
+	Summary     string           `json:"summary,omitempty"`
+	Options     []QuestionOption `json:"options"`
+}
+
+func buildHistorySnapshot(q *Question, opts []QuestionOption, summary string) ([]byte, error) {
+	return json.Marshal(historySnapshot{
+		Content:     q.Content,
+		Difficulty:  q.Difficulty,
+		Explanation: ptrStr(q.Explanation),
+		Status:      q.Status,
+		Summary:     summary,
+		Options:     opts,
+	})
+}
+
+func (r *Repository) insertHistory(ctx context.Context, tx pgx.Tx, questionID uuid.UUID, action string, changedBy uuid.UUID, oldJSON, newJSON []byte) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO question.question_history (question_id, action, changed_by, old_json, new_json)
+		VALUES ($1, $2, $3, $4, $5)`, questionID, action, changedBy, oldJSON, newJSON)
+	return err
+}
+
 func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOption) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -87,10 +291,13 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 	}
 	defer tx.Rollback(ctx)
 
-	q.ID = uuid.New()
-	if q.Status == "" {
-		q.Status = "APPROVED"
+	statuses, err := r.ensureStatuses(ctx, tx)
+	if err != nil {
+		return err
 	}
+
+	q.ID = uuid.New()
+	q.Status = statusCode(q.Status)
 	q.CreatedAt = time.Now()
 	q.UpdatedAt = time.Now()
 	if q.QuestionType == "" {
@@ -99,40 +306,32 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 	if q.Language == "" {
 		q.Language = "id"
 	}
-	if q.Score <= 0 {
-		q.Score = 1.0
+	score := q.Score
+	if score <= 0 {
+		score = 1.0
 	}
 
-	// Look up grade_id from q.GradeID or subject's grade_id, fallback to first valid grade in database
-	var gradeID uuid.UUID
-	if q.GradeID != nil && *q.GradeID != uuid.Nil {
-		gradeID = *q.GradeID
-	} else {
-		_ = tx.QueryRow(ctx, `SELECT grade_id FROM subjects WHERE id=$1 AND grade_id IS NOT NULL`, q.SubjectID).Scan(&gradeID)
-	}
-
-	if gradeID == uuid.Nil {
-		_ = tx.QueryRow(ctx, `SELECT id FROM grades ORDER BY created_at ASC LIMIT 1`).Scan(&gradeID)
-	}
-
-	title := q.Content
-	if len(title) > 500 {
-		title = title[:500]
-	}
-
-	_, err = tx.Exec(ctx,
-		`INSERT INTO contents (id, content_type, grade_id, subject_id, chapter_id, topic_id, title, body, status, created_by, created_at, updated_at)
-		 VALUES ($1, 'QUESTION', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		q.ID, gradeID, q.SubjectID, q.ChapterID, q.TopicID, title, q.Content, q.Status, q.CreatedBy, q.CreatedAt, q.UpdatedAt)
-	if err != nil {
+	code := "Q" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question (id, question_code, question_type, status_id, owner_id, created_by, updated_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		q.ID, code, q.QuestionType, statuses[q.Status], q.CreatedBy, q.CreatedBy, q.CreatedBy, q.CreatedAt, q.UpdatedAt); err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(ctx,
-		`INSERT INTO content_questions (content_id, question_type, difficulty, bloom_level, thinking_level, language, source, subtopic_id, stimulus_id, score, negative_score, estimated_time, explanation)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		q.ID, q.QuestionType, q.Difficulty, q.BloomLevel, q.ThinkingLevel, q.Language, q.Source, q.SubTopicID, q.StimulusID, q.Score, q.NegativeScore, q.EstimatedTime, q.Explanation)
-	if err != nil {
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, 1, $2, $3, true) RETURNING id`, q.ID, "Initial version", q.CreatedBy).Scan(&versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE question.question SET current_version_id = $1 WHERE id = $2`, versionID, q.ID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, q.Content); err != nil {
 		return err
 	}
 
@@ -140,98 +339,251 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 		opt.QuestionID = q.ID
 		opt.DisplayOrder = i
 		opt.ID = uuid.New()
-		_, err = tx.Exec(ctx,
-			`INSERT INTO content_question_options (id, content_id, label, option_text, is_correct, display_order, created_at)
-			 VALUES ($1,$2,$3,$4,$5,$6, NOW())`,
-			opt.ID, opt.QuestionID, opt.Label, opt.Content, opt.IsCorrect, opt.DisplayOrder)
-		if err != nil {
+		optScore := 0.0
+		if opt.IsCorrect {
+			optScore = score
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.option_block (option_id, block_order, block_type, content)
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.Content); err != nil {
 			return err
 		}
 	}
 
+	if q.Explanation != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.explanation (question_version_id, content) VALUES ($1, $2)`, versionID, q.Explanation); err != nil {
+			return err
+		}
+	}
+
+	if err := r.insertMetadata(ctx, tx, q); err != nil {
+		return err
+	}
+	if err := r.insertJunctions(ctx, tx, q); err != nil {
+		return err
+	}
+
+	snap, _ := buildHistorySnapshot(q, opts, "question created")
+	if err := r.insertHistory(ctx, tx, q.ID, "CREATE", q.CreatedBy, nil, snap); err != nil {
+		return err
+	}
+
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) Update(ctx context.Context, q *Question) error {
-	q.UpdatedAt = time.Now()
+func (r *Repository) Update(ctx context.Context, q *Question, changedBy uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	title := q.Content
-	if len(title) > 500 {
-		title = title[:500]
+	var curVer *uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT current_version_id FROM question.question WHERE id = $1 AND deleted_at IS NULL`, q.ID).Scan(&curVer); err != nil {
+		return err
+	}
+	if curVer == nil {
+		return pgx.ErrNoRows
 	}
 
-	_, err = tx.Exec(ctx,
-		`UPDATE contents SET subject_id=$1, chapter_id=$2, topic_id=$3, title=$4, body=$5, updated_at=$6 WHERE id=$7`,
-		q.SubjectID, q.ChapterID, q.TopicID, title, q.Content, q.UpdatedAt, q.ID)
-	if err != nil {
+	var nextNo int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(version_no), 0) + 1 FROM question.question_version WHERE question_id = $1`, q.ID).Scan(&nextNo); err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(ctx,
-		`UPDATE content_questions SET difficulty=$1, question_type=$2, bloom_level=$3, thinking_level=$4, language=$5, source=$6, subtopic_id=$7, stimulus_id=$8, score=$9, negative_score=$10, estimated_time=$11, explanation=$12 WHERE content_id=$13`,
-		q.Difficulty, q.QuestionType, q.BloomLevel, q.ThinkingLevel, q.Language, q.Source,
-		q.SubTopicID, q.StimulusID, q.Score, q.NegativeScore, q.EstimatedTime, q.Explanation, q.ID)
-	if err != nil {
+	var newVer uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, $2, 'content updated', $3, true) RETURNING id`, q.ID, nextNo, changedBy).Scan(&newVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE question.question_version SET is_current = false WHERE id = $1`, *curVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE question.question SET current_version_id = $1, updated_by = $2, updated_at = NOW() WHERE id = $3`,
+		newVer, changedBy, q.ID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, newVer, q.Content); err != nil {
+		return err
+	}
+	if q.Explanation != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.explanation (question_version_id, content) VALUES ($1, $2)`, newVer, q.Explanation); err != nil {
+			return err
+		}
+	}
+	if err := copyOptions(ctx, tx, *curVer, newVer); err != nil {
+		return err
+	}
+	if err := r.insertMetadata(ctx, tx, q); err != nil {
+		return err
+	}
+	if err := r.clearJunctions(ctx, tx, q.ID); err != nil {
+		return err
+	}
+	if err := r.insertJunctions(ctx, tx, q); err != nil {
 		return err
 	}
 
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+// copyOptions clones the options (with option_block content) of one version
+// into another. Used so every new version carries a full option set.
+func copyOptions(ctx context.Context, tx pgx.Tx, fromVer, toVer uuid.UUID) error {
+	type opt struct {
+		label     string
+		score     float64
+		isCorrect bool
+		disp      int
+		content   *string
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT op.label, op.score, op.is_correct, op.display_order,
+		       (SELECT ob.content FROM question.option_block ob WHERE ob.option_id = op.id ORDER BY ob.block_order LIMIT 1)
+		FROM question.question_option op
+		WHERE op.question_version_id = $1
+		ORDER BY op.display_order`, fromVer)
+	if err != nil {
+		return err
+	}
+	var items []opt
+	for rows.Next() {
+		var o opt
+		if err := rows.Scan(&o.label, &o.score, &o.isCorrect, &o.disp, &o.content); err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, o)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, o := range items {
+		var optID uuid.UUID
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO question.question_option (question_version_id, label, score, is_correct, display_order)
+			VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+			toVer, o.label, o.score, o.isCorrect, o.disp).Scan(&optID); err != nil {
+			return err
+		}
+		content := ""
+		if o.content != nil {
+			content = *o.content
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.option_block (option_id, block_order, block_type, content)
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, optID, content); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID, isAdmin bool) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id=$1`, id)
+	var tag pgconn.CommandTag
+	if isAdmin {
+		tag, err = tx.Exec(ctx, `UPDATE question.question SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
+	} else {
+		tag, err = tx.Exec(ctx, `UPDATE question.question SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL AND owner_id = $2`, id, userID)
+	}
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `DELETE FROM content_questions WHERE content_id=$1`, id)
-	if err != nil {
-		return err
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
 	}
-	_, err = tx.Exec(ctx, `DELETE FROM contents WHERE id=$1`, id)
-	if err != nil {
+
+	snap, _ := json.Marshal(historySnapshot{Status: "DELETED", Summary: "question deleted"})
+	if err := r.insertHistory(ctx, tx, id, "DELETE", userID, nil, snap); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) Publish(ctx context.Context, id uuid.UUID) error {
-	now := time.Now()
-	_, err := r.pool.Exec(ctx,
-		`UPDATE contents SET status='PUBLISHED', published_at=$1, updated_at=$1 WHERE id=$2 AND status='DRAFT'`,
-		now, id)
-	return err
+func (r *Repository) setStatus(ctx context.Context, id uuid.UUID, code, fromCode string, clearPublished bool, userID uuid.UUID, summary string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	sql := `UPDATE question.question SET status_id = $1`
+	args := []interface{}{statuses[code]}
+	if clearPublished {
+		sql += `, published_at = NULL`
+	}
+	sql += `, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`
+	args = append(args, id)
+	if fromCode != "" {
+		sql += ` AND status_id = (SELECT id FROM question.question_status WHERE code = $3)`
+		args = append(args, fromCode)
+	}
+
+	var tag pgconn.CommandTag
+	if fromCode != "" {
+		_, err = tx.Exec(ctx, sql, args...)
+	} else {
+		tag, err = tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return tx.Commit(ctx)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	snap, _ := json.Marshal(historySnapshot{Status: code, Summary: summary})
+	if err := r.insertHistory(ctx, tx, id, historyActionForStatus(code), userID, nil, snap); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
-func (r *Repository) ArchiveQuestion(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE contents SET status='ARCHIVED', updated_at=NOW() WHERE id=$1 AND status IN ('DRAFT','PUBLISHED')`,
-		id)
-	return err
+func (r *Repository) Publish(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return r.setStatus(ctx, id, "PUBLISHED", "DRAFT", false, userID, "question published")
 }
 
-func (r *Repository) RestoreQuestion(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE contents SET status='DRAFT', updated_at=NOW() WHERE id=$1 AND status='ARCHIVED'`,
-		id)
-	return err
+func (r *Repository) ArchiveQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return r.setStatus(ctx, id, "ARCHIVED", "", false, userID, "question archived")
 }
 
-func (r *Repository) UnpublishQuestion(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE contents SET status='DRAFT', published_at=NULL, updated_at=NOW() WHERE id=$1 AND status='PUBLISHED'`,
-		id)
-	return err
+func (r *Repository) RestoreQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return r.setStatus(ctx, id, "DRAFT", "ARCHIVED", true, userID, "question restored")
+}
+
+func (r *Repository) UnpublishQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return r.setStatus(ctx, id, "DRAFT", "PUBLISHED", true, userID, "question unpublished")
 }
 
 func (r *Repository) CloneQuestion(ctx context.Context, q *Question, opts []QuestionOption) error {
@@ -245,20 +597,8 @@ func (r *Repository) CloneQuestion(ctx context.Context, q *Question, opts []Ques
 }
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Question, error) {
-	q := &Question{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT c.id, COALESCE(c.subject_id, '00000000-0000-0000-0000-000000000000')::uuid, c.chapter_id, COALESCE(c.title, '')::text, '', COALESCE(q.difficulty, 'MEDIUM')::text, COALESCE(q.question_type, 'SINGLE_CHOICE')::text, '', q.bloom_level, COALESCE(q.language, 'id')::text, q.source, c.topic_id, q.subtopic_id, q.stimulus_id, COALESCE(q.score, 1.0)::float8, COALESCE(q.negative_score, 0.0)::float8, q.estimated_time, q.thinking_level, COALESCE(q.explanation, '')::text, COALESCE(c.status, 'APPROVED')::text, COALESCE(c.created_by, '00000000-0000-0000-0000-000000000000')::uuid, c.published_at, c.created_at, c.updated_at, COALESCE(s.name, '')::text, COALESCE(ch.name, '')::text, c.grade_id, COALESCE(g.name, '')::text, COALESCE(l.name, '')::text, COALESCE(l.code, '')::text
-		 FROM contents c
-		 JOIN content_questions q ON c.id = q.content_id
-		 LEFT JOIN subjects s ON c.subject_id = s.id
-		 LEFT JOIN chapters ch ON c.chapter_id = ch.id
-		 LEFT JOIN grades g ON c.grade_id = g.id
-		 LEFT JOIN education_levels l ON g.education_level_id = l.id
-		 WHERE c.id = $1`, id,
-	).Scan(&q.ID, &q.SubjectID, &q.ChapterID, &q.Content, &q.ImageURL, &q.Difficulty, &q.QuestionType, &q.Topic, &q.BloomLevel, &q.Language, &q.Source,
-		&q.TopicID, &q.SubTopicID, &q.StimulusID, &q.Score, &q.NegativeScore, &q.EstimatedTime, &q.ThinkingLevel,
-		&q.Explanation, &q.Status, &q.CreatedBy, &q.PublishedAt, &q.CreatedAt, &q.UpdatedAt, &q.SubjectName, &q.ChapterName,
-		&q.GradeID, &q.GradeName, &q.LevelName, &q.LevelCode)
+	q, err := scanQuestion(r.pool.QueryRow(ctx,
+		"SELECT "+questionColumns+questionFrom+" WHERE q.id = $1 AND q.deleted_at IS NULL", id))
 	if err != nil {
 		return nil, err
 	}
@@ -268,47 +608,43 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Question, err
 }
 
 func (r *Repository) List(ctx context.Context, subjectID *uuid.UUID, gradeID *uuid.UUID, difficulty string, status string, search string, limit, offset int) ([]Question, int, error) {
-	where := " WHERE c.content_type = 'QUESTION'"
+	where := " WHERE q.deleted_at IS NULL"
 	args := []interface{}{}
 	argN := 1
 
 	if search != "" {
-		where += " AND (c.title ILIKE $" + itoa(argN) + " OR q.explanation ILIKE $" + itoa(argN) + ")"
+		where += " AND (COALESCE(b.content, '') ILIKE $" + itoa(argN) + " OR COALESCE(e.content, '') ILIKE $" + itoa(argN) + ")"
 		args = append(args, "%"+search+"%")
 		argN++
 	}
 	if subjectID != nil {
-		where += " AND c.subject_id = $" + itoa(argN)
+		where += " AND subj.subject_id = $" + itoa(argN)
 		args = append(args, *subjectID)
 		argN++
 	}
 	if gradeID != nil {
-		where += " AND c.grade_id = $" + itoa(argN)
+		where += " AND grade.grade_id = $" + itoa(argN)
 		args = append(args, *gradeID)
 		argN++
 	}
 	if difficulty != "" {
-		where += " AND q.difficulty = $" + itoa(argN)
+		where += " AND m.difficulty_level = $" + itoa(argN)
 		args = append(args, difficulty)
 		argN++
 	}
 	if status != "" {
-		where += " AND c.status = $" + itoa(argN)
+		where += " AND st.code = $" + itoa(argN)
 		args = append(args, status)
 		argN++
 	}
 
 	var total int
-	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM contents c JOIN content_questions q ON c.id = q.content_id"+where, args...).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) "+questionFrom+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	query := "SELECT c.id, COALESCE(c.subject_id, '00000000-0000-0000-0000-000000000000')::uuid, c.chapter_id, COALESCE(c.title, '')::text, '', COALESCE(q.difficulty, 'MEDIUM')::text, COALESCE(q.question_type, 'SINGLE_CHOICE')::text, '', q.bloom_level, COALESCE(q.language, 'id')::text, q.source, c.topic_id, q.subtopic_id, q.stimulus_id, COALESCE(q.score, 1.0)::float8, COALESCE(q.negative_score, 0.0)::float8, q.estimated_time, q.thinking_level, COALESCE(q.explanation, '')::text, COALESCE(c.status, 'APPROVED')::text, COALESCE(c.created_by, '00000000-0000-0000-0000-000000000000')::uuid, c.published_at, c.created_at, c.updated_at, COALESCE(s.name, '')::text, COALESCE(ch.name, '')::text, c.grade_id, COALESCE(g.name, '')::text, COALESCE(l.name, '')::text, COALESCE(l.code, '')::text FROM contents c JOIN content_questions q ON c.id = q.content_id LEFT JOIN subjects s ON c.subject_id = s.id LEFT JOIN chapters ch ON c.chapter_id = ch.id LEFT JOIN grades g ON c.grade_id = g.id LEFT JOIN education_levels l ON g.education_level_id = l.id" + where + " ORDER BY c.created_at DESC LIMIT $" + itoa(argN) + " OFFSET $" + itoa(argN+1)
-
-	queryArgs := make([]interface{}, len(args), len(args)+2)
-	copy(queryArgs, args)
-	queryArgs = append(queryArgs, limit, offset)
+	query := "SELECT " + questionColumns + questionFrom + where + " ORDER BY q.created_at DESC LIMIT $" + itoa(argN) + " OFFSET $" + itoa(argN+1)
+	queryArgs := append(append([]interface{}{}, args...), limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, queryArgs...)
 	if err != nil {
@@ -318,25 +654,25 @@ func (r *Repository) List(ctx context.Context, subjectID *uuid.UUID, gradeID *uu
 
 	var questions []Question
 	for rows.Next() {
-		var q Question
-		var qTypeStr string
-		if err := rows.Scan(&q.ID, &q.SubjectID, &q.ChapterID, &q.Content, &q.ImageURL, &q.Difficulty, &qTypeStr, &q.Topic, &q.BloomLevel, &q.Language, &q.Source,
-			&q.TopicID, &q.SubTopicID, &q.StimulusID, &q.Score, &q.NegativeScore, &q.EstimatedTime, &q.ThinkingLevel,
-			&q.Explanation, &q.Status, &q.CreatedBy, &q.PublishedAt, &q.CreatedAt, &q.UpdatedAt, &q.SubjectName, &q.ChapterName,
-			&q.GradeID, &q.GradeName, &q.LevelName, &q.LevelCode); err != nil {
+		q, err := scanQuestion(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		q.QuestionType = QuestionType(qTypeStr)
 		opts, _ := r.GetOptions(ctx, q.ID)
 		q.Options = opts
-		questions = append(questions, q)
+		questions = append(questions, *q)
 	}
 	return questions, total, nil
 }
 
 func (r *Repository) GetOptions(ctx context.Context, questionID uuid.UUID) ([]QuestionOption, error) {
-	rows, err := r.pool.Query(ctx,
-		"SELECT id, content_id, label, option_text, is_correct, display_order FROM content_question_options WHERE content_id = $1 ORDER BY display_order", questionID)
+	rows, err := r.pool.Query(ctx, `
+		SELECT op.id, q.id, op.label, COALESCE(ob.content, '')::text, op.is_correct, op.display_order
+		FROM question.question_option op
+		JOIN question.question q ON q.current_version_id = op.question_version_id
+		LEFT JOIN question.option_block ob ON ob.option_id = op.id AND ob.block_order = 0
+		WHERE q.id = $1 AND q.deleted_at IS NULL
+		ORDER BY op.display_order`, questionID)
 	if err != nil {
 		return nil, err
 	}
@@ -360,8 +696,18 @@ func (r *Repository) ReplaceOptions(ctx context.Context, questionID uuid.UUID, o
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id=$1`, questionID)
-	if err != nil {
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT current_version_id FROM question.question WHERE id = $1 AND deleted_at IS NULL`, questionID).Scan(&versionID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM question.option_block WHERE option_id IN
+		(SELECT id FROM question.question_option WHERE question_version_id = $1)`, versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM question.question_option WHERE question_version_id = $1`, versionID); err != nil {
 		return err
 	}
 
@@ -369,11 +715,19 @@ func (r *Repository) ReplaceOptions(ctx context.Context, questionID uuid.UUID, o
 		opt.QuestionID = questionID
 		opt.DisplayOrder = i
 		opt.ID = uuid.New()
-		_, err = tx.Exec(ctx,
-			`INSERT INTO content_question_options (id, content_id, label, option_text, is_correct, display_order, created_at)
-			 VALUES ($1,$2,$3,$4,$5,$6, NOW())`,
-			opt.ID, opt.QuestionID, opt.Label, opt.Content, opt.IsCorrect, opt.DisplayOrder)
-		if err != nil {
+		optScore := 0.0
+		if opt.IsCorrect {
+			optScore = 1.0
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.option_block (option_id, block_order, block_type, content)
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.Content); err != nil {
 			return err
 		}
 	}
@@ -397,28 +751,51 @@ type QuestionRevision struct {
 }
 
 func (r *Repository) RecordRevision(ctx context.Context, q *Question, opts []QuestionOption, changedBy *uuid.UUID, changeType, summary string) error {
-	optionsJSON, _ := json.Marshal(opts)
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO question_revisions (question_id, revision, content, difficulty, explanation, options, changed_by, change_type, summary)
-		 VALUES ($1, (SELECT COALESCE(MAX(revision),0)+1 FROM question_revisions WHERE question_id=$1), $2, $3, $4, $5, $6, $7, $8)`,
-		q.ID, q.Content, q.Difficulty, ptrStr(q.Explanation), optionsJSON, changedBy, changeType, summary)
+	snap, err := buildHistorySnapshot(q, opts, summary)
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, `
+		INSERT INTO question.question_history (question_id, action, changed_by, old_json, new_json)
+		VALUES ($1, $2, $3, $4, $4)`,
+		q.ID, historyAction(changeType), changedBy, snap)
 	return err
 }
 
 func (r *Repository) ListRevisions(ctx context.Context, questionID uuid.UUID) ([]QuestionRevision, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, question_id, revision, content, difficulty, explanation, options, changed_by, change_type, summary, created_at
-		 FROM question_revisions WHERE question_id=$1 ORDER BY revision DESC`, questionID)
+	rows, err := r.pool.Query(ctx, `
+		WITH seq AS (
+			SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) AS rn
+			FROM question.question_history WHERE question_id = $1
+		)
+		SELECT h.id, h.question_id, s.rn, h.changed_by, h.action, h.created_at, h.new_json
+		FROM question.question_history h
+		JOIN seq s ON s.id = h.id
+		WHERE h.question_id = $1
+		ORDER BY h.created_at DESC`, questionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var revs []QuestionRevision
 	for rows.Next() {
 		var rev QuestionRevision
-		if err := rows.Scan(&rev.ID, &rev.QuestionID, &rev.Revision, &rev.Content, &rev.Difficulty, &rev.Explanation, &rev.Options, &rev.ChangedBy, &rev.ChangeType, &rev.Summary, &rev.CreatedAt); err != nil {
+		var action string
+		var newJSON []byte
+		if err := rows.Scan(&rev.ID, &rev.QuestionID, &rev.Revision, &rev.ChangedBy, &action, &rev.CreatedAt, &newJSON); err != nil {
 			return nil, err
 		}
+		rev.ChangeType = action
+		var snap historySnapshot
+		if len(newJSON) > 0 {
+			_ = json.Unmarshal(newJSON, &snap)
+		}
+		rev.Content = snap.Content
+		rev.Difficulty = snap.Difficulty
+		rev.Explanation = snap.Explanation
+		rev.Options, _ = json.Marshal(snap.Options)
+		rev.Summary = snap.Summary
 		revs = append(revs, rev)
 	}
 	return revs, nil
@@ -433,30 +810,107 @@ func ptrStr(s string) *string {
 
 // --- Import Job Logging ---
 
+// CreateImportJob keeps its legacy signature; filename/totalRows/createdBy
+// have no columns in question.question_import_job, so they are dropped.
+// ponytail: add file_id linkage in subphase 2.6 when media import lands.
 func (r *Repository) CreateImportJob(ctx context.Context, filename string, totalRows int, createdBy uuid.UUID) (uuid.UUID, error) {
 	jobID := uuid.New()
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO question_import_jobs (id, filename, total_rows, status, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, 'PROCESSING', $4, NOW(), NOW())`,
-		jobID, filename, totalRows, createdBy)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO question.question_import_job (id, status, started_at, created_at, updated_at)
+		VALUES ($1, 'PROCESSING', NOW(), NOW(), NOW())`, jobID)
 	return jobID, err
 }
 
 func (r *Repository) UpdateImportJob(ctx context.Context, jobID uuid.UUID, successCount int, errorCount int, status string, errorLog string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE question_import_jobs
-		 SET success_count=$1, error_count=$2, status=$3, error_log=$4, updated_at=NOW()
-		 WHERE id=$5`,
-		successCount, errorCount, status, errorLog, jobID)
+	var finishedAt any
+	switch mapImportStatus(status) {
+	case "SUCCESS", "FAILED", "CANCELLED":
+		finishedAt = time.Now()
+	}
+	_, err := r.pool.Exec(ctx, `
+		UPDATE question.question_import_job
+		SET status = $1, finished_at = $2, updated_at = NOW()
+		WHERE id = $3`, mapImportStatus(status), finishedAt, jobID)
 	return err
 }
 
 func (r *Repository) CreateImportRowLog(ctx context.Context, jobID uuid.UUID, rowNumber int, rawData []byte, status string, errStr string, questionID *uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO question_import_rows (id, job_id, row_number, raw_data, errors, status, question_id, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-		uuid.New(), jobID, rowNumber, rawData, errStr, status, questionID)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO question.question_import_row (job_id, row_no, status, error_message)
+		VALUES ($1, $2, $3, $4)`,
+		jobID, rowNumber, mapRowStatus(status), errStr)
 	return err
+}
+
+// --- Normalization helpers ---
+
+func statusCode(s string) string {
+	switch strings.ToUpper(s) {
+	case "APPROVED", "DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED":
+		return strings.ToUpper(s)
+	}
+	return "DRAFT"
+}
+
+func normalizeDifficulty(d string) string {
+	switch strings.ToUpper(d) {
+	case "EASY", "MEDIUM", "HARD", "VERY_HARD":
+		return strings.ToUpper(d)
+	}
+	return "MEDIUM"
+}
+
+func normalizeBloom(b string) string {
+	switch strings.ToUpper(b) {
+	case "REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE":
+		return strings.ToUpper(b)
+	}
+	return ""
+}
+
+func historyAction(changeType string) string {
+	switch strings.ToUpper(changeType) {
+	case "CREATE", "CREATED":
+		return "CREATE"
+	case "UPDATE", "UPDATED":
+		return "UPDATE"
+	case "REVIEW", "APPROVE", "REVISION", "ARCHIVE", "RESTORE", "DELETE":
+		return strings.ToUpper(changeType)
+	}
+	return "UPDATE"
+}
+
+func historyActionForStatus(code string) string {
+	switch code {
+	case "ARCHIVED":
+		return "ARCHIVE"
+	case "DRAFT":
+		return "RESTORE"
+	default:
+		return "UPDATE"
+	}
+}
+
+func mapImportStatus(s string) string {
+	switch strings.ToUpper(s) {
+	case "COMPLETED", "SUCCESS":
+		return "SUCCESS"
+	case "PROCESSING", "VALIDATING", "PENDING", "FAILED", "CANCELLED":
+		return strings.ToUpper(s)
+	}
+	return "FAILED"
+}
+
+func mapRowStatus(s string) string {
+	switch strings.ToUpper(s) {
+	case "ERROR", "FAILED":
+		return "FAILED"
+	case "IMPORTED", "SUCCESS":
+		return "SUCCESS"
+	case "SKIPPED":
+		return "SKIPPED"
+	}
+	return "PENDING"
 }
 
 // --- Service ---
@@ -665,7 +1119,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateQuestionRe
 		q.StimulusID = &sid
 	}
 
-	if err := s.repo.Update(ctx, q); err != nil {
+	if err := s.repo.Update(ctx, q, changedBy); err != nil {
 		return nil, err
 	}
 
@@ -709,12 +1163,12 @@ func (s *Service) ListRevisions(ctx context.Context, questionID uuid.UUID) ([]Qu
 	return s.repo.ListRevisions(ctx, questionID)
 }
 
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID, isAdmin bool) error {
+	return s.repo.Delete(ctx, id, userID, isAdmin)
 }
 
-func (s *Service) Publish(ctx context.Context, id uuid.UUID) (*Question, error) {
-	if err := s.repo.Publish(ctx, id); err != nil {
+func (s *Service) Publish(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*Question, error) {
+	if err := s.repo.Publish(ctx, id, userID); err != nil {
 		return nil, err
 	}
 	return s.repo.FindByID(ctx, id)
@@ -741,16 +1195,16 @@ func (s *Service) Clone(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*Q
 	return &newQ, newOpts, nil
 }
 
-func (s *Service) ArchiveQuestion(ctx context.Context, id uuid.UUID) error {
-	return s.repo.ArchiveQuestion(ctx, id)
+func (s *Service) ArchiveQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return s.repo.ArchiveQuestion(ctx, id, userID)
 }
 
-func (s *Service) RestoreQuestion(ctx context.Context, id uuid.UUID) error {
-	return s.repo.RestoreQuestion(ctx, id)
+func (s *Service) RestoreQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return s.repo.RestoreQuestion(ctx, id, userID)
 }
 
-func (s *Service) UnpublishQuestion(ctx context.Context, id uuid.UUID) error {
-	return s.repo.UnpublishQuestion(ctx, id)
+func (s *Service) UnpublishQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return s.repo.UnpublishQuestion(ctx, id, userID)
 }
 
 func (s *Service) GetOptions(ctx context.Context, questionID uuid.UUID) ([]QuestionOption, error) {
@@ -770,7 +1224,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r := router.Group("/questions")
-	write := middleware.RequireRole("ADMIN", "STAFF", "TEACHER")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
 	read := middleware.RequireAuth(h.jwt)
 	auth := middleware.RequireAuth(h.jwt)
 
@@ -947,7 +1401,18 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid question ID"))
 	}
-	if err := h.svc.Delete(c.Context(), id); err != nil {
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	role, _ := c.Locals("role").(string)
+	isAdmin := middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF")
+
+	if err := h.svc.Delete(c.Context(), id, userID, isAdmin); err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Question not found or not owned by you"))
+		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete question"))
 	}
 	return c.JSON(shared.Success(map[string]string{"message": "Question deleted"}))
@@ -958,7 +1423,12 @@ func (h *Handler) Publish(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid question ID"))
 	}
-	q, err := h.svc.Publish(c.Context(), id)
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	q, err := h.svc.Publish(c.Context(), id, userID)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to publish question"))
 	}
@@ -973,7 +1443,12 @@ func (h *Handler) ArchiveQuestion(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid question ID"))
 	}
-	if err := h.svc.repo.ArchiveQuestion(c.Context(), id); err != nil {
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	if err := h.svc.ArchiveQuestion(c.Context(), id, userID); err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to archive question"))
 	}
 	return c.JSON(shared.Success(fiber.Map{"message": "Question archived"}))
@@ -984,7 +1459,12 @@ func (h *Handler) RestoreQuestion(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid question ID"))
 	}
-	if err := h.svc.repo.RestoreQuestion(c.Context(), id); err != nil {
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	if err := h.svc.RestoreQuestion(c.Context(), id, userID); err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to restore question"))
 	}
 	return c.JSON(shared.Success(fiber.Map{"message": "Question restored"}))
@@ -995,7 +1475,12 @@ func (h *Handler) UnpublishQuestion(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid question ID"))
 	}
-	if err := h.svc.repo.UnpublishQuestion(c.Context(), id); err != nil {
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	if err := h.svc.UnpublishQuestion(c.Context(), id, userID); err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to unpublish question"))
 	}
 	return c.JSON(shared.Success(fiber.Map{"message": "Question unpublished"}))
@@ -1101,11 +1586,11 @@ func (h *Handler) Import(c *fiber.Ctx) error {
 		subjID, err := uuid.Parse(row.SubjectID)
 		if err != nil {
 			var foundID uuid.UUID
-			err2 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM subjects WHERE name ILIKE $1 OR code ILIKE $1 LIMIT 1`, strings.TrimSpace(row.SubjectID)).Scan(&foundID)
+			err2 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM academic.subject WHERE name ILIKE $1 OR code ILIKE $1 LIMIT 1`, strings.TrimSpace(row.SubjectID)).Scan(&foundID)
 			if err2 == nil {
 				subjID = foundID
 			} else {
-				err3 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM subjects ORDER BY created_at ASC LIMIT 1`).Scan(&foundID)
+				err3 := h.svc.repo.pool.QueryRow(c.Context(), `SELECT id FROM academic.subject ORDER BY created_at ASC LIMIT 1`).Scan(&foundID)
 				if err3 == nil {
 					subjID = foundID
 				} else {
