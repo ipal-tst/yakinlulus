@@ -47,12 +47,13 @@ func TestMediaRepositoryLifecycle(t *testing.T) {
 
 	entityType := "PROBE"
 	entityID := uuid.New()
-	storagePath := "uploads/probe_test.txt"
-	publicURL := "https://example.com/bucket/uploads/probe_test.txt"
+	originalName := "probe_test.txt"
+	storagePath := "uploads/" + originalName
+	publicURL := "https://example.com/bucket/uploads/" + originalName
 
 	m := &Media{
-		FileName:     "probe_file.txt",
-		OriginalName: "probe_file.txt",
+		FileName:     originalName,
+		OriginalName: originalName,
 		MimeType:     "text/plain",
 		FileSize:     12,
 		StoragePath:  storagePath,
@@ -67,12 +68,26 @@ func TestMediaRepositoryLifecycle(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
+	var storageID *uuid.UUID
+	if err := p.QueryRow(ctx, `SELECT storage_id FROM media.asset WHERE id = $1`, m.ID).Scan(&storageID); err != nil {
+		t.Fatalf("read storage_id: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM media.asset_reference WHERE asset_id = $1`, m.ID)
+		if storageID != nil {
+			_, _ = p.Exec(ctx, `DELETE FROM media.asset_storage WHERE id = $1`, *storageID)
+		}
+		_, _ = p.Exec(ctx, `DELETE FROM media.asset WHERE id = $1`, m.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+	})
+
 	got, err := r.FindByID(ctx, m.ID)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
-	if got.OriginalName != "probe_file.txt" {
-		t.Errorf("OriginalName = %q, want probe_file.txt", got.OriginalName)
+	if got.OriginalName != originalName {
+		t.Errorf("OriginalName = %q, want %q", got.OriginalName, originalName)
 	}
 	if got.URL != publicURL {
 		t.Errorf("URL = %q, want %q", got.URL, publicURL)
@@ -127,8 +142,4 @@ func TestMediaRepositoryLifecycle(t *testing.T) {
 	if _, err := r.FindByID(ctx, m.ID); err == nil {
 		t.Error("FindByID after owner delete should return error (deleted_at filtered)")
 	}
-
-	// Cleanup: remove probe rows so the live DB stays tidy.
-	p.Exec(ctx, `DELETE FROM media.asset WHERE asset_code LIKE 'asset_%' AND original_name = 'probe_test.txt'`)
-	p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
 }

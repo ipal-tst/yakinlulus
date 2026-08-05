@@ -111,8 +111,9 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Media, error)
 func (r *Repository) ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID, limit, offset int) ([]Media, int, error) {
 	var total int
 	if err := r.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM media.asset_reference
-		WHERE module = $1 AND entity_id = $2`, entityType, entityID).Scan(&total); err != nil {
+		SELECT COUNT(*) FROM media.asset_reference ref
+		JOIN media.asset a ON a.id = ref.asset_id AND a.deleted_at IS NULL
+		WHERE ref.module = $1 AND ref.entity_id = $2`, entityType, entityID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -150,7 +151,9 @@ func (r *Repository) ListAll(ctx context.Context, limit, offset int, mimeFilter 
 	}
 
 	var total int
-	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM media.asset a"+where, args...).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(DISTINCT a.id) FROM media.asset a
+		LEFT JOIN media.asset_reference ref ON ref.asset_id = a.id`+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
