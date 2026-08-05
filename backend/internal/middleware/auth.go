@@ -40,6 +40,26 @@ type RBACConfig struct {
 	Secret string
 }
 
+// Role codes (v2 RBAC).
+const (
+	RoleSuperAdmin = "SUPER_ADMIN"
+	RoleStaff      = "STAFF"
+	RoleFinance    = "FINANCE"
+	RoleGuru       = "GURU"
+	RoleSiswa      = "SISWA"
+	RoleInvestor   = "INVESTOR"
+)
+
+// HasAnyRole reports whether role matches at least one of allowed.
+func HasAnyRole(role string, allowed ...string) bool {
+	for _, r := range allowed {
+		if role == r {
+			return true
+		}
+	}
+	return false
+}
+
 type JWTClaims struct {
 	UserID string
 	Role   string

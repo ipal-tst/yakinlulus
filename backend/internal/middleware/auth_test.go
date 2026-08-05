@@ -145,6 +145,27 @@ func TestRequireRoleWrongRoleReturns403(t *testing.T) {
 	assert.Equal(t, 403, resp.StatusCode)
 }
 
+func TestHasAnyRole(t *testing.T) {
+	cases := []struct {
+		name     string
+		role     string
+		allowed  []string
+		expected bool
+	}{
+		{"guru in staff list", "GURU", []string{"SUPER_ADMIN", "STAFF", "GURU"}, true},
+		{"siswa not in staff list", "SISWA", []string{"SUPER_ADMIN", "STAFF", "GURU"}, false},
+		{"super admin allowed", "SUPER_ADMIN", []string{"SUPER_ADMIN"}, true},
+		{"empty allowed", "SISWA", []string{}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := HasAnyRole(tc.role, tc.allowed...); got != tc.expected {
+				t.Fatalf("HasAnyRole(%q, %v) = %v, want %v", tc.role, tc.allowed, got, tc.expected)
+			}
+		})
+	}
+}
+
 // --- ValidateJWT unit tests ---
 
 func TestValidateJWTValid(t *testing.T) {
