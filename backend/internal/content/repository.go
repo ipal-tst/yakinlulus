@@ -1080,8 +1080,8 @@ func lastPositionPtr(n int) *string {
 func (r *repository) UpsertProgress(ctx context.Context, lp *LearningProgress) error {
 	lp.ID = uuid.New()
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content.learning_progress (id, student_id, material_id, progress_percent, last_position, completed, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())
+		INSERT INTO content.learning_progress (id, student_id, material_id, progress_percent, last_position, completed, completed_at, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $6 THEN NOW() ELSE NULL END, NOW(), NOW())
 		ON CONFLICT (student_id, material_id) DO UPDATE SET
 			progress_percent = $4,
 			last_position = $5,

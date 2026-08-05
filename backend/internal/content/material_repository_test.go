@@ -250,6 +250,21 @@ func TestMaterialRepositoryLifecycle(t *testing.T) {
 	if lp1.ID == uuid.Nil {
 		t.Error("UpsertProgress did not set ID")
 	}
+
+	// First-save completion (INSERT path) must set completed_at.
+	student2 := seedUser(t, p, ctx, "mat_student")
+	lp0 := &LearningProgress{UserID: student2, MaterialID: materialID, Progress: 100, Completed: true}
+	if err := r.UpsertProgress(ctx, lp0); err != nil {
+		t.Fatalf("UpsertProgress (first-save complete): %v", err)
+	}
+	var insertCompletedAt *time.Time
+	if err := p.QueryRow(ctx, `SELECT completed_at FROM content.learning_progress WHERE student_id=$1 AND material_id=$2`, student2, materialID).Scan(&insertCompletedAt); err != nil {
+		t.Fatalf("read insert-path completed_at: %v", err)
+	}
+	if insertCompletedAt == nil {
+		t.Error("completed_at not set on first-save completion (INSERT path)")
+	}
+
 	// Second upsert with higher progress + completed.
 	lp2 := &LearningProgress{UserID: student, MaterialID: materialID, Progress: 100, LastPosition: strPtr("30"), Completed: true}
 	if err := r.UpsertProgress(ctx, lp2); err != nil {
