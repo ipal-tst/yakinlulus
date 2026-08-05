@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -143,6 +144,36 @@ func TestRequireRoleWrongRoleReturns403(t *testing.T) {
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	assert.Equal(t, 403, resp.StatusCode)
+}
+
+func TestRequireRoleNewRoles(t *testing.T) {
+	cases := []struct {
+		name       string
+		role       string
+		allowed    []string
+		wantStatus int
+	}{
+		{"guru allowed", "GURU", []string{"SUPER_ADMIN", "STAFF", "GURU"}, 200},
+		{"siswa forbidden", "SISWA", []string{"SUPER_ADMIN", "STAFF", "GURU"}, 403},
+		{"finance allowed", "FINANCE", []string{"FINANCE"}, 200},
+		{"investor forbidden", "INVESTOR", []string{"SUPER_ADMIN"}, 403},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := fiber.New()
+			app.Get("/x", func(c *fiber.Ctx) error {
+				c.Locals("role", tc.role)
+				return c.Next()
+			}, RequireRole(tc.allowed...), func(c *fiber.Ctx) error {
+				return c.SendStatus(200)
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			resp, _ := app.Test(req)
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", resp.StatusCode, tc.wantStatus)
+			}
+		})
+	}
 }
 
 func TestHasAnyRole(t *testing.T) {
