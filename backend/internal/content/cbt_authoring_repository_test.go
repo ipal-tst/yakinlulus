@@ -376,3 +376,108 @@ func assertCBTResidueZero(t *testing.T, p *pgxpool.Pool, examID, owner, student,
 		}
 	}
 }
+
+// TestCBTGetContentJunctionless: GetContent on an EXAM with no academic
+// junctions must not fail on NULL scan (grade/subject are value uuid.UUID).
+func TestCBTGetContentJunctionless(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	owner := uuid.New()
+	if _, err := p.Exec(ctx, `
+		INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+		VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING`, owner, "cbt_probe_"+owner.String()[:8]); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+	})
+
+	// No subject/grade/chapter/topic — junctions must be skipped.
+	base := &Content{
+		ContentType: ContentTypeExam,
+		GradeID:     uuid.Nil,
+		SubjectID:   uuid.Nil,
+		Title:       "Exam Tanpa Junction",
+		Body:        "desc",
+		Status:      StatusDraft,
+		CreatedBy:   owner,
+		Metadata:    map[string]interface{}{},
+	}
+	if err := r.CreateContent(ctx, base); err != nil {
+		t.Fatalf("CreateContent(EXAM junctionless): %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM cbt.exam WHERE id = $1`, base.ID)
+	})
+	if err := r.CreateExam(ctx, &Exam{ContentID: base.ID, DurationMinutes: 60, PassingScore: 50}); err != nil {
+		t.Fatalf("CreateExam: %v", err)
+	}
+
+	got, err := r.GetContent(ctx, base.ID)
+	if err != nil {
+		t.Fatalf("GetContent (junctionless exam): %v", err)
+	}
+	if got.ContentType != ContentTypeExam {
+		t.Errorf("ContentType = %q, want EXAM", got.ContentType)
+	}
+	if got.Title != base.Title {
+		t.Errorf("Title = %q, want %q", got.Title, base.Title)
+	}
+	if got.GradeID != uuid.Nil {
+		t.Errorf("GradeID = %v, want nil uuid", got.GradeID)
+	}
+}
+
+// TestCBTUpdateExamPreservesNegativeMarking: a partial UpdateExam (absent
+// negative_marking) must not clobber an authored true to false.
+func TestCBTUpdateExamPreservesNegativeMarking(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	owner := uuid.New()
+	if _, err := p.Exec(ctx, `
+		INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+		VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING`, owner, "cbt_probe_"+owner.String()[:8]); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+	})
+
+	base := &Content{
+		ContentType: ContentTypeExam,
+		GradeID:     uuid.Nil,
+		SubjectID:   uuid.Nil,
+		Title:       "Exam Negative Marking",
+		Body:        "desc",
+		Status:      StatusDraft,
+		CreatedBy:   owner,
+		Metadata:    map[string]interface{}{},
+	}
+	if err := r.CreateContent(ctx, base); err != nil {
+		t.Fatalf("CreateContent: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM cbt.exam WHERE id = $1`, base.ID)
+	})
+	if err := r.CreateExam(ctx, &Exam{ContentID: base.ID, DurationMinutes: 60, PassingScore: 50, NegativeMarking: 1.0}); err != nil {
+		t.Fatalf("CreateExam (negative marking true): %v", err)
+	}
+
+	// Partial update: absent negative_marking (0) must not clear it.
+	if err := r.UpdateExam(ctx, base.ID, &Exam{ContentID: base.ID}); err != nil {
+		t.Fatalf("UpdateExam (partial): %v", err)
+	}
+	var nm bool
+	if err := p.QueryRow(ctx, `SELECT negative_marking FROM cbt.exam_metadata WHERE exam_id = $1`, base.ID).Scan(&nm); err != nil {
+		t.Fatalf("read negative_marking: %v", err)
+	}
+	if !nm {
+		t.Error("negative_marking clobbered to false by partial UpdateExam, want preserved true")
+	}
+}

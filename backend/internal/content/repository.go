@@ -350,7 +350,10 @@ func (r *repository) GetContent(ctx context.Context, id uuid.UUID) (*Content, er
 		c := &Content{}
 		var meta map[string]interface{}
 		err := r.pool.QueryRow(ctx, `
-			SELECT m.id, 'EXAM', gr.grade_id, subj.subject_id, ch.chapter_id, tp.topic_id, NULL::uuid, m.title,
+			SELECT m.id, 'EXAM',
+			       COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+			       COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+			       ch.chapter_id, tp.topic_id, NULL::uuid, m.title,
 			       COALESCE(m.description, '')::text, COALESCE(st.code, 'DRAFT')::text, m.owner_id,
 			       NULL::jsonb, NULL::timestamptz, m.created_at, m.updated_at
 			FROM cbt.exam m
@@ -1530,7 +1533,7 @@ func (r *repository) UpdateExam(ctx context.Context, contentID uuid.UUID, e *Exa
 		ON CONFLICT (exam_id) DO UPDATE SET
 			duration_minute = CASE WHEN EXCLUDED.duration_minute > 0 THEN EXCLUDED.duration_minute ELSE cbt.exam_metadata.duration_minute END,
 			passing_score = CASE WHEN EXCLUDED.passing_score > 0 THEN EXCLUDED.passing_score ELSE cbt.exam_metadata.passing_score END,
-			negative_marking = EXCLUDED.negative_marking`,
+			negative_marking = CASE WHEN $4 THEN $4 ELSE cbt.exam_metadata.negative_marking END`,
 		contentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
 	if err != nil {
 		return err
