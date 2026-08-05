@@ -74,6 +74,11 @@ func TestMediaRepositoryLifecycle(t *testing.T) {
 		}
 		_, _ = p.Exec(ctx, `DELETE FROM media.asset WHERE id = $1`, m.ID)
 		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+		// Remove the default provider only if this test lazily created it
+		// and no other storage rows still reference it.
+		_, _ = p.Exec(ctx, `DELETE FROM media.storage_provider
+			WHERE code = 'SUPABASE'
+			AND NOT EXISTS (SELECT 1 FROM media.asset_storage st WHERE st.provider_id = media.storage_provider.id)`)
 	})
 
 	got, err := r.FindByID(ctx, m.ID)
