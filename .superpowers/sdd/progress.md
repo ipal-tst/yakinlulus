@@ -1,17 +1,23 @@
 # SDD Progress Ledger
 
-## DB Rebuild Phase 11 Queue (plan docs/superpowers/plans/2026-08-05-database-rebuild-phase11-queue.md)
-Base commit: 923cd15 (plan doc). Target: 35 tables in queue schema, migrations 110-119.
+## Phase 12 AI (plan docs/superpowers/plans/2026-08-05-database-rebuild-phase12-ai.md)
+Base commit: 3efd12d. Target: ai schema, migrations 120-129 (10 files), full AI tutor/chat/RAG/recommendation domain. Design doc §4.13.
 
-Task 11A: complete (commits 923cd15..0decf48, review clean). Verified: queue=3, migration 110 applied.
-Task 11B: complete (commits 0decf48..5c58bc1, review clean). Verified: queue=5, migration 111 applied.
-Task 11C: complete (commits 5c58bc1..338f452, review clean). Verified: queue=8, migration 112 applied.
-Task 11D: complete (commits 338f452..2079612, review clean). Verified: queue=10, migration 113 applied.
-Task 11E: complete (commits 2079612..3c396a2, review clean). Verified: queue=13, migration 114 applied.
-Task 11F: complete (commits 3c396a2..93394c1, review clean). Verified: queue=15, migration 115 applied.
-Task 11G: complete (commits 93394c1..22bcd87, review clean). Verified: queue=19, migration 116 applied.
-Task 11H: complete (commits 22bcd87..e4d6ac0, review clean). Verified: queue=22, migration 117 applied.
-Task 11I: complete (commits e4d6ac0..5ec1c1a, review clean). Verified: queue=27, migration 118 applied.
-Task 11J: complete (commits 5ec1c1a..4a97999, review clean). Verified: queue=35, migration 119 applied.
-Final review: approve. Queue domain COMPLETE (35 tables).
-Note: _migrations count fluctuates during parallel execution (phase 10 applied 100-109 concurrently); phase 11 files 110-119 all applied cleanly.
+Task 12A: complete (commit ba1e857, review clean). Verified: ai=3, migration 120 applied.
+Task 12B: complete (commit b9fe4cf, review clean). Verified: ai=6, migration 121 applied.
+Task 12C: complete (commit b95db99, review clean). Verified: ai=9, migration 122 applied.
+Task 12D: complete (commit 069b565, review clean). Verified: ai=12, migration 123 applied.
+Task 12E: complete (commit 4764c40, review clean). Verified: ai=14, migration 124 applied.
+Task 12F: complete (commit db73bde, review clean). Verified: ai=16, migration 125 applied.
+Task 12G: complete (commit 43381b2, review clean). Verified: ai=19, migration 126 applied.
+Task 12H: complete (commit d78e6db, review clean). Verified: ai=21, migration 127 applied.
+Task 12I: complete (commit 98eb7a0, review clean). Verified: ai=24, migration 128 applied.
+Task 12J: complete (commit 6db190f, review clean). Verified: ai=26, migration 129 applied, deferred FK present.
+
+Final verification (pgx verifier):
+- ai table count = 26 (>= 13).
+- content.material_embedding FKs = 2 (fk_material_embedding_embedding_id + material_embedding_material_id_fkey) — deferred FK from 071 resolved.
+- _migrations total = 119 (phase 12 added exactly 10: 120-129; remainder incl. parallel phase 14 140-149).
+- go run cmd/migrate/main.go up: clean, no pending.
+Final review: approve. AI domain COMPLETE (26 tables).
+Note: 071_material_ai.up.sql's deferred FK `fk_material_embedding_embedding_id` -> ai.embedding(id) resolved in 129_ai_fix.up.sql (last phase-12 file).
