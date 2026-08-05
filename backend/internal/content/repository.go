@@ -220,10 +220,11 @@ func (r *repository) createMaterialContent(ctx context.Context, c *Content) erro
 		statusID = statuses[string(StatusDraft)]
 	}
 
-	var publishedAt any
+	var publishedAt *time.Time
 	if c.Status == StatusPublished {
-		publishedAt = time.Now()
-		c.PublishedAt = publishedAt.(*time.Time)
+		now := time.Now()
+		publishedAt = &now
+		c.PublishedAt = publishedAt
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -293,9 +294,8 @@ func (r *repository) updateMaterialContent(ctx context.Context, id uuid.UUID, re
 			summary = COALESCE($3, summary),
 			status_id = COALESCE($4, status_id),
 			published_at = $5,
-			updated_by = $6,
 			updated_at = NOW()
-		WHERE id = $1`, id, req.Title, req.Body, statusID, publishedAt, statusID); err != nil {
+		WHERE id = $1`, id, req.Title, req.Body, statusID, publishedAt); err != nil {
 		return err
 	}
 

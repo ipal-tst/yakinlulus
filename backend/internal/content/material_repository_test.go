@@ -359,3 +359,70 @@ func strPtr(s string) *string {
 func intPtr(v int) *int {
 	return &v
 }
+
+// TestMaterialStatusTransitions covers the two fixed bugs: creating a material
+// with PUBLISHED status (previously panicked) and updating status via
+// UpdateContent (previously wrote a status UUID into updated_by).
+func TestMaterialStatusTransitions(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	owner := seedUser(t, p, ctx, "mat_owner")
+
+	// PUBLISHED create: must not panic and must set published_at.
+	base := &Content{
+		ContentType: ContentTypeMaterial,
+		GradeID:     uuid.Nil,
+		SubjectID:   uuid.Nil,
+		Title:       "Materi Langsung Publikasi",
+		Body:        "Body materi.",
+		Status:      StatusPublished,
+		CreatedBy:   owner,
+		Metadata:    map[string]interface{}{"content_format": string(MaterialFormatText)},
+	}
+	if err := r.CreateContent(ctx, base); err != nil {
+		t.Fatalf("CreateContent(PUBLISHED): %v", err)
+	}
+	var materialID = base.ID
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM content.material_history WHERE material_id = $1`, materialID)
+		_, _ = p.Exec(ctx, `DELETE FROM content.material WHERE id = $1`, materialID)
+	})
+
+	m := &Material{
+		ContentID:         materialID,
+		ContentFormat:     MaterialFormatText,
+		EstimatedDuration: intPtr(10),
+	}
+	if err := r.CreateMaterial(ctx, m); err != nil {
+		t.Fatalf("CreateMaterial: %v", err)
+	}
+
+	got, err := r.GetMaterial(ctx, materialID)
+	if err != nil {
+		t.Fatalf("GetMaterial: %v", err)
+	}
+	if got.Status != StatusPublished {
+		t.Errorf("Status = %q, want PUBLISHED", got.Status)
+	}
+	if got.PublishedAt == nil {
+		t.Error("PublishedAt = nil, want set for PUBLISHED create")
+	}
+
+	// Status-change update: DRAFT must not error (FK bug would have failed).
+	draft := StatusDraft
+	if err := r.UpdateContent(ctx, materialID, UpdateContentReq{Status: &draft}); err != nil {
+		t.Fatalf("UpdateContent(DRAFT): %v", err)
+	}
+	got2, err := r.GetMaterial(ctx, materialID)
+	if err != nil {
+		t.Fatalf("GetMaterial (after update): %v", err)
+	}
+	if got2.Status != StatusDraft {
+		t.Errorf("Status after update = %q, want DRAFT", got2.Status)
+	}
+	if got2.PublishedAt != nil {
+		t.Error("PublishedAt should be nil after moving away from PUBLISHED")
+	}
+}
