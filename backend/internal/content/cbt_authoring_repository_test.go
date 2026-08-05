@@ -301,6 +301,22 @@ func TestCBTExamAuthoringLifecycle(t *testing.T) {
 		t.Errorf("PassingScore after update = %v, want 50", upd.Exam.PassingScore)
 	}
 
+	// Partial update (absent duration/passing = 0) must NOT clobber existing
+	// values — legacy guarded this with CASE WHEN > 0.
+	if err := r.UpdateExam(ctx, examID, &Exam{ContentID: examID}); err != nil {
+		t.Fatalf("UpdateExam (partial): %v", err)
+	}
+	upd2, err := r.GetExam(ctx, examID)
+	if err != nil {
+		t.Fatalf("GetExam (after partial update): %v", err)
+	}
+	if upd2.Exam.DurationMinutes != 90 {
+		t.Errorf("DurationMinutes after partial update = %d, want preserved 90", upd2.Exam.DurationMinutes)
+	}
+	if upd2.Exam.PassingScore != 50 {
+		t.Errorf("PassingScore after partial update = %v, want preserved 50", upd2.Exam.PassingScore)
+	}
+
 	// DeleteExam via the service path (DeleteContent) soft-deletes + filters.
 	if err := r.DeleteContent(ctx, examID); err != nil {
 		t.Fatalf("DeleteContent(exam): %v", err)

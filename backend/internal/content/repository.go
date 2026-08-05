@@ -1479,8 +1479,8 @@ func (r *repository) CreateExam(ctx context.Context, e *Exam) error {
 		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, certificate, negative_marking, show_result, show_answer)
 		VALUES ($1, $2, $3, false, $4, true, false)
 		ON CONFLICT (exam_id) DO UPDATE SET
-			duration_minute = EXCLUDED.duration_minute,
-			passing_score = EXCLUDED.passing_score,
+			duration_minute = CASE WHEN EXCLUDED.duration_minute > 0 THEN EXCLUDED.duration_minute ELSE cbt.exam_metadata.duration_minute END,
+			passing_score = CASE WHEN EXCLUDED.passing_score > 0 THEN EXCLUDED.passing_score ELSE cbt.exam_metadata.passing_score END,
 			negative_marking = EXCLUDED.negative_marking`,
 		e.ContentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
 	if err != nil {
@@ -1528,8 +1528,8 @@ func (r *repository) UpdateExam(ctx context.Context, contentID uuid.UUID, e *Exa
 		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, negative_marking)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (exam_id) DO UPDATE SET
-			duration_minute = EXCLUDED.duration_minute,
-			passing_score = EXCLUDED.passing_score,
+			duration_minute = CASE WHEN EXCLUDED.duration_minute > 0 THEN EXCLUDED.duration_minute ELSE cbt.exam_metadata.duration_minute END,
+			passing_score = CASE WHEN EXCLUDED.passing_score > 0 THEN EXCLUDED.passing_score ELSE cbt.exam_metadata.passing_score END,
 			negative_marking = EXCLUDED.negative_marking`,
 		contentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
 	if err != nil {
@@ -1558,7 +1558,11 @@ func (r *repository) ListExams(ctx context.Context, filter ExamFilter) ([]ExamFu
 	argN := 1
 
 	if filter.GradeID != nil && *filter.GradeID != uuid.Nil {
-		where += fmt.Sprintf(" AND gr.grade_id = $%d", argN)
+		// Match exact grade, ungraded exams, and exams whose grade shares the
+		// same education level (legacy ListExams semantics).
+		where += fmt.Sprintf(` AND (gr.grade_id = $%d OR gr.grade_id IS NULL OR gr.grade_id IN (
+			SELECT g.id FROM academic.grade g
+			WHERE g.education_level_id = (SELECT g2.education_level_id FROM academic.grade g2 WHERE g2.id = $%d)))`, argN, argN)
 		args = append(args, *filter.GradeID)
 		argN++
 	}
