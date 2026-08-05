@@ -87,6 +87,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) GetUserLevelCode(ctx context.Context, userID uuid.UUID) (string, error) {
+	// TODO(batch4): joins legacy `grades`/`education_levels` — migrate with student profile mapping.
 	var code string
 	err := r.pool.QueryRow(ctx,
 		`SELECT COALESCE(el.code, '') FROM users u
@@ -100,6 +101,7 @@ func (r *Repository) GetUserLevelCode(ctx context.Context, userID uuid.UUID) (st
 }
 
 func (r *Repository) ListTargets(ctx context.Context, userID uuid.UUID) ([]StudentTarget, error) {
+	// TODO(batch4): legacy `student_targets` table — migrate with target_schools.
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, choice, COALESCE(target_type,''), target_school_id, COALESCE(school_name,''),
 		   major, passing_score_irt, created_at, updated_at
@@ -122,6 +124,7 @@ func (r *Repository) ListTargets(ctx context.Context, userID uuid.UUID) ([]Stude
 }
 
 func (r *Repository) UpsertTargets(ctx context.Context, userID uuid.UUID, targets []TargetInput) ([]StudentTarget, error) {
+	// TODO(batch4): legacy `student_targets` table — migrate with target_schools.
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -627,6 +630,6 @@ func (h *Handler) findCert(ctx context.Context, userID, certID uuid.UUID) (*Cert
 func (h *Handler) studentName(ctx context.Context, userID uuid.UUID) (string, error) {
 	var name string
 	err := h.svc.repo.pool.QueryRow(ctx,
-		`SELECT full_name FROM users WHERE id = $1`, userID).Scan(&name)
+		`SELECT p.full_name FROM identity.user_profile p WHERE p.user_id = $1`, userID).Scan(&name)
 	return name, err
 }

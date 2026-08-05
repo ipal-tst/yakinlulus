@@ -101,6 +101,7 @@ func scanSchoolRows(rows pgx.Rows) ([]School, error) {
 }
 
 func (r *Repository) Create(ctx context.Context, sc *School) error {
+	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	sc.ID = uuid.New()
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO schools (id, school_name, school_code, npsn, education_level, address,
@@ -116,30 +117,39 @@ func (r *Repository) Create(ctx context.Context, sc *School) error {
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*School, error) {
 	return scanSchool(r.pool.QueryRow(ctx,
-		`SELECT id, school_name, school_code, npsn, education_level, address,
-		 province, regency, district, postal_code, phone, email, website, principal_name, accreditation,
-		 status, created_at, updated_at
-		 FROM schools WHERE id = $1 AND deleted_at IS NULL`, id))
+		`SELECT s.id, s.name AS school_name,
+		        COALESCE(s.npsn, '') AS school_code, s.npsn,
+		        '' AS education_level, s.address, s.province, s.city AS regency, s.district,
+		        NULL::text AS postal_code, s.phone, s.email, s.website,
+		        NULL::text AS principal_name, NULL::text AS accreditation,
+		        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+		        s.created_at, s.updated_at
+		 FROM academic.school s WHERE s.id = $1 AND s.deleted_at IS NULL`, id))
 }
 
 func (r *Repository) List(ctx context.Context, limit, offset int, search string) ([]School, int, error) {
-	where := "WHERE deleted_at IS NULL"
+	where := "WHERE s.deleted_at IS NULL"
 	args := []interface{}{}
 	argN := 1
 	if search != "" {
-		where += " AND (school_name ILIKE $" + strconv.Itoa(argN) + " OR school_code ILIKE $" + strconv.Itoa(argN) + " OR npsn ILIKE $" + strconv.Itoa(argN) + ")"
+		where += " AND (s.name ILIKE $" + strconv.Itoa(argN) + " OR s.npsn ILIKE $" + strconv.Itoa(argN) + ")"
 		args = append(args, "%"+search+"%")
 		argN++
 	}
 
 	var total int
-	q := "SELECT COUNT(*) FROM schools " + where
+	q := "SELECT COUNT(*) FROM academic.school s " + where
 	r.pool.QueryRow(ctx, q, args...).Scan(&total)
 
-	query := `SELECT id, school_name, school_code, npsn, education_level, address,
-	 province, regency, district, postal_code, phone, email, website, principal_name, accreditation,
-	 status, created_at, updated_at FROM schools ` + where +
-		` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(argN) + ` OFFSET $` + strconv.Itoa(argN+1)
+	query := `SELECT s.id, s.name AS school_name,
+	        COALESCE(s.npsn, '') AS school_code, s.npsn,
+	        '' AS education_level, s.address, s.province, s.city AS regency, s.district,
+	        NULL::text AS postal_code, s.phone, s.email, s.website,
+	        NULL::text AS principal_name, NULL::text AS accreditation,
+	        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+	        s.created_at, s.updated_at
+	 FROM academic.school s ` + where +
+		` ORDER BY s.created_at DESC LIMIT $` + strconv.Itoa(argN) + ` OFFSET $` + strconv.Itoa(argN+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -152,6 +162,7 @@ func (r *Repository) List(ctx context.Context, limit, offset int, search string)
 }
 
 func (r *Repository) Update(ctx context.Context, sc *School) error {
+	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	sc.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
 		`UPDATE schools SET school_name=$1, school_code=$2, npsn=$3, education_level=$4,
@@ -167,6 +178,7 @@ func (r *Repository) Update(ctx context.Context, sc *School) error {
 }
 
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
+	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	_, err := r.pool.Exec(ctx,
 		`UPDATE schools SET status=$1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL`,
 		status, id)
@@ -174,12 +186,14 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 }
 
 func (r *Repository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	_, err := r.pool.Exec(ctx,
 		`UPDATE schools SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
 	return err
 }
 
 func (r *Repository) GetSettings(ctx context.Context, schoolID uuid.UUID) (*SchoolSetting, error) {
+	// TODO(batch4): legacy `school_settings` table — no academic equivalent yet.
 	ss := &SchoolSetting{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, school_id, timezone, language, academic_year, semester, cbt_config,
@@ -191,6 +205,7 @@ func (r *Repository) GetSettings(ctx context.Context, schoolID uuid.UUID) (*Scho
 }
 
 func (r *Repository) UpsertSettings(ctx context.Context, ss *SchoolSetting) error {
+	// TODO(batch4): legacy `school_settings` table — no academic equivalent yet.
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO school_settings (school_id, timezone, language, academic_year, semester, cbt_config,
 		 notification_preference, ai_feature_enabled)
@@ -208,11 +223,12 @@ func (r *Repository) UpsertSettings(ctx context.Context, ss *SchoolSetting) erro
 func (r *Repository) CountMembers(ctx context.Context, schoolID uuid.UUID) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM school_members WHERE school_id=$1 AND status='ACTIVE'`, schoolID).Scan(&n)
+		`SELECT COUNT(*) FROM academic.student_enrollment WHERE school_id=$1 AND status='ACTIVE'`, schoolID).Scan(&n)
 	return n, err
 }
 
 func (r *Repository) UpsertBranding(ctx context.Context, b *SchoolBranding) error {
+	// TODO(batch4): legacy `school_brandings` table — no academic equivalent yet.
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO school_brandings (school_id, logo_url, icon_url, primary_color, secondary_color, theme, banner_url)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7)
@@ -225,6 +241,7 @@ func (r *Repository) UpsertBranding(ctx context.Context, b *SchoolBranding) erro
 }
 
 func (r *Repository) GetBranding(ctx context.Context, schoolID uuid.UUID) (*SchoolBranding, error) {
+	// TODO(batch4): legacy `school_brandings` table — no academic equivalent yet.
 	b := &SchoolBranding{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, school_id, logo_url, icon_url, primary_color, secondary_color, theme, banner_url, created_at, updated_at
