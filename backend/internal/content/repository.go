@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,6 +38,12 @@ func (r *repository) CreateContent(ctx context.Context, c *Content) error {
 		c.Metadata = map[string]interface{}{}
 	}
 
+	// MATERIAL masters live in content.material (new schema). Everything else
+	// (question/exam) stays on the legacy `contents` insert until subphase 2.4.
+	if c.ContentType == ContentTypeMaterial {
+		return r.createMaterialContent(ctx, c)
+	}
+
 	if c.SubjectID == uuid.Nil {
 		_ = r.pool.QueryRow(ctx, "SELECT id FROM subjects LIMIT 1").Scan(&c.SubjectID)
 	}
@@ -54,6 +63,263 @@ func (r *repository) CreateContent(ctx context.Context, c *Content) error {
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 	`, c.ID, c.ContentType, c.GradeID, c.SubjectID, c.ChapterID, c.TopicID, c.LOID, c.Title, c.Body, c.Status, c.CreatedBy, c.Metadata, c.CreatedAt, c.UpdatedAt)
 	return err
+}
+
+// ========== MATERIAL SCHEMA HELPERS (content.material) ==========
+
+const materialStatusCodes = `('DRAFT','Draft'),('REVIEW','In Review'),('APPROVED','Approved'),('PUBLISHED','Published'),('ARCHIVED','Archived')`
+
+func (r *repository) ensureMaterialStatuses(ctx context.Context, tx pgx.Tx) (map[string]uuid.UUID, error) {
+	statuses := map[string]uuid.UUID{}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.material_status (code, name) VALUES `+materialStatusCodes+`
+		ON CONFLICT (code) DO NOTHING`); err != nil {
+		return nil, err
+	}
+	rws, err := tx.Query(ctx, `SELECT code, id FROM content.material_status WHERE code = ANY($1)`,
+		[]string{"DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"})
+	if err != nil {
+		return nil, err
+	}
+	defer rws.Close()
+	for rws.Next() {
+		var code string
+		var id uuid.UUID
+		if err := rws.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		statuses[code] = id
+	}
+	return statuses, rws.Err()
+}
+
+func (r *repository) ensureMaterialTypes(ctx context.Context, tx pgx.Tx) (map[string]uuid.UUID, error) {
+	rows := []string{"TEXT", "RICH_TEXT", "MARKDOWN", "VIDEO", "PDF", "AUDIO", "INTERACTIVE"}
+	for _, c := range rows {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO content.material_type (code, name) VALUES ($1, $2)
+			ON CONFLICT (code) DO NOTHING`, c, c); err != nil {
+			return nil, err
+		}
+	}
+	types := map[string]uuid.UUID{}
+	rws, err := tx.Query(ctx, `SELECT code, id FROM content.material_type WHERE code = ANY($1)`, rows)
+	if err != nil {
+		return nil, err
+	}
+	defer rws.Close()
+	for rws.Next() {
+		var code string
+		var id uuid.UUID
+		if err := rws.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		types[code] = id
+	}
+	return types, rws.Err()
+}
+
+// linkMaterialJunction inserts an N:M row only when the referenced academic
+// row exists, so an empty academic catalog degrades gracefully.
+func (r *repository) linkMaterialJunction(ctx context.Context, tx pgx.Tx, junction, refTable, refCol string, materialID, refID uuid.UUID) error {
+	if refID == uuid.Nil {
+		return nil
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+refTable+` WHERE id = $1)`, refID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO content.`+junction+` (material_id, `+refCol+`) VALUES ($1, $2)`, materialID, refID)
+	return err
+}
+
+func (r *repository) insertMaterialJunctions(ctx context.Context, tx pgx.Tx, materialID uuid.UUID, c *Content) error {
+	link := func(junction, refTable, refCol string, refID uuid.UUID) error {
+		return r.linkMaterialJunction(ctx, tx, junction, refTable, refCol, materialID, refID)
+	}
+	if err := link("material_subject", "academic.subject", "subject_id", c.SubjectID); err != nil {
+		return err
+	}
+	if err := link("material_grade", "academic.grade", "grade_id", c.GradeID); err != nil {
+		return err
+	}
+	if c.ChapterID != nil {
+		if err := link("material_chapter", "academic.chapter", "chapter_id", *c.ChapterID); err != nil {
+			return err
+		}
+	}
+	if c.TopicID != nil {
+		if err := link("material_topic", "academic.topic", "topic_id", *c.TopicID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) clearMaterialJunctions(ctx context.Context, tx pgx.Tx, materialID uuid.UUID) error {
+	for _, t := range []string{"material_subject", "material_grade", "material_chapter", "material_topic"} {
+		if _, err := tx.Exec(ctx, `DELETE FROM content.`+t+` WHERE material_id = $1`, materialID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func materialSlug(title string) string {
+	s := strings.ToLower(strings.TrimSpace(title))
+	if s == "" {
+		return "material"
+	}
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	s = re.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
+		return "material"
+	}
+	return s
+}
+
+// createMaterialContent creates the content.material master plus its first
+// version, body block and academic junctions in one transaction. The version
+// + block + metadata/statistics split is: master+version+block+junctions here,
+// metadata+statistics+history in CreateMaterial.
+func (r *repository) createMaterialContent(ctx context.Context, c *Content) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureMaterialStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+	types, err := r.ensureMaterialTypes(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	code := "mat_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	slug := materialSlug(c.Title)
+	if slug == "material" || slug == "" {
+		slug = "material"
+	}
+	slug = slug + "-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
+
+	var typeID *uuid.UUID
+	if f, ok := c.Metadata["content_format"].(string); ok {
+		if t, ok := types[f]; ok {
+			typeID = &t
+		}
+	}
+	statusID := statuses[string(c.Status)]
+	if statusID == uuid.Nil {
+		statusID = statuses[string(StatusDraft)]
+	}
+
+	var publishedAt any
+	if c.Status == StatusPublished {
+		publishedAt = time.Now()
+		c.PublishedAt = publishedAt.(*time.Time)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material (id, material_code, title, slug, summary, material_type_id, status_id, owner_id, created_by, updated_by, published_at, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		c.ID, code, c.Title, slug, c.Body, typeID, statusID, c.CreatedBy, c.CreatedBy, c.CreatedBy, publishedAt, c.CreatedAt, c.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO content.material_version (material_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, 1, 'Initial version', $2, true) RETURNING id`, c.ID, c.CreatedBy).Scan(&versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.material_block (material_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, c.Body); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE content.material SET current_version_id = $1 WHERE id = $2`, versionID, c.ID); err != nil {
+		return err
+	}
+
+	if err := r.insertMaterialJunctions(ctx, tx, c.ID, c); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// updateMaterialContent updates master-level fields and junctions for a
+// content.material row. The version bump lives in UpdateMaterial.
+func (r *repository) updateMaterialContent(ctx context.Context, id uuid.UUID, req UpdateContentReq) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureMaterialStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	var statusID *uuid.UUID
+	if req.Status != nil {
+		sid := statuses[string(*req.Status)]
+		if sid != uuid.Nil {
+			statusID = &sid
+		}
+	}
+
+	var publishedAt any
+	if req.Status != nil && *req.Status == StatusPublished {
+		if req.PublishedAt != nil {
+			publishedAt = req.PublishedAt
+		} else {
+			now := time.Now()
+			publishedAt = &now
+		}
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE content.material SET
+			title = COALESCE($2, title),
+			summary = COALESCE($3, summary),
+			status_id = COALESCE($4, status_id),
+			published_at = $5,
+			updated_by = $6,
+			updated_at = NOW()
+		WHERE id = $1`, id, req.Title, req.Body, statusID, publishedAt, statusID); err != nil {
+		return err
+	}
+
+	if req.SubjectID != nil || req.ChapterID != nil || req.TopicID != nil {
+		if err := r.clearMaterialJunctions(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.insertMaterialJunctions(ctx, tx, id, &Content{
+			SubjectID: ptrUUIDOrNil(req.SubjectID),
+			GradeID:   uuid.Nil,
+			ChapterID: req.ChapterID,
+			TopicID:   req.TopicID,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func ptrUUIDOrNil(u *uuid.UUID) uuid.UUID {
+	if u == nil {
+		return uuid.Nil
+	}
+	return *u
 }
 
 func (r *repository) GetContent(ctx context.Context, id uuid.UUID) (*Content, error) {
@@ -125,6 +391,13 @@ func (r *repository) UpdateContent(ctx context.Context, id uuid.UUID, req Update
 
 	if len(sets) == 0 {
 		return nil
+	}
+
+	// Route updates for content.material masters to the new-schema path; the
+	// legacy `contents` UPDATE below keeps serving question/exam rows.
+	var isMaterial bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isMaterial); err == nil && isMaterial {
+		return r.updateMaterialContent(ctx, id, req)
 	}
 
 	sets = append(sets, "updated_at = NOW()")
@@ -472,90 +745,259 @@ func (r *repository) ReplaceOptions(ctx context.Context, contentID uuid.UUID, op
 
 // ========== MATERIALS ==========
 
-func (r *repository) CreateMaterial(ctx context.Context, m *Material) error {
-	// Assumes base content already created
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_materials (content_id, content_format, estimated_duration, read_count, is_preview, prerequisites)
-		VALUES ($1,$2,$3,$4,$5,$6)
-	`, m.ContentID, m.ContentFormat, m.EstimatedDuration, m.ReadCount, m.IsPreview, m.Prerequisites)
-	return err
-}
+// materialColumns projects a content.material master plus its current version
+// block, metadata, statistics and academic names into a MaterialFull row.
+// Junction access is 1:1 via LATERAL so a material always yields exactly one
+// row even with multiple academic links.
+const materialColumns = `
+	m.id,
+	'MATERIAL'::text,
+	COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	ch.chapter_id,
+	tp.topic_id,
+	NULL::uuid,
+	m.title,
+	COALESCE(blk.content, COALESCE(m.summary, ''))::text,
+	COALESCE(st.code, 'DRAFT')::text,
+	COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	NULL::jsonb,
+	m.published_at,
+	m.created_at,
+	m.updated_at,
+	m.id,
+	COALESCE(mt.code, 'TEXT')::text,
+	md.estimated_minutes,
+	COALESCE(ms.view_count, 0),
+	COALESCE(md.is_premium, false),
+	NULL::uuid[],
+	COALESCE(s.name, '')::text,
+	COALESCE(ach.title, '')::text`
 
-func (r *repository) GetMaterial(ctx context.Context, contentID uuid.UUID) (*MaterialFull, error) {
+const materialFrom = `
+	FROM content.material m
+	LEFT JOIN content.material_status st ON st.id = m.status_id
+	LEFT JOIN content.material_type mt ON mt.id = m.material_type_id
+	LEFT JOIN content.material_version mv ON mv.id = m.current_version_id
+	LEFT JOIN content.material_block blk ON blk.material_version_id = mv.id AND blk.block_order = 0
+	LEFT JOIN content.material_metadata md ON md.material_id = m.id
+	LEFT JOIN content.material_statistics ms ON ms.material_id = m.id
+	LEFT JOIN LATERAL (SELECT subject_id FROM content.material_subject WHERE material_id = m.id LIMIT 1) subj ON true
+	LEFT JOIN LATERAL (SELECT grade_id FROM content.material_grade WHERE material_id = m.id LIMIT 1) gr ON true
+	LEFT JOIN LATERAL (SELECT chapter_id FROM content.material_chapter WHERE material_id = m.id LIMIT 1) ch ON true
+	LEFT JOIN LATERAL (SELECT topic_id FROM content.material_topic WHERE material_id = m.id LIMIT 1) tp ON true
+	LEFT JOIN academic.subject s ON s.id = subj.subject_id
+	LEFT JOIN academic.grade g ON g.id = gr.grade_id
+	LEFT JOIN academic.chapter ach ON ach.id = ch.chapter_id
+	LEFT JOIN academic.topic t ON t.id = tp.topic_id`
+
+func scanMaterial(row pgx.Row) (*MaterialFull, error) {
 	m := &MaterialFull{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       m.content_format, m.estimated_duration, m.read_count, m.is_preview, m.prerequisites,
-		       COALESCE(s.name, '') AS subject_name, COALESCE(ch.name, '') AS chapter_name
-		FROM contents c
-		JOIN content_materials m ON c.id = m.content_id
-		LEFT JOIN subjects s ON c.subject_id = s.id
-		LEFT JOIN chapters ch ON c.chapter_id = ch.id
-		WHERE c.id = $1
-	`, contentID).Scan(
-		&m.Content.ID, &m.Content.ContentType, &m.Content.GradeID, &m.Content.SubjectID, &m.Content.ChapterID, &m.Content.TopicID, &m.Content.LOID, &m.Content.Title, &m.Content.Body, &m.Content.Status, &m.Content.CreatedBy, &m.Content.Metadata, &m.Content.PublishedAt, &m.Content.CreatedAt, &m.Content.UpdatedAt,
-		&m.Material.ContentFormat, &m.Material.EstimatedDuration, &m.Material.ReadCount, &m.Material.IsPreview, &m.Material.Prerequisites,
+	var meta map[string]interface{}
+	if err := row.Scan(
+		&m.Content.ID, &m.Content.ContentType, &m.Content.GradeID, &m.Content.SubjectID, &m.Content.ChapterID, &m.Content.TopicID, &m.Content.LOID, &m.Content.Title, &m.Content.Body, &m.Content.Status, &m.Content.CreatedBy, &meta, &m.Content.PublishedAt, &m.Content.CreatedAt, &m.Content.UpdatedAt,
+		&m.Material.ContentID, &m.Material.ContentFormat, &m.Material.EstimatedDuration, &m.Material.ReadCount, &m.Material.IsPreview, &m.Material.Prerequisites,
 		&m.SubjectName, &m.ChapterName,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
+	}
+	if len(meta) > 0 {
+		m.Content.Metadata = meta
 	}
 	return m, nil
 }
 
+// CreateMaterial writes the metadata/statistics/history rows for a material
+// master whose version + body block were created by CreateContent.
+func (r *repository) CreateMaterial(ctx context.Context, m *Material) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material_metadata (material_id, estimated_minutes, difficulty_level, language, is_premium)
+		VALUES ($1, $2, $3, 'id', $4)
+		ON CONFLICT (material_id) DO UPDATE SET
+			estimated_minutes = EXCLUDED.estimated_minutes,
+			is_premium = EXCLUDED.is_premium`,
+		m.ContentID, m.EstimatedDuration, nil, m.IsPreview)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material_statistics (material_id, view_count)
+		VALUES ($1, $2)
+		ON CONFLICT (material_id) DO UPDATE SET view_count = EXCLUDED.view_count`,
+		m.ContentID, m.ReadCount)
+	if err != nil {
+		return err
+	}
+
+	for _, prereq := range m.Prerequisites {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO content.material_tag (material_id, tag) VALUES ($1, $2)
+			ON CONFLICT (material_id, tag) DO NOTHING`, m.ContentID, "prereq:"+prereq.String()); err != nil {
+			return err
+		}
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material_history (material_id, action, new_json)
+		VALUES ($1, 'CREATE', $2::jsonb)`, m.ContentID, `{"action":"CREATE"}`)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *repository) GetMaterial(ctx context.Context, contentID uuid.UUID) (*MaterialFull, error) {
+	return scanMaterial(r.pool.QueryRow(ctx, `
+		SELECT `+materialColumns+materialFrom+` WHERE m.id = $1 AND m.deleted_at IS NULL`, contentID))
+}
+
+// UpdateMaterial creates a new version (body carried from the master summary,
+// which UpdateContent refreshed), flips the old current flag, and refreshes
+// metadata + statistics + history atomically.
 func (r *repository) UpdateMaterial(ctx context.Context, contentID uuid.UUID, m *Material) error {
-	_, err := r.pool.Exec(ctx, `
-		UPDATE content_materials SET
-			content_format = $1, estimated_duration = $2, read_count = $3, is_preview = $4, prerequisites = $5
-		WHERE content_id = $6
-	`, m.ContentFormat, m.EstimatedDuration, m.ReadCount, m.IsPreview, m.Prerequisites, contentID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var curVer *uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT current_version_id FROM content.material WHERE id = $1 AND deleted_at IS NULL`, contentID).Scan(&curVer); err != nil {
+		return err
+	}
+	if curVer == nil {
+		return pgx.ErrNoRows
+	}
+
+	var nextNo int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(version_no), 0) + 1 FROM content.material_version WHERE material_id = $1`, contentID).Scan(&nextNo); err != nil {
+		return err
+	}
+
+	// Body lives on master.summary after UpdateContent; carry it into the new
+	// version's block so GetMaterial reflects the updated body.
+	var body string
+	var ownerID *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(summary, ''), owner_id FROM content.material WHERE id = $1`, contentID).Scan(&body, &ownerID); err != nil {
+		return err
+	}
+
+	var newVer uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO content.material_version (material_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, $2, 'content updated', $3, true) RETURNING id`, contentID, nextNo, ownerID).Scan(&newVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE content.material_version SET is_current = false WHERE id = $1`, *curVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE content.material SET current_version_id = $1, updated_by = $2, updated_at = NOW() WHERE id = $3`,
+		newVer, ownerID, contentID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.material_block (material_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, newVer, body); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.material_metadata (material_id, estimated_minutes, is_premium)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (material_id) DO UPDATE SET
+			estimated_minutes = EXCLUDED.estimated_minutes,
+			is_premium = EXCLUDED.is_premium`,
+		contentID, m.EstimatedDuration, m.IsPreview); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO content.material_statistics (material_id, view_count) VALUES ($1, 0)
+		ON CONFLICT (material_id) DO NOTHING`, contentID); err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material_history (material_id, action, new_json)
+		VALUES ($1, 'UPDATE', $2::jsonb)`, contentID, `{"action":"UPDATE"}`)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) DeleteMaterial(ctx context.Context, contentID uuid.UUID) error {
-	return r.DeleteContent(ctx, contentID)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var tag pgconn.CommandTag
+	tag, err = tx.Exec(ctx, `
+		UPDATE content.material SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, contentID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO content.material_history (material_id, action, new_json)
+		VALUES ($1, 'DELETE', $2::jsonb)`, contentID, `{"action":"DELETE"}`)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) ListMaterials(ctx context.Context, filter MaterialFilter) ([]MaterialFull, int, error) {
-	where := "WHERE c.content_type = 'MATERIAL'"
+	where := " WHERE m.deleted_at IS NULL"
 	args := []interface{}{}
 	argN := 1
 
-	if filter.GradeID != nil {
-		where += fmt.Sprintf(" AND c.grade_id = $%d", argN)
-		args = append(args, *filter.GradeID)
-		argN++
-	}
 	if filter.SubjectID != nil {
-		where += fmt.Sprintf(" AND c.subject_id = $%d", argN)
+		where += fmt.Sprintf(" AND subj.subject_id = $%d", argN)
 		args = append(args, *filter.SubjectID)
 		argN++
 	}
+	if filter.GradeID != nil {
+		where += fmt.Sprintf(" AND gr.grade_id = $%d", argN)
+		args = append(args, *filter.GradeID)
+		argN++
+	}
 	if filter.Status != nil {
-		where += fmt.Sprintf(" AND c.status = $%d", argN)
-		args = append(args, *filter.Status)
+		where += fmt.Sprintf(" AND st.code = $%d", argN)
+		args = append(args, string(*filter.Status))
 		argN++
 	}
 	if filter.CreatedBy != nil {
-		where += fmt.Sprintf(" AND c.created_by = $%d", argN)
+		where += fmt.Sprintf(" AND m.owner_id = $%d", argN)
 		args = append(args, *filter.CreatedBy)
 		argN++
 	}
 	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (c.title ILIKE $%d OR c.body ILIKE $%d)", argN, argN)
+		where += fmt.Sprintf(" AND (m.title ILIKE $%d OR COALESCE(blk.content, '') ILIKE $%d)", argN, argN)
 		args = append(args, "%"+filter.Search+"%")
 		argN++
 	}
 	if filter.ContentFormat != nil {
-		where += fmt.Sprintf(" AND m.content_format = $%d", argN)
-		args = append(args, *filter.ContentFormat)
+		where += fmt.Sprintf(" AND mt.code = $%d", argN)
+		args = append(args, string(*filter.ContentFormat))
 		argN++
 	}
 
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM contents c JOIN content_materials m ON c.id = m.content_id %s", where)
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) "+materialFrom+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -565,16 +1007,8 @@ func (r *repository) ListMaterials(ctx context.Context, filter MaterialFilter) (
 	}
 	offset := filter.Offset
 
-	query := fmt.Sprintf(`
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       m.content_format, m.estimated_duration, m.read_count, m.is_preview, m.prerequisites,
-		       COALESCE(s.name, '') AS subject_name, COALESCE(ch.name, '') AS chapter_name
-		FROM contents c
-		JOIN content_materials m ON c.id = m.content_id
-		LEFT JOIN subjects s ON c.subject_id = s.id
-		LEFT JOIN chapters ch ON c.chapter_id = ch.id
-		%s ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d
-	`, where, argN, argN+1)
+	query := fmt.Sprintf("SELECT "+materialColumns+materialFrom+where+
+		" ORDER BY m.created_at DESC LIMIT $%d OFFSET $%d", argN, argN+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -585,74 +1019,102 @@ func (r *repository) ListMaterials(ctx context.Context, filter MaterialFilter) (
 
 	materials := make([]MaterialFull, 0)
 	for rows.Next() {
-		var m MaterialFull
-		if err := rows.Scan(
-			&m.Content.ID, &m.Content.ContentType, &m.Content.GradeID, &m.Content.SubjectID, &m.Content.ChapterID, &m.Content.TopicID, &m.Content.LOID, &m.Content.Title, &m.Content.Body, &m.Content.Status, &m.Content.CreatedBy, &m.Content.Metadata, &m.Content.PublishedAt, &m.Content.CreatedAt, &m.Content.UpdatedAt,
-			&m.Material.ContentFormat, &m.Material.EstimatedDuration, &m.Material.ReadCount, &m.Material.IsPreview, &m.Material.Prerequisites,
-			&m.SubjectName, &m.ChapterName,
-		); err != nil {
+		m, err := scanMaterial(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		materials = append(materials, m)
+		materials = append(materials, *m)
 	}
-	return materials, total, nil
+	return materials, total, rows.Err()
 }
 
 func (r *repository) IncrementReadCount(ctx context.Context, contentID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `UPDATE content_materials SET read_count = read_count + 1 WHERE content_id = $1`, contentID)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO content.material_statistics (material_id, view_count) VALUES ($1, 1)
+		ON CONFLICT (material_id) DO UPDATE SET view_count = content.material_statistics.view_count + 1`, contentID)
 	return err
 }
 
 // ========== LEARNING PROGRESS ==========
 
+// parseLastPosition converts the legacy *string API field into the int column.
+func parseLastPosition(s *string) int {
+	if s == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(*s)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func lastPositionPtr(n int) *string {
+	s := fmt.Sprint(n)
+	return &s
+}
+
 func (r *repository) UpsertProgress(ctx context.Context, lp *LearningProgress) error {
 	lp.ID = uuid.New()
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO learning_progress (id, user_id, material_id, progress, completed, last_position)
-		VALUES ($1,$2,$3,$4,$5,$6)
-		ON CONFLICT (user_id, material_id) DO UPDATE SET
-			progress = $4,
-			completed = $5,
-			last_position = $6,
+		INSERT INTO content.learning_progress (id, student_id, material_id, progress_percent, last_position, completed, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())
+		ON CONFLICT (student_id, material_id) DO UPDATE SET
+			progress_percent = $4,
+			last_position = $5,
+			completed = $6,
+			completed_at = CASE WHEN EXCLUDED.completed THEN NOW() ELSE content.learning_progress.completed_at END,
 			updated_at = NOW()
-	`, lp.ID, lp.UserID, lp.MaterialID, lp.Progress, lp.Completed, lp.LastPosition)
+	`, lp.ID, lp.UserID, lp.MaterialID, lp.Progress, parseLastPosition(lp.LastPosition), lp.Completed)
 	return err
 }
 
-func (r *repository) GetProgress(ctx context.Context, userID, materialID uuid.UUID) (*LearningProgress, error) {
+func scanProgress(row pgx.Row) (*LearningProgress, error) {
 	lp := &LearningProgress{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, user_id, material_id, progress, completed, last_position, created_at, updated_at
-		FROM learning_progress WHERE user_id=$1 AND material_id=$2
-	`, userID, materialID).Scan(&lp.ID, &lp.UserID, &lp.MaterialID, &lp.Progress, &lp.Completed, &lp.LastPosition, &lp.CreatedAt, &lp.UpdatedAt)
-	if err != nil {
+	var lastPos int
+	if err := row.Scan(&lp.ID, &lp.UserID, &lp.MaterialID, &lp.Progress, &lastPos, &lp.Completed, &lp.CreatedAt, &lp.UpdatedAt); err != nil {
 		return nil, err
 	}
+	lp.LastPosition = lastPositionPtr(lastPos)
 	return lp, nil
+}
+
+func (r *repository) GetProgress(ctx context.Context, userID, materialID uuid.UUID) (*LearningProgress, error) {
+	return scanProgress(r.pool.QueryRow(ctx, `
+		SELECT id, student_id, material_id, progress_percent::float8, last_position, completed, created_at, updated_at
+		FROM content.learning_progress
+		WHERE student_id=$1 AND material_id=$2
+	`, userID, materialID))
 }
 
 func (r *repository) ListProgressByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]LearningProgress, int, error) {
 	var total int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM learning_progress WHERE user_id=$1`, userID).Scan(&total)
+	if err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM content.learning_progress lp
+		JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL
+		WHERE lp.student_id=$1`, userID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, user_id, material_id, progress, completed, last_position, created_at, updated_at
-		FROM learning_progress WHERE user_id=$1 ORDER BY updated_at DESC LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
+		SELECT lp.id, lp.student_id, lp.material_id, lp.progress_percent::float8, lp.last_position, lp.completed, lp.created_at, lp.updated_at
+		FROM content.learning_progress lp
+		JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL
+		WHERE lp.student_id=$1 ORDER BY lp.updated_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
-	var list []LearningProgress
+	list := make([]LearningProgress, 0)
 	for rows.Next() {
-		var lp LearningProgress
-		if err := rows.Scan(&lp.ID, &lp.UserID, &lp.MaterialID, &lp.Progress, &lp.Completed, &lp.LastPosition, &lp.CreatedAt, &lp.UpdatedAt); err != nil {
+		lp, err := scanProgress(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		list = append(list, lp)
+		list = append(list, *lp)
 	}
-	return list, total, nil
+	return list, total, rows.Err()
 }
 
 // ========== EXAMS ==========
