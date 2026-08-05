@@ -279,9 +279,16 @@ func (s *Service) ListAll(ctx context.Context, page, limit int, mimeFilter strin
 }
 
 func (s *Service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID, isAdmin bool) error {
-	path, err := s.repo.GetStoragePath(ctx, id)
-	if err != nil {
+	var path *string
+	p, err := s.repo.GetStoragePath(ctx, id)
+	if err == pgx.ErrNoRows {
+		// No storage path is fine (e.g. storage-less asset); the soft-delete
+		// below still reports whether the asset row existed.
+		path = nil
+	} else if err != nil {
 		return err
+	} else {
+		path = p
 	}
 	ok, err := s.repo.Delete(ctx, id, userID, isAdmin)
 	if err != nil {
@@ -359,6 +366,8 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to upload file to storage"))
 	}
 
+	userIDStr, _ := c.Locals("user_id").(string)
+
 	m := &Media{
 		FileName:     file.Filename,
 		OriginalName: file.Filename,
@@ -366,7 +375,7 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		FileSize:     file.Size,
 		StoragePath:  objectName,
 		URL:          url,
-		UploadedBy:   uuidPtr(uuid.MustParse(c.Locals("user_id").(string))),
+		UploadedBy:   uuidPtr(uuid.MustParse(userIDStr)),
 	}
 
 	if entityType != "" {
@@ -425,7 +434,8 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid media ID"))
 	}
 
-	userID, err := uuid.Parse(c.Locals("user_id").(string))
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
 	}

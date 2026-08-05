@@ -11,8 +11,7 @@ import (
 
 // newTestRepo connects to the live DB via DB_URL and skips the test when
 // the env var is absent (e.g. CI or offline).
-// poolOf returns the underlying pgxpool for direct FK seeding.
-func poolOf(t *testing.T) *pgxpool.Pool {
+func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("DB_URL")
 	if url == "" {
@@ -26,15 +25,10 @@ func poolOf(t *testing.T) *pgxpool.Pool {
 	return p
 }
 
-func newTestRepo(t *testing.T) *Repository {
-	t.Helper()
-	return NewRepository(poolOf(t))
-}
-
 func TestMediaRepositoryLifecycle(t *testing.T) {
-	r := newTestRepo(t)
+	p := testPool(t)
+	r := NewRepository(p)
 	ctx := context.Background()
-	p := poolOf(t)
 
 	// Seed a real identity.user so the asset_uploaded_by FK resolves.
 	owner := uuid.New()
@@ -142,4 +136,42 @@ func TestMediaRepositoryLifecycle(t *testing.T) {
 	if _, err := r.FindByID(ctx, m.ID); err == nil {
 		t.Error("FindByID after owner delete should return error (deleted_at filtered)")
 	}
+}
+
+func TestMediaServiceDeleteStorageLess(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	svc := NewService(r, nil)
+	ctx := context.Background()
+
+	owner := uuid.New()
+	if _, err := p.Exec(ctx, `
+		INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+		VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING`, owner, "media_probe_"+owner.String()[:8]); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	// Storage-less asset: StoragePath and URL empty.
+	m := &Media{
+		FileName:     "probe_storageless.txt",
+		OriginalName: "probe_storageless.txt",
+		MimeType:     "text/plain",
+		FileSize:     1,
+		UploadedBy:   &owner,
+	}
+	if err := r.Create(ctx, m); err != nil {
+		t.Fatalf("Create (storage-less): %v", err)
+	}
+
+	// Owner delete must succeed even though there is no storage path.
+	if err := svc.Delete(ctx, m.ID, owner, false); err != nil {
+		t.Fatalf("Service.Delete (storage-less owner): %v", err)
+	}
+	if _, err := r.FindByID(ctx, m.ID); err == nil {
+		t.Error("FindByID after delete should return error (deleted_at filtered)")
+	}
+
+	p.Exec(ctx, `DELETE FROM media.asset WHERE id = $1`, m.ID)
+	p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
 }
