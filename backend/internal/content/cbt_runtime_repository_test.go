@@ -257,7 +257,8 @@ func TestCBTRuntimeRepositoryLifecycle(t *testing.T) {
 	}
 	var gScore float64
 	var gCorrect, gWrong int
-	if err := p.QueryRow(ctx, `SELECT score, correct, wrong FROM cbt.grading_result WHERE attempt_id = $1`, attemptID).Scan(&gScore, &gCorrect, &gWrong); err != nil {
+	var gPassed bool
+	if err := p.QueryRow(ctx, `SELECT score, correct, wrong, passed FROM cbt.grading_result WHERE attempt_id = $1`, attemptID).Scan(&gScore, &gCorrect, &gWrong, &gPassed); err != nil {
 		t.Fatalf("read grading_result: %v", err)
 	}
 	if gScore != total {
@@ -265,6 +266,10 @@ func TestCBTRuntimeRepositoryLifecycle(t *testing.T) {
 	}
 	if gCorrect != 1 || gWrong != 1 {
 		t.Errorf("grading_result correct/wrong = %d/%d, want 1/1 (q1 wrong after UpdateExamAnswer)", gCorrect, gWrong)
+	}
+	// passing_score = 50; total = 50 → passed must be true (>= threshold).
+	if !gPassed {
+		t.Error("grading_result.passed = false, want true (score 50 >= passing 50)")
 	}
 
 	// GetExamAttempt after grading reflects GRADED + score.
@@ -301,6 +306,18 @@ func TestCBTRuntimeRepositoryLifecycle(t *testing.T) {
 	}
 	if ana.AverageScore != total || ana.HighestScore != total || ana.LowestScore != total {
 		t.Errorf("analytics scores = %+v, want avg/high/low = %v", ana, total)
+	}
+
+	// A sub-threshold score must set passed=false (bug: previously `score > 0`).
+	fail := 10.0
+	if err := r.UpdateExamAttempt(ctx, &ExamAttempt{ID: attemptID, Status: AttemptGraded, TotalScore: &fail}); err != nil {
+		t.Fatalf("re-grade below passing: %v", err)
+	}
+	if err := p.QueryRow(ctx, `SELECT passed FROM cbt.grading_result WHERE attempt_id = $1`, attemptID).Scan(&gPassed); err != nil {
+		t.Fatalf("read passed after re-grade: %v", err)
+	}
+	if gPassed {
+		t.Error("grading_result.passed = true for score 10 < passing 50, want false")
 	}
 
 	// GetQuestionsForPool returns published questions for the pool subject.

@@ -1929,6 +1929,20 @@ func (r *repository) upsertGrading(ctx context.Context, tx pgx.Tx, attemptID uui
 	if totalScore != nil {
 		score = *totalScore
 	}
+	// passed compares score against the exam's passing_score (defaults to pass
+	// when the exam defines none). Attempt → participant → exam → metadata.
+	var passingScore *float64
+	_ = tx.QueryRow(ctx, `
+		SELECT md.passing_score
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		WHERE a.id = $1`, attemptID).Scan(&passingScore)
+	passed := true
+	if passingScore != nil && *passingScore > 0 {
+		passed = score >= *passingScore
+	}
+
 	var total, answered, correct int
 	err := tx.QueryRow(ctx, `
 		WITH aq AS (
@@ -1961,7 +1975,7 @@ func (r *repository) upsertGrading(ctx context.Context, tx pgx.Tx, attemptID uui
 			wrong = EXCLUDED.wrong,
 			blank = EXCLUDED.blank,
 			passed = EXCLUDED.passed`,
-		attemptID, score, correct, wrong, blank, totalScore != nil && *totalScore > 0)
+		attemptID, score, correct, wrong, blank, passed)
 	return err
 }
 
