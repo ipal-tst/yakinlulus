@@ -78,16 +78,30 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+const userSelect = `
+	SELECT u.id, u.email, u.password_hash,
+	       COALESCE(p.full_name, ''), COALESCE(r.code, ''), (u.status = 'ACTIVE'), u.avatar,
+	       NULL::uuid AS grade_id, NULL::text AS school_name,
+	       p.gender, u.phone, NULL::text AS major,
+	       u.created_at, u.updated_at
+	FROM identity.user u
+	LEFT JOIN identity.user_profile p ON p.user_id = u.id
+	LEFT JOIN LATERAL (
+		SELECT r.code FROM identity.user_role ur
+		JOIN identity.role r ON r.id = ur.role_id
+		WHERE ur.user_id = u.id ORDER BY ur.is_primary DESC, r.priority ASC LIMIT 1
+	) r ON true
+`
+
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	u := &User{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
-		 FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
+	err := r.pool.QueryRow(ctx, userSelect+" WHERE u.email = $1 AND u.deleted_at IS NULL", email).
+		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.IsActive, &u.AvatarURL,
+			&u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return u, nil
@@ -95,14 +109,13 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, erro
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	u := &User{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, full_name, role, grade_id, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
-		 FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.GradeID, &u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
+	err := r.pool.QueryRow(ctx, userSelect+" WHERE u.id = $1 AND u.deleted_at IS NULL", id).
+		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.IsActive, &u.AvatarURL,
+			&u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return u, nil
@@ -110,68 +123,80 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) 
 
 func (r *Repository) Create(ctx context.Context, u *User) error {
 	u.ID = uuid.New()
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO users (id, email, password_hash, full_name, role, is_active)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		u.ID, u.Email, u.PasswordHash, u.FullName, u.Role, true,
-	)
-	return err
+	username := strings.ToLower(strings.Split(u.Email, "@")[0])
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO identity.user (id, username, email, password_hash, status)
+		VALUES ($1, $2, $3, $4, 'ACTIVE')`,
+		u.ID, username, u.Email, u.PasswordHash)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2)`,
+		u.ID, u.FullName)
+	if err != nil {
+		return err
+	}
+	// Attach SISWA role.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO identity.user_role (user_id, role_id, is_primary)
+		SELECT $1, id, true FROM identity.role WHERE code = $2`,
+		u.ID, middleware.RoleSiswa)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req UpdateProfileRequest) error {
-	query := "UPDATE users SET updated_at = NOW()"
-	args := []interface{}{}
-	argN := 1
-
-	if req.FullName != nil {
-		query += fmt.Sprintf(", full_name = $%d", argN)
-		args = append(args, *req.FullName)
-		argN++
-	}
-	if req.AvatarURL != nil {
-		query += fmt.Sprintf(", avatar_url = $%d", argN)
-		args = append(args, nilString(req.AvatarURL))
-		argN++
-	}
-	if req.SchoolName != nil {
-		query += fmt.Sprintf(", school_name = $%d", argN)
-		args = append(args, nilString(req.SchoolName))
-		argN++
-	}
-	if req.Gender != nil {
-		query += fmt.Sprintf(", gender = $%d", argN)
-		args = append(args, nilString(req.Gender))
-		argN++
-	}
-	if req.Phone != nil {
-		query += fmt.Sprintf(", phone = $%d", argN)
-		args = append(args, nilString(req.Phone))
-		argN++
-	}
-	if req.Major != nil {
-		query += fmt.Sprintf(", major = $%d", argN)
-		args = append(args, nilString(req.Major))
-		argN++
-	}
-	if req.GradeID != nil {
-		query += fmt.Sprintf(", grade_id = $%d", argN)
-		if *req.GradeID == "" {
-			args = append(args, nil)
-		} else {
-			gid, err := uuid.Parse(*req.GradeID)
-			if err != nil {
-				return err
-			}
-			args = append(args, gid)
+	if req.FullName != nil || req.Gender != nil {
+		q := "UPDATE identity.user_profile SET updated_at = NOW()"
+		args := []interface{}{}
+		n := 1
+		if req.FullName != nil {
+			q += fmt.Sprintf(", full_name = $%d", n)
+			args = append(args, *req.FullName)
+			n++
 		}
-		argN++
+		if req.Gender != nil {
+			q += fmt.Sprintf(", gender = $%d", n)
+			args = append(args, nilString(req.Gender))
+			n++
+		}
+		q += fmt.Sprintf(" WHERE user_id = $%d", n)
+		args = append(args, id)
+		if _, err := r.pool.Exec(ctx, q, args...); err != nil {
+			return err
+		}
 	}
-
-	query += fmt.Sprintf(" WHERE id = $%d", argN)
-	args = append(args, id)
-
-	_, err := r.pool.Exec(ctx, query, args...)
-	return err
+	if req.Phone != nil || req.AvatarURL != nil {
+		q := "UPDATE identity.user SET updated_at = NOW()"
+		args := []interface{}{}
+		n := 1
+		if req.Phone != nil {
+			q += fmt.Sprintf(", phone = $%d", n)
+			args = append(args, nilString(req.Phone))
+			n++
+		}
+		if req.AvatarURL != nil {
+			q += fmt.Sprintf(", avatar = $%d", n)
+			args = append(args, nilString(req.AvatarURL))
+			n++
+		}
+		q += fmt.Sprintf(" WHERE id = $%d", n)
+		args = append(args, id)
+		if _, err := r.pool.Exec(ctx, q, args...); err != nil {
+			return err
+		}
+	}
+	// school_name, major, grade_id: resolusi via relasi Task 5; untuk sekarang no-op.
+	return nil
 }
 
 func nilString(p *string) interface{} {
@@ -211,45 +236,43 @@ func (r *Repository) FindPasswordReset(ctx context.Context, token string) (uuid.
 }
 
 func (r *Repository) MarkPasswordResetUsed(ctx context.Context, token string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE password_resets SET used_at = NOW() WHERE token = $1`, token)
+	_, err := r.pool.Exec(ctx, `
+		UPDATE identity.password_reset SET used_at = NOW() WHERE token = $1`, token)
 	return err
 }
 
 func (r *Repository) UpdatePassword(ctx context.Context, userID uuid.UUID, hash string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-		hash, userID)
+	_, err := r.pool.Exec(ctx, `
+		UPDATE identity.user SET password_hash = $1, updated_at = NOW() WHERE id = $2`, hash, userID)
 	return err
 }
 
 func (r *Repository) FindSessionByRefreshToken(ctx context.Context, refreshToken string) (*Session, error) {
 	s := &Session{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, refresh_token, is_revoked, expires_at
-		 FROM sessions WHERE refresh_token = $1 AND is_revoked = false AND expires_at > NOW()`, refreshToken,
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, user_id, refresh_token, false AS is_revoked, expired_at
+		FROM identity.login_session
+		WHERE refresh_token = $1 AND logout_at IS NULL AND expired_at > NOW()`, refreshToken,
 	).Scan(&s.ID, &s.UserID, &s.RefreshToken, &s.IsRevoked, &s.ExpiresAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return s, nil
 }
 
 func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, refreshToken string, expiresAt time.Time) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO sessions (user_id, refresh_token, expires_at)
-		 VALUES ($1, $2, $3)`,
-		userID, refreshToken, expiresAt)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO identity.login_session (user_id, refresh_token, expired_at)
+		VALUES ($1, $2, $3)`, userID, refreshToken, expiresAt)
 	return err
 }
 
 func (r *Repository) RevokeSession(ctx context.Context, refreshToken string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE sessions SET is_revoked = true, revoked_at = NOW() WHERE refresh_token = $1`,
-		refreshToken)
+	_, err := r.pool.Exec(ctx, `
+		UPDATE identity.login_session SET logout_at = NOW() WHERE refresh_token = $1`, refreshToken)
 	return err
 }
 
@@ -416,7 +439,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 		Email:        req.Email,
 		PasswordHash: string(hash),
 		FullName:     req.FullName,
-		Role:         "STUDENT",
+		Role:         middleware.RoleSiswa,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
@@ -989,10 +1012,10 @@ func validatePassword(password string) error {
 }
 
 func validatePublicRegisterRole(role string) error {
-	if role != "" && role != "STUDENT" {
-		return fiber.NewError(fiber.StatusBadRequest, "Public registration only allows STUDENT role")
+	if role == middleware.RoleSiswa {
+		return nil
 	}
-	return nil
+	return fiber.NewError(fiber.StatusBadRequest, "Public registration only allows role SISWA")
 }
 
 func restrictGradeSchoolForRole(req UpdateProfileRequest, role string) UpdateProfileRequest {

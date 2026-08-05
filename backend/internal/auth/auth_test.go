@@ -112,12 +112,21 @@ func TestValidateProfileRequest(t *testing.T) {
 	assert.NoError(t, validateProfileRequest(nilReq))
 }
 
+func TestPublicRegisterRoleMapsToSiswa(t *testing.T) {
+	if err := validatePublicRegisterRole("ADMIN"); err == nil {
+		t.Fatal("expected error for legacy ADMIN public register")
+	}
+	if err := validatePublicRegisterRole("SISWA"); err != nil {
+		t.Fatalf("expected SISWA allowed, got %v", err)
+	}
+}
+
 func TestPublicRegisterRejectsElevatedRoles(t *testing.T) {
 	assert.Error(t, validatePublicRegisterRole("ADMIN"))
 	assert.Error(t, validatePublicRegisterRole("STAFF"))
 	assert.Error(t, validatePublicRegisterRole("TEACHER"))
-	assert.NoError(t, validatePublicRegisterRole("STUDENT"))
-	assert.NoError(t, validatePublicRegisterRole(""))
+	assert.Error(t, validatePublicRegisterRole("STUDENT"))
+	assert.Error(t, validatePublicRegisterRole(""))
 }
 
 func TestRestrictGradeSchoolByRole(t *testing.T) {
