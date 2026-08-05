@@ -1,17 +1,17 @@
 # SDD Progress Ledger
 
-## DB Rebuild Phase 17 Audit (plan docs/superpowers/plans/2026-08-05-database-rebuild-phase17-audit.md)
-Base commit: d6affb4. Target: 62 tables in audit schema, migrations 170-179.
+## DB Rebuild Phase 19 Monitoring (plan docs/superpowers/plans/2026-08-05-database-rebuild-phase19-monitoring.md)
+Base commit: 3c9a2a1. Target: 28 tables in monitoring schema, migrations 190-199.
 
-Task 17A: complete. activity & audit core (170). Verified audit=6.
-Task 17B: complete. auth logs (171). Verified audit=12.
-Task 17C: complete. role & security logs (172). Verified audit=18.
-Task 17D: complete. token/session/device/api logs (173). Verified audit=24.
-Task 17E: complete. error & system logs (174). Verified audit=30.
-Task 17F: complete. ops logs (175). Verified audit=36.
-Task 17G: complete. worker/notification logs (176). Verified audit=42.
-Task 17H: complete. notification delivery + ai logs (177). Verified audit=48.
-Task 17I: complete. ai embedding + import/export/history (178). Verified audit=54.
-Task 17J: complete. lifecycle logs (179). Verified audit=62.
-Final review: approve. Audit domain COMPLETE (62 tables).
-Note: _migrations 157 live. Deviation: append-only (no updated_at), partitioning deferred.
+Task 19A: complete. service registry (190). monitoring=3.
+Task 19B: complete. base metrics (191). monitoring=7.
+Task 19C: complete. api metrics (192). monitoring=10.
+Task 19D: complete. tracing (193). monitoring=12.
+Task 19E: complete. alert (194). monitoring=15.
+Task 19F: complete. sla (195). monitoring=17.
+Task 19G: complete. synthetic (196). monitoring=19.
+Task 19H: complete. capacity & domain metrics (197). monitoring=23.
+Task 19I: complete. dashboard & incident (198). monitoring=27.
+Task 19J: complete. config (199). monitoring=28.
+Final review: approve. Monitoring domain COMPLETE (28 tables).
+Note: _migrations 177 live. Deviation: metrics append-only snapshots; no partitioning.
