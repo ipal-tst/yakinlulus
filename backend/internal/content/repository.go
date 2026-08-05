@@ -38,10 +38,14 @@ func (r *repository) CreateContent(ctx context.Context, c *Content) error {
 		c.Metadata = map[string]interface{}{}
 	}
 
-	// MATERIAL masters live in content.material (new schema). Everything else
-	// (question/exam) stays on the legacy `contents` insert until subphase 2.4.
+	// MATERIAL masters live in content.material (new schema); EXAM masters live
+	// in cbt.exam. Question rows stay on the legacy `contents` insert until the
+	// question migration lands.
 	if c.ContentType == ContentTypeMaterial {
 		return r.createMaterialContent(ctx, c)
+	}
+	if c.ContentType == ContentTypeExam {
+		return r.createExamContent(ctx, c)
 	}
 
 	if c.SubjectID == uuid.Nil {
@@ -340,6 +344,33 @@ func ptrUUIDOrNil(u *uuid.UUID) uuid.UUID {
 }
 
 func (r *repository) GetContent(ctx context.Context, id uuid.UUID) (*Content, error) {
+	// EXAM masters live in cbt.exam; project them back into the Content shape.
+	var isExam bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cbt.exam WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isExam); err == nil && isExam {
+		c := &Content{}
+		var meta map[string]interface{}
+		err := r.pool.QueryRow(ctx, `
+			SELECT m.id, 'EXAM', gr.grade_id, subj.subject_id, ch.chapter_id, tp.topic_id, NULL::uuid, m.title,
+			       COALESCE(m.description, '')::text, COALESCE(st.code, 'DRAFT')::text, m.owner_id,
+			       NULL::jsonb, NULL::timestamptz, m.created_at, m.updated_at
+			FROM cbt.exam m
+			LEFT JOIN cbt.exam_status st ON st.id = m.status_id
+			LEFT JOIN LATERAL (SELECT grade_id FROM cbt.exam_grade WHERE exam_id = m.id LIMIT 1) gr ON true
+			LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = m.id LIMIT 1) subj ON true
+			LEFT JOIN LATERAL (SELECT chapter_id FROM cbt.exam_chapter WHERE exam_id = m.id LIMIT 1) ch ON true
+			LEFT JOIN LATERAL (SELECT topic_id FROM cbt.exam_topic WHERE exam_id = m.id LIMIT 1) tp ON true
+			WHERE m.id = $1`, id).Scan(
+			&c.ID, &c.ContentType, &c.GradeID, &c.SubjectID, &c.ChapterID, &c.TopicID, &c.LOID,
+			&c.Title, &c.Body, &c.Status, &c.CreatedBy, &meta, &c.PublishedAt, &c.CreatedAt, &c.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if len(meta) > 0 {
+			c.Metadata = meta
+		}
+		return c, nil
+	}
+
 	c := &Content{}
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, content_type, grade_id, subject_id, chapter_id, topic_id, lo_id, title, body, status, created_by, metadata, published_at, created_at, updated_at
@@ -417,6 +448,12 @@ func (r *repository) UpdateContent(ctx context.Context, id uuid.UUID, req Update
 		return r.updateMaterialContent(ctx, id, req)
 	}
 
+	// EXAM masters update against cbt.exam.
+	var isExam bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cbt.exam WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isExam); err == nil && isExam {
+		return r.updateExamContent(ctx, id, req)
+	}
+
 	sets = append(sets, "updated_at = NOW()")
 	args = append(args, id)
 
@@ -431,6 +468,12 @@ func (r *repository) DeleteContent(ctx context.Context, id uuid.UUID) error {
 	var isMaterial bool
 	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1)`, id).Scan(&isMaterial); err == nil && isMaterial {
 		return r.DeleteMaterial(ctx, id)
+	}
+
+	// EXAM masters soft-delete against cbt.exam.
+	var isExam bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cbt.exam WHERE id = $1)`, id).Scan(&isExam); err == nil && isExam {
+		return r.softDeleteExam(ctx, id)
 	}
 	_, err := r.pool.Exec(ctx, `DELETE FROM contents WHERE id = $1`, id)
 	return err
@@ -1142,135 +1185,406 @@ func (r *repository) ListProgressByUser(ctx context.Context, userID uuid.UUID, l
 
 // ========== EXAMS ==========
 
-func (r *repository) CreateExam(ctx context.Context, e *Exam) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_exams (content_id, description, duration_minutes, passing_score, shuffle_questions, shuffle_options, max_attempts, start_time, end_time, blueprint)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-	`, e.ContentID, e.Description, e.DurationMinutes, e.PassingScore, e.ShuffleQuestions, e.ShuffleOptions, e.MaxAttempts, e.StartTime, e.EndTime, e.Blueprint)
+// ensureExamStatuses idempotently seeds the cbt.exam_status lookup rows and
+// returns a code->id map. Safe to call on every write.
+func (r *repository) ensureExamStatuses(ctx context.Context, tx pgx.Tx) (map[string]uuid.UUID, error) {
+	rows := [][2]string{
+		{"DRAFT", "Draft"},
+		{"REVIEW", "In Review"},
+		{"APPROVED", "Approved"},
+		{"PUBLISHED", "Published"},
+		{"ARCHIVED", "Archived"},
+	}
+	for _, s := range rows {
+		if _, err := tx.Exec(ctx, `INSERT INTO cbt.exam_status (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`, s[0], s[1]); err != nil {
+			return nil, err
+		}
+	}
+	statuses := map[string]uuid.UUID{}
+	rws, err := tx.Query(ctx, `SELECT code, id FROM cbt.exam_status WHERE code = ANY($1)`,
+		[]string{"DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"})
+	if err != nil {
+		return nil, err
+	}
+	defer rws.Close()
+	for rws.Next() {
+		var code string
+		var id uuid.UUID
+		if err := rws.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		statuses[code] = id
+	}
+	return statuses, rws.Err()
+}
+
+// linkExamJunction inserts an N:M row only when the referenced academic row
+// exists, so an empty academic catalog degrades gracefully.
+func (r *repository) linkExamJunction(ctx context.Context, tx pgx.Tx, junction, refTable, refCol string, examID, refID uuid.UUID) error {
+	if refID == uuid.Nil {
+		return nil
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+refTable+` WHERE id = $1)`, refID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO cbt.`+junction+` (exam_id, `+refCol+`) VALUES ($1, $2)`, examID, refID)
 	return err
 }
 
-func (r *repository) GetExam(ctx context.Context, contentID uuid.UUID) (*ExamFull, error) {
-	e := &ExamFull{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       e.description, e.duration_minutes, e.passing_score, e.shuffle_questions, e.shuffle_options, e.max_attempts, e.start_time, e.end_time, e.blueprint
-		FROM contents c
-		JOIN content_exams e ON c.id = e.content_id
-		WHERE c.id = $1
-	`, contentID).Scan(
-		&e.Content.ID, &e.Content.ContentType, &e.Content.GradeID, &e.Content.SubjectID, &e.Content.ChapterID, &e.Content.TopicID, &e.Content.LOID, &e.Content.Title, &e.Content.Body, &e.Content.Status, &e.Content.CreatedBy, &e.Content.Metadata, &e.Content.PublishedAt, &e.Content.CreatedAt, &e.Content.UpdatedAt,
-		&e.Exam.Description, &e.Exam.DurationMinutes, &e.Exam.PassingScore, &e.Exam.ShuffleQuestions, &e.Exam.ShuffleOptions, &e.Exam.MaxAttempts, &e.Exam.StartTime, &e.Exam.EndTime, &e.Exam.Blueprint,
-	)
+func (r *repository) insertExamJunctions(ctx context.Context, tx pgx.Tx, examID uuid.UUID, c *Content) error {
+	link := func(junction, refTable, refCol string, refID uuid.UUID) error {
+		return r.linkExamJunction(ctx, tx, junction, refTable, refCol, examID, refID)
+	}
+	if err := link("exam_subject", "academic.subject", "subject_id", c.SubjectID); err != nil {
+		return err
+	}
+	if err := link("exam_grade", "academic.grade", "grade_id", c.GradeID); err != nil {
+		return err
+	}
+	if c.ChapterID != nil {
+		if err := link("exam_chapter", "academic.chapter", "chapter_id", *c.ChapterID); err != nil {
+			return err
+		}
+	}
+	if c.TopicID != nil {
+		if err := link("exam_topic", "academic.topic", "topic_id", *c.TopicID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) clearExamJunctions(ctx context.Context, tx pgx.Tx, examID uuid.UUID) error {
+	for _, t := range []string{"exam_subject", "exam_grade", "exam_chapter", "exam_topic"} {
+		if _, err := tx.Exec(ctx, `DELETE FROM cbt.`+t+` WHERE exam_id = $1`, examID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createExamContent creates the cbt.exam master plus its academic junctions in
+// one transaction. The exam_metadata row is written by CreateExam.
+func (r *repository) createExamContent(ctx context.Context, c *Content) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureExamStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+	statusID := statuses[string(c.Status)]
+	if statusID == uuid.Nil {
+		statusID = statuses[string(StatusDraft)]
 	}
 
-	// Load questions
-	eqRows, err := r.pool.Query(ctx, `
-		SELECT id, exam_content_id, question_content_id, display_order, points, created_at
-		FROM content_exam_questions WHERE exam_content_id = $1 ORDER BY display_order
-	`, contentID)
+	code := "exm_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam (id, exam_code, title, description, exam_type, status_id, owner_id, created_by)
+		VALUES ($1, $2, $3, $4, 'CBT', $5, $6, $7)`,
+		c.ID, code, c.Title, c.Body, statusID, c.CreatedBy, c.CreatedBy)
+	if err != nil {
+		return err
+	}
+	if err := r.insertExamJunctions(ctx, tx, c.ID, c); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// updateExamContent updates master-level fields and junctions for a cbt.exam
+// row. The metadata/randomization refresh lives in UpdateExam.
+func (r *repository) updateExamContent(ctx context.Context, id uuid.UUID, req UpdateContentReq) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureExamStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+	var statusID *uuid.UUID
+	if req.Status != nil {
+		if sid, ok := statuses[string(*req.Status)]; ok && sid != uuid.Nil {
+			statusID = &sid
+		}
+	}
+
+	sets := []string{"title = COALESCE($2, title)", "description = COALESCE($3, description)", "status_id = COALESCE($4, status_id)", "updated_at = NOW()"}
+	args := []interface{}{id, req.Title, req.Body, statusID}
+	if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE cbt.exam SET %s WHERE id = $1 AND deleted_at IS NULL", strings.Join(sets, ", ")), args...); err != nil {
+		return err
+	}
+
+	if req.SubjectID != nil || req.ChapterID != nil || req.TopicID != nil {
+		var curGrade uuid.UUID
+		_ = tx.QueryRow(ctx, `
+			SELECT COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')
+			FROM (SELECT grade_id FROM cbt.exam_grade WHERE exam_id = $1 LIMIT 1) gr`, id).Scan(&curGrade)
+		if err := r.clearExamJunctions(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.insertExamJunctions(ctx, tx, id, &Content{
+			SubjectID: ptrUUIDOrNil(req.SubjectID),
+			GradeID:   curGrade,
+			ChapterID: req.ChapterID,
+			TopicID:   req.TopicID,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *repository) softDeleteExam(ctx context.Context, contentID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE cbt.exam SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, contentID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// examColumns projects a cbt.exam master plus its status, metadata,
+// randomization, schedule and academic junctions into the ExamFull shape.
+const examColumns = `
+	m.id,
+	'EXAM'::text,
+	COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	ch.chapter_id,
+	tp.topic_id,
+	NULL::uuid,
+	m.title,
+	COALESCE(m.description, '')::text,
+	COALESCE(st.code, 'DRAFT')::text,
+	COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	NULL::jsonb,
+	NULL::timestamptz,
+	m.created_at,
+	m.updated_at,
+	COALESCE(m.description, '')::text,
+	COALESCE(md.duration_minute, 0),
+	COALESCE(md.passing_score, 0),
+	COALESCE(rz.random_question, false),
+	COALESCE(rz.random_option, false),
+	1::int,
+	sch.start_time,
+	sch.end_time,
+	'{}'::jsonb`
+
+const examFrom = `
+	FROM cbt.exam m
+	LEFT JOIN cbt.exam_status st ON st.id = m.status_id
+	LEFT JOIN cbt.exam_metadata md ON md.exam_id = m.id
+	LEFT JOIN cbt.exam_randomization rz ON rz.exam_id = m.id
+	LEFT JOIN LATERAL (SELECT start_time, end_time FROM cbt.exam_schedule WHERE exam_id = m.id ORDER BY created_at DESC LIMIT 1) sch ON true
+	LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = m.id LIMIT 1) subj ON true
+	LEFT JOIN LATERAL (SELECT grade_id FROM cbt.exam_grade WHERE exam_id = m.id LIMIT 1) gr ON true
+	LEFT JOIN LATERAL (SELECT chapter_id FROM cbt.exam_chapter WHERE exam_id = m.id LIMIT 1) ch ON true
+	LEFT JOIN LATERAL (SELECT topic_id FROM cbt.exam_topic WHERE exam_id = m.id LIMIT 1) tp ON true`
+
+func scanExam(row pgx.Row) (*ExamFull, error) {
+	e := &ExamFull{}
+	var meta map[string]interface{}
+	if err := row.Scan(
+		&e.Content.ID, &e.Content.ContentType, &e.Content.GradeID, &e.Content.SubjectID, &e.Content.ChapterID, &e.Content.TopicID, &e.Content.LOID, &e.Content.Title, &e.Content.Body, &e.Content.Status, &e.Content.CreatedBy, &meta, &e.Content.PublishedAt, &e.Content.CreatedAt, &e.Content.UpdatedAt,
+		&e.Exam.Description, &e.Exam.DurationMinutes, &e.Exam.PassingScore, &e.Exam.ShuffleQuestions, &e.Exam.ShuffleOptions, &e.Exam.MaxAttempts, &e.Exam.StartTime, &e.Exam.EndTime, &e.Exam.Blueprint,
+	); err != nil {
+		return nil, err
+	}
+	if len(meta) > 0 {
+		e.Content.Metadata = meta
+	}
+	return e, nil
+}
+
+func (r *repository) loadExamQuestions(ctx context.Context, examID uuid.UUID) ([]ExamQuestion, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT pq.id, p.exam_id, pq.question_id, qs.subject_id, pq.question_order, pq.score, pq.created_at
+		FROM cbt.exam_package_question pq
+		JOIN cbt.exam_package p ON p.id = pq.package_id
+		LEFT JOIN LATERAL (SELECT subject_id FROM question.question_subject WHERE question_id = pq.question_id LIMIT 1) qs ON true
+		WHERE p.exam_id = $1 ORDER BY pq.question_order`, examID)
 	if err != nil {
 		return nil, err
 	}
-	for eqRows.Next() {
-		var eq ExamQuestion
-		if err := eqRows.Scan(&eq.ID, &eq.ExamContentID, &eq.QuestionContentID, &eq.DisplayOrder, &eq.Points, &eq.CreatedAt); err != nil {
-			eqRows.Close()
+	defer rows.Close()
+
+	var list []ExamQuestion
+	for rows.Next() {
+		var q ExamQuestion
+		if err := rows.Scan(&q.ID, &q.ExamContentID, &q.QuestionContentID, &q.SubjectID, &q.DisplayOrder, &q.Points, &q.CreatedAt); err != nil {
 			return nil, err
 		}
-		e.Questions = append(e.Questions, eq)
+		list = append(list, q)
 	}
-	eqRows.Close()
+	return list, rows.Err()
+}
 
-	// Load blueprint
-	bp := &ExamBlueprint{}
-	err = r.pool.QueryRow(ctx, `
-		SELECT id, exam_content_id, easy_count, medium_count, hard_count, total_questions, created_at
-		FROM content_exam_blueprints WHERE exam_content_id = $1
-	`, contentID).Scan(&bp.ID, &bp.ExamContentID, &bp.EasyCount, &bp.MediumCount, &bp.HardCount, &bp.TotalQuestions, &bp.CreatedAt)
-	if err == nil {
-		e.Blueprint = bp
+func (r *repository) loadExamBlueprint(ctx context.Context, examID uuid.UUID) (*ExamBlueprint, error) {
+	var bpID *uuid.UUID
+	var createdAt *time.Time
+	var n, easy, medium, hard int
+	err := r.pool.QueryRow(ctx, `
+		SELECT (SELECT id FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id IS NULL ORDER BY created_at LIMIT 1),
+		       MIN(created_at), COUNT(*),
+		       COALESCE(SUM(total_question) FILTER (WHERE difficulty = 'EASY'), 0),
+		       COALESCE(SUM(total_question) FILTER (WHERE difficulty = 'MEDIUM'), 0),
+		       COALESCE(SUM(total_question) FILTER (WHERE difficulty = 'HARD'), 0)
+		FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id IS NULL`, examID).Scan(&bpID, &createdAt, &n, &easy, &medium, &hard)
+	if err != nil {
+		return nil, err
 	}
+	if n == 0 {
+		return nil, nil
+	}
+	bp := &ExamBlueprint{
+		ID:             *bpID,
+		ExamContentID:  examID,
+		EasyCount:      easy,
+		MediumCount:    medium,
+		HardCount:      hard,
+		TotalQuestions: easy + medium + hard,
+	}
+	if createdAt != nil {
+		bp.CreatedAt = *createdAt
+	}
+	return bp, nil
+}
 
+func (r *repository) CreateExam(ctx context.Context, e *Exam) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// cbt.exam_metadata carries the authored duration/score/flags; shuffle
+	// flags land on cbt.exam_randomization (max_attempts has no cbt column and
+	// is dropped). Blueprint is dropped here: exam_question_pool (via the
+	// explicit blueprint methods) is the source of truth.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, certificate, negative_marking, show_result, show_answer)
+		VALUES ($1, $2, $3, false, $4, true, false)
+		ON CONFLICT (exam_id) DO UPDATE SET
+			duration_minute = EXCLUDED.duration_minute,
+			passing_score = EXCLUDED.passing_score,
+			negative_marking = EXCLUDED.negative_marking`,
+		e.ContentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_randomization (exam_id, random_question, random_option)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (exam_id) DO UPDATE SET
+			random_question = EXCLUDED.random_question,
+			random_option = EXCLUDED.random_option`,
+		e.ContentID, e.ShuffleQuestions, e.ShuffleOptions)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *repository) GetExam(ctx context.Context, contentID uuid.UUID) (*ExamFull, error) {
+	e, err := scanExam(r.pool.QueryRow(ctx, `SELECT `+examColumns+examFrom+` WHERE m.id = $1 AND m.deleted_at IS NULL`, contentID))
+	if err != nil {
+		return nil, err
+	}
+	qs, err := r.loadExamQuestions(ctx, contentID)
+	if err != nil {
+		return nil, err
+	}
+	e.Questions = qs
+	bp, err := r.loadExamBlueprint(ctx, contentID)
+	if err != nil {
+		return nil, err
+	}
+	e.Blueprint = bp
 	return e, nil
 }
 
 func (r *repository) UpdateExam(ctx context.Context, contentID uuid.UUID, e *Exam) error {
-	if e.Blueprint == nil {
-		e.Blueprint = make(map[string]interface{})
-	}
-	bpBytes, err := json.Marshal(e.Blueprint)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		bpBytes = []byte("{}")
+		return err
 	}
+	defer tx.Rollback(ctx)
 
-	_, err = r.pool.Exec(ctx, `
-		UPDATE content_exams SET
-			description = COALESCE(NULLIF($1, ''), description),
-			duration_minutes = CASE WHEN $2 > 0 THEN $2 ELSE duration_minutes END,
-			passing_score = CASE WHEN $3 >= 0 THEN $3 ELSE passing_score END,
-			shuffle_questions = $4,
-			shuffle_options = $5,
-			max_attempts = CASE WHEN $6 > 0 THEN $6 ELSE max_attempts END,
-			start_time = COALESCE($7, start_time),
-			end_time = COALESCE($8, end_time),
-			blueprint = $9::jsonb
-		WHERE content_id = $10
-	`, e.Description, e.DurationMinutes, e.PassingScore, e.ShuffleQuestions, e.ShuffleOptions, e.MaxAttempts, e.StartTime, e.EndTime, string(bpBytes), contentID)
-	return err
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, negative_marking)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (exam_id) DO UPDATE SET
+			duration_minute = EXCLUDED.duration_minute,
+			passing_score = EXCLUDED.passing_score,
+			negative_marking = EXCLUDED.negative_marking`,
+		contentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_randomization (exam_id, random_question, random_option)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (exam_id) DO UPDATE SET
+			random_question = EXCLUDED.random_question,
+			random_option = EXCLUDED.random_option`,
+		contentID, e.ShuffleQuestions, e.ShuffleOptions)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) DeleteExam(ctx context.Context, contentID uuid.UUID) error {
-	return r.DeleteContent(ctx, contentID)
+	return r.softDeleteExam(ctx, contentID)
 }
 
 func (r *repository) ListExams(ctx context.Context, filter ExamFilter) ([]ExamFull, int, error) {
-	where := "WHERE c.content_type = 'EXAM'"
+	where := " WHERE m.deleted_at IS NULL"
 	args := []interface{}{}
 	argN := 1
 
 	if filter.GradeID != nil && *filter.GradeID != uuid.Nil {
-		where += fmt.Sprintf(" AND (c.grade_id = $%d OR c.grade_id IS NULL OR c.grade_id IN (SELECT g.id FROM grades g WHERE g.education_level_id = (SELECT g2.education_level_id FROM grades g2 WHERE g2.id = $%d)))", argN, argN)
+		where += fmt.Sprintf(" AND gr.grade_id = $%d", argN)
 		args = append(args, *filter.GradeID)
 		argN++
 	}
-	if filter.SubjectID != nil {
-		where += fmt.Sprintf(" AND c.subject_id = $%d", argN)
+	if filter.SubjectID != nil && *filter.SubjectID != uuid.Nil {
+		where += fmt.Sprintf(" AND subj.subject_id = $%d", argN)
 		args = append(args, *filter.SubjectID)
 		argN++
 	}
 	if filter.Status != nil {
-		where += fmt.Sprintf(" AND c.status = $%d", argN)
-		args = append(args, *filter.Status)
+		where += fmt.Sprintf(" AND st.code = $%d", argN)
+		args = append(args, string(*filter.Status))
 		argN++
 	}
 	if filter.CreatedBy != nil {
-		where += fmt.Sprintf(" AND c.created_by = $%d", argN)
+		where += fmt.Sprintf(" AND m.owner_id = $%d", argN)
 		args = append(args, *filter.CreatedBy)
 		argN++
 	}
 	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (c.title ILIKE $%d OR c.body ILIKE $%d OR e.description ILIKE $%d)", argN, argN, argN)
+		where += fmt.Sprintf(" AND (m.title ILIKE $%d OR COALESCE(m.description, '') ILIKE $%d)", argN, argN)
 		args = append(args, "%"+filter.Search+"%")
-		argN++
-	}
-	if filter.StartTime != nil {
-		where += fmt.Sprintf(" AND e.start_time >= $%d", argN)
-		args = append(args, *filter.StartTime)
-		argN++
-	}
-	if filter.EndTime != nil {
-		where += fmt.Sprintf(" AND e.end_time <= $%d", argN)
-		args = append(args, *filter.EndTime)
 		argN++
 	}
 
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM contents c JOIN content_exams e ON c.id = e.content_id %s", where)
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) "+examFrom+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -1280,13 +1594,8 @@ func (r *repository) ListExams(ctx context.Context, filter ExamFilter) ([]ExamFu
 	}
 	offset := filter.Offset
 
-	query := fmt.Sprintf(`
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       e.description, e.duration_minutes, e.passing_score, e.shuffle_questions, e.shuffle_options, e.max_attempts, e.start_time, e.end_time, e.blueprint
-		FROM contents c
-		JOIN content_exams e ON c.id = e.content_id
-		%s ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d
-	`, where, argN, argN+1)
+	query := fmt.Sprintf("SELECT "+examColumns+examFrom+where+
+		" ORDER BY m.created_at DESC LIMIT $%d OFFSET $%d", argN, argN+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -1297,56 +1606,66 @@ func (r *repository) ListExams(ctx context.Context, filter ExamFilter) ([]ExamFu
 
 	var exams []ExamFull
 	for rows.Next() {
-		var e ExamFull
-		if err := rows.Scan(
-			&e.Content.ID, &e.Content.ContentType, &e.Content.GradeID, &e.Content.SubjectID, &e.Content.ChapterID, &e.Content.TopicID, &e.Content.LOID, &e.Content.Title, &e.Content.Body, &e.Content.Status, &e.Content.CreatedBy, &e.Content.Metadata, &e.Content.PublishedAt, &e.Content.CreatedAt, &e.Content.UpdatedAt,
-			&e.Exam.Description, &e.Exam.DurationMinutes, &e.Exam.PassingScore, &e.Exam.ShuffleQuestions, &e.Exam.ShuffleOptions, &e.Exam.MaxAttempts, &e.Exam.StartTime, &e.Exam.EndTime, &e.Exam.Blueprint,
-		); err != nil {
+		e, err := scanExam(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		exams = append(exams, e)
+		exams = append(exams, *e)
 	}
-	return exams, total, nil
+	return exams, total, rows.Err()
 }
 
 // ========== EXAM QUESTIONS ==========
 
 func (r *repository) AddExamQuestion(ctx context.Context, eq *ExamQuestion) error {
-	eq.ID = uuid.New()
-	eq.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_exam_questions (id, exam_content_id, question_content_id, display_order, points, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6)
-	`, eq.ID, eq.ExamContentID, eq.QuestionContentID, eq.DisplayOrder, eq.Points, eq.CreatedAt)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var packageID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO cbt.exam_package (exam_id, name) VALUES ($1, 'default')
+		ON CONFLICT (exam_id, name) DO UPDATE SET name = EXCLUDED.name
+		RETURNING id`, eq.ExamContentID).Scan(&packageID); err != nil {
+		return err
+	}
+
+	nextOrder := eq.DisplayOrder
+	if nextOrder <= 0 {
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(question_order) + 1, 0) FROM cbt.exam_package_question WHERE package_id = $1`, packageID).Scan(&nextOrder); err != nil {
+			return err
+		}
+	}
+
+	var id uuid.UUID
+	var created time.Time
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO cbt.exam_package_question (package_id, question_id, question_order, score)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (package_id, question_id) DO UPDATE SET
+			question_order = EXCLUDED.question_order,
+			score = EXCLUDED.score
+		RETURNING id, created_at`, packageID, eq.QuestionContentID, nextOrder, eq.Points).Scan(&id, &created); err != nil {
+		return err
+	}
+	eq.ID = id
+	eq.DisplayOrder = nextOrder
+	eq.CreatedAt = created
+	return tx.Commit(ctx)
 }
 
 func (r *repository) RemoveExamQuestion(ctx context.Context, examContentID, questionContentID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `
-		DELETE FROM content_exam_questions WHERE exam_content_id = $1 AND question_content_id = $2
-	`, examContentID, questionContentID)
+		DELETE FROM cbt.exam_package_question pq
+		USING cbt.exam_package p
+		WHERE pq.package_id = p.id AND p.exam_id = $1 AND pq.question_id = $2`, examContentID, questionContentID)
 	return err
 }
 
 func (r *repository) GetExamQuestions(ctx context.Context, examContentID uuid.UUID) ([]ExamQuestion, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, exam_content_id, question_content_id, display_order, points, created_at
-		FROM content_exam_questions WHERE exam_content_id = $1 ORDER BY display_order
-	`, examContentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var questions []ExamQuestion
-	for rows.Next() {
-		var eq ExamQuestion
-		if err := rows.Scan(&eq.ID, &eq.ExamContentID, &eq.QuestionContentID, &eq.DisplayOrder, &eq.Points, &eq.CreatedAt); err != nil {
-			return nil, err
-		}
-		questions = append(questions, eq)
-	}
-	return questions, nil
+	return r.loadExamQuestions(ctx, examContentID)
 }
 
 func (r *repository) ReorderExamQuestions(ctx context.Context, examContentID uuid.UUID, questionIDs []uuid.UUID) error {
@@ -1358,9 +1677,9 @@ func (r *repository) ReorderExamQuestions(ctx context.Context, examContentID uui
 
 	for i, qID := range questionIDs {
 		_, err = tx.Exec(ctx, `
-			UPDATE content_exam_questions SET display_order = $1
-			WHERE exam_content_id = $2 AND question_content_id = $3
-		`, i, examContentID, qID)
+			UPDATE cbt.exam_package_question pq SET question_order = $1
+			FROM cbt.exam_package p
+			WHERE pq.package_id = p.id AND p.exam_id = $2 AND pq.question_id = $3`, i, examContentID, qID)
 		if err != nil {
 			return err
 		}
@@ -1371,51 +1690,76 @@ func (r *repository) ReorderExamQuestions(ctx context.Context, examContentID uui
 // ========== EXAM BLUEPRINTS ==========
 
 func (r *repository) CreateExamBlueprint(ctx context.Context, eb *ExamBlueprint) error {
-	eb.ID = uuid.New()
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Reset the exam-level pool rows (subject_id NULL) then insert one pool row
+	// per difficulty bucket; exam_question_pool is the blueprint source of truth.
+	if _, err := tx.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id IS NULL`, eb.ExamContentID); err != nil {
+		return err
+	}
+	buckets := []struct {
+		diff string
+		n    int
+	}{
+		{"EASY", eb.EasyCount},
+		{"MEDIUM", eb.MediumCount},
+		{"HARD", eb.HardCount},
+	}
+	for _, b := range buckets {
+		if b.n <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.exam_question_pool (exam_id, subject_id, chapter_id, difficulty, total_question)
+			VALUES ($1, NULL, NULL, $2, $3)`, eb.ExamContentID, b.diff, b.n); err != nil {
+			return err
+		}
+	}
 	eb.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_exam_blueprints (id, exam_content_id, easy_count, medium_count, hard_count, total_questions, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)
-	`, eb.ID, eb.ExamContentID, eb.EasyCount, eb.MediumCount, eb.HardCount, eb.TotalQuestions, eb.CreatedAt)
-	return err
+	return tx.Commit(ctx)
 }
 
 func (r *repository) GetExamBlueprint(ctx context.Context, examContentID uuid.UUID) (*ExamBlueprint, error) {
-	eb := &ExamBlueprint{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, exam_content_id, easy_count, medium_count, hard_count, total_questions, created_at
-		FROM content_exam_blueprints WHERE exam_content_id = $1
-	`, examContentID).Scan(&eb.ID, &eb.ExamContentID, &eb.EasyCount, &eb.MediumCount, &eb.HardCount, &eb.TotalQuestions, &eb.CreatedAt)
+	bp, err := r.loadExamBlueprint(ctx, examContentID)
 	if err != nil {
 		return nil, err
 	}
-	return eb, nil
+	if bp == nil {
+		return nil, pgx.ErrNoRows
+	}
+	return bp, nil
 }
 
 // ========== EXAM PARTICIPANTS ==========
 
 func (r *repository) AddExamParticipant(ctx context.Context, ep *ExamParticipant) error {
-	ep.ID = uuid.New()
-	ep.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_exam_participants (id, exam_content_id, user_id, created_at)
-		VALUES ($1,$2,$3,$4)
-	`, ep.ID, ep.ExamContentID, ep.UserID, ep.CreatedAt)
-	return err
+	var id uuid.UUID
+	var created time.Time
+	if err := r.pool.QueryRow(ctx, `
+		INSERT INTO cbt.exam_participant (exam_id, student_id, status)
+		VALUES ($1, $2, 'REGISTER')
+		ON CONFLICT (exam_id, student_id) DO UPDATE SET status = EXCLUDED.status
+		RETURNING id, created_at`, ep.ExamContentID, ep.UserID).Scan(&id, &created); err != nil {
+		return err
+	}
+	ep.ID = id
+	ep.CreatedAt = created
+	return nil
 }
 
 func (r *repository) RemoveExamParticipant(ctx context.Context, examContentID, userID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `
-		DELETE FROM content_exam_participants WHERE exam_content_id = $1 AND user_id = $2
-	`, examContentID, userID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_participant WHERE exam_id = $1 AND student_id = $2`, examContentID, userID)
 	return err
 }
 
 func (r *repository) GetExamParticipants(ctx context.Context, examContentID uuid.UUID) ([]ExamParticipant, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, exam_content_id, user_id, created_at
-		FROM content_exam_participants WHERE exam_content_id = $1
-	`, examContentID)
+		SELECT id, exam_id, student_id, created_at
+		FROM cbt.exam_participant WHERE exam_id = $1 ORDER BY created_at`, examContentID)
 	if err != nil {
 		return nil, err
 	}
@@ -1717,20 +2061,47 @@ func (r *repository) GetExamAnalytics(ctx context.Context, examContentID uuid.UU
 // ========== EXAM SUBJECT BLUEPRINTS ==========
 
 func (r *repository) CreateExamSubjectBlueprint(ctx context.Context, esb *ExamSubjectBlueprint) error {
-	esb.ID = uuid.New()
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id = $2`, esb.ExamContentID, esb.SubjectID); err != nil {
+		return err
+	}
+	buckets := []struct {
+		diff string
+		n    int
+	}{
+		{"EASY", esb.EasyCount},
+		{"MEDIUM", esb.MediumCount},
+		{"HARD", esb.HardCount},
+	}
+	for _, b := range buckets {
+		if b.n <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.exam_question_pool (exam_id, subject_id, difficulty, total_question)
+			VALUES ($1, $2, $3, $4)`, esb.ExamContentID, esb.SubjectID, b.diff, b.n); err != nil {
+			return err
+		}
+	}
 	esb.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_exam_subject_blueprints (id, exam_content_id, subject_id, easy_count, medium_count, hard_count, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)
-	`, esb.ID, esb.ExamContentID, esb.SubjectID, esb.EasyCount, esb.MediumCount, esb.HardCount, esb.CreatedAt)
-	return err
+	return tx.Commit(ctx)
 }
 
 func (r *repository) GetExamSubjectBlueprints(ctx context.Context, examContentID uuid.UUID) ([]ExamSubjectBlueprint, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, exam_content_id, subject_id, easy_count, medium_count, hard_count, total_questions, created_at
-		FROM content_exam_subject_blueprints WHERE exam_content_id = $1 ORDER BY subject_id
-	`, examContentID)
+		SELECT (SELECT id FROM cbt.exam_question_pool p2 WHERE p2.exam_id = $1 AND p2.subject_id = p1.subject_id ORDER BY p2.created_at LIMIT 1),
+		       MIN(p1.created_at), p1.subject_id,
+		       COALESCE(SUM(p1.total_question) FILTER (WHERE p1.difficulty = 'EASY'), 0),
+		       COALESCE(SUM(p1.total_question) FILTER (WHERE p1.difficulty = 'MEDIUM'), 0),
+		       COALESCE(SUM(p1.total_question) FILTER (WHERE p1.difficulty = 'HARD'), 0)
+		FROM cbt.exam_question_pool p1
+		WHERE p1.exam_id = $1 AND p1.subject_id IS NOT NULL
+		GROUP BY p1.subject_id ORDER BY p1.subject_id`, examContentID)
 	if err != nil {
 		return nil, err
 	}
@@ -1738,17 +2109,19 @@ func (r *repository) GetExamSubjectBlueprints(ctx context.Context, examContentID
 
 	var blueprints []ExamSubjectBlueprint
 	for rows.Next() {
-		var esb ExamSubjectBlueprint
-		if err := rows.Scan(&esb.ID, &esb.ExamContentID, &esb.SubjectID, &esb.EasyCount, &esb.MediumCount, &esb.HardCount, &esb.TotalQuestions, &esb.CreatedAt); err != nil {
+		var b ExamSubjectBlueprint
+		if err := rows.Scan(&b.ID, &b.CreatedAt, &b.SubjectID, &b.EasyCount, &b.MediumCount, &b.HardCount); err != nil {
 			return nil, err
 		}
-		blueprints = append(blueprints, esb)
+		b.ExamContentID = examContentID
+		b.TotalQuestions = b.EasyCount + b.MediumCount + b.HardCount
+		blueprints = append(blueprints, b)
 	}
-	return blueprints, nil
+	return blueprints, rows.Err()
 }
 
 func (r *repository) DeleteExamSubjectBlueprint(ctx context.Context, examContentID, subjectID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM content_exam_subject_blueprints WHERE exam_content_id=$1 AND subject_id=$2`, examContentID, subjectID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE exam_id=$1 AND subject_id=$2`, examContentID, subjectID)
 	return err
 }
 

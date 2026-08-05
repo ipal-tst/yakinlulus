@@ -27,7 +27,7 @@ func NewHandler(svc *Service, secret string) *Handler {
 // RegisterRoutes registers the CBT exam routes.
 func (h *Handler) RegisterRoutes(r fiber.Router) {
 	authed := r.Group("", middleware.RequireAuth(h.secret))
-	write := middleware.RequireRole("ADMIN", "STAFF", "TEACHER")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
 
 	exams := authed.Group("/exams")
 	exams.Post("/", write, h.CreateExam)
