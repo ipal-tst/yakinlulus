@@ -64,10 +64,18 @@ Catatan response register: `is_active:false` & zero `created_at/updated_at` kare
 ## 6. Known issues / deferred
 
 - `school.go` admin-write functions & `GetUserGradeID` masih menarget tabel legacy `users`/`schools` → di-rewrite batch berikutnya (batch 4).
-- `ListSubjects` LEFT JOIN scan non-pointer `level_id`/`sort_order` berisiko NULL bila subject belum punya mapping `curriculum_subject` → perlu COALESCE/pengaman saat batch content.
 - Seeder `cmd/seed/main.go` masih target `users` legacy → perlu di-rewrite (bukan bagian scope Batch 1; smoke test memakai helper SQL sementara).
 - `profile.go` `student_targets`/target_schools masih legacy (batch 4).
 
-## 7. Conclusion
+## 7. Post-review fixes (whole-branch review)
 
-Batch 1 gate: **PASS**. Auth (register/login/role SISWA), master akademik, migrasi 026, dan log admin terverifikasi end-to-end terhadap schema baru.
+Reviewer menemukan 4 isu yang kemudian diperbaiki:
+
+1. **ListSubjects NULL-scan (Critical, ter-fix)** — SELECT lama mengeluarkan `NULL::text` untuk `grade_code`/`grade_name` (field `string` non-pointer) → error `cannot scan NULL into *string` di baris pertama setiap pemanggilan; `cs.education_level_id`/`cs.sort_order` juga bisa NULL pada path unfiltered. Diperbaiki dengan `COALESCE` + `LEFT JOIN academic.grade`. Terverifikasi via probe DB: subject unmapped kini scan OK (`gc="" gn="" sort=0`).
+2. **Password-reset split-brain (Important, ter-fix)** — `CreatePasswordReset`/`FindPasswordReset` masih menarget `password_resets` legacy sementara `MarkPasswordResetUsed` sudah `identity.password_reset` → token reset tidak pernah valid/invalidasi. Semua kini `identity.password_reset`.
+3. **CreateSession melewatkan `access_token` NOT NULL (Important, ter-fix)** — insert selalu gagal (error ditelan di Refresh). Signature kini menerima `accessToken`; caller Refresh meneruskan `newToken`.
+4. **Fungsi read akademik masih legacy (Important, ter-fix)** — `GetLevel`, `GetSubject`, `ListChapters` (by subject), `GetChapter`, `GetTopic`, `GetLearningOutcome` masih query tabel `education_levels`/`subjects`/`chapters`/`topics`/`learning_outcomes` yang sudah di-drop → endpoint GET 500. Semua kini ke schema `academic.*`.
+
+## 8. Conclusion
+
+Batch 1 gate: **PASS**. Auth (register/login/role SISWA), master akademik, migrasi 026, dan log admin terverifikasi end-to-end terhadap schema baru; 4 temuan review diperbaiki dan diverifikasi.

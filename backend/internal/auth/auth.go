@@ -214,7 +214,7 @@ func (r *Repository) GradeExists(ctx context.Context, gradeID uuid.UUID) (bool, 
 
 func (r *Repository) CreatePasswordReset(ctx context.Context, userID uuid.UUID, token, expiresAt string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+		`INSERT INTO identity.password_reset (user_id, token, expired_at) VALUES ($1, $2, $3::timestamptz)`,
 		userID, token, expiresAt)
 	return err
 }
@@ -222,8 +222,8 @@ func (r *Repository) CreatePasswordReset(ctx context.Context, userID uuid.UUID, 
 func (r *Repository) FindPasswordReset(ctx context.Context, token string) (uuid.UUID, error) {
 	var userID uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`SELECT user_id FROM password_resets
-		 WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()
+		`SELECT user_id FROM identity.password_reset
+		 WHERE token = $1 AND used_at IS NULL AND expired_at > NOW()
 		 ORDER BY created_at DESC LIMIT 1`, token,
 	).Scan(&userID)
 	if err != nil {
@@ -263,10 +263,10 @@ func (r *Repository) FindSessionByRefreshToken(ctx context.Context, refreshToken
 	return s, nil
 }
 
-func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, refreshToken string, expiresAt time.Time) error {
+func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, accessToken, refreshToken string, expiresAt time.Time) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO identity.login_session (user_id, refresh_token, expired_at)
-		VALUES ($1, $2, $3)`, userID, refreshToken, expiresAt)
+		INSERT INTO identity.login_session (user_id, access_token, refresh_token, expired_at)
+		VALUES ($1, $2, $3, $4)`, userID, accessToken, refreshToken, expiresAt)
 	return err
 }
 
@@ -983,7 +983,7 @@ func (s *Service) Refresh(ctx context.Context, userIDStr, refreshToken string) (
 	_ = s.repo.RevokeSession(ctx, refreshToken)
 	newToken, _ := generateToken(user.ID.String(), user.Role, s.jwtSecret)
 	newRefresh := uuid.New().String()
-	_ = s.repo.CreateSession(ctx, user.ID, newRefresh, time.Now().Add(30*24*time.Hour))
+	_ = s.repo.CreateSession(ctx, user.ID, newToken, newRefresh, time.Now().Add(30*24*time.Hour))
 
 	return &AuthResponse{User: *user, Token: newToken}, nil
 }

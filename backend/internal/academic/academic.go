@@ -374,7 +374,7 @@ func (r *Repository) DeleteProgram(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) GetLevel(ctx context.Context, id uuid.UUID) (*EducationLevel, error) {
-	row, err := r.pool.Query(ctx, "SELECT id, name, code, display_order, is_active, created_at, updated_at FROM education_levels WHERE id=$1", id)
+	row, err := r.pool.Query(ctx, "SELECT id, name, code, sort_order, true AS is_active, created_at, NOW() FROM academic.education_level WHERE id=$1", id)
 	if err != nil {
 		return nil, err
 	}
@@ -459,14 +459,15 @@ func (r *Repository) DeleteLevel(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UUID) ([]Subject, error) {
-	query := `SELECT s.id, cs.education_level_id AS level_id, NULL::uuid AS grade_id,
+	query := `SELECT s.id, COALESCE(cs.education_level_id, '00000000-0000-0000-0000-000000000000') AS level_id, cs.grade_id AS grade_id,
 		COALESCE(el.code, ''), COALESCE(el.name, ''),
-		NULL::text, NULL::text,
-		s.name, s.code, s.description, s.is_active, cs.sort_order, s.created_at, s.updated_at
+		COALESCE(g.code, ''), COALESCE(g.name, ''),
+		s.name, s.code, s.description, s.is_active, COALESCE(cs.sort_order, 0) AS sort_order, s.created_at, s.updated_at
 		FROM academic.subject s
 		LEFT JOIN academic.curriculum_subject cs ON cs.subject_id = s.id
-		LEFT JOIN academic.education_level el ON el.id = cs.education_level_id`
-	groupBy := ` GROUP BY s.id, cs.education_level_id, el.code, el.name, el.sort_order, cs.sort_order`
+		LEFT JOIN academic.education_level el ON el.id = cs.education_level_id
+		LEFT JOIN academic.grade g ON g.id = cs.grade_id`
+	groupBy := ` GROUP BY s.id, cs.education_level_id, cs.grade_id, el.code, el.name, g.code, g.name, el.sort_order, cs.sort_order`
 	orderBy := ` ORDER BY el.sort_order, cs.sort_order`
 	var rows pgx.Rows
 	var err error
@@ -495,14 +496,15 @@ func (r *Repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uui
 }
 
 func (r *Repository) GetSubject(ctx context.Context, id uuid.UUID) (*Subject, error) {
-	row, err := r.pool.Query(ctx, `SELECT s.id, s.level_id, s.grade_id,
+	row, err := r.pool.Query(ctx, `SELECT s.id, COALESCE(cs.education_level_id, '00000000-0000-0000-0000-000000000000') AS level_id, cs.grade_id AS grade_id,
 		COALESCE(el.code, ''), COALESCE(el.name, ''),
-		COALESCE(g.alias, ''), COALESCE(g.name, ''),
-		s.name, s.code, s.description, s.is_active, s.display_order, s.created_at, s.updated_at
-		FROM subjects s
-		LEFT JOIN education_levels el ON s.level_id = el.id
-		LEFT JOIN grades g ON s.grade_id = g.id
-		WHERE s.id=$1`, id)
+		COALESCE(g.code, ''), COALESCE(g.name, ''),
+		s.name, s.code, s.description, s.is_active, COALESCE(cs.sort_order, 0) AS display_order, s.created_at, s.updated_at
+		FROM academic.subject s
+		LEFT JOIN academic.curriculum_subject cs ON cs.subject_id = s.id
+		LEFT JOIN academic.education_level el ON el.id = cs.education_level_id
+		LEFT JOIN academic.grade g ON g.id = cs.grade_id
+		WHERE s.id=$1 LIMIT 1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +570,11 @@ func (r *Repository) DeleteSubject(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) ListChapters(ctx context.Context, subjectID uuid.UUID) ([]Chapter, error) {
-	rows, err := r.pool.Query(ctx, "SELECT id, subject_id, name, description, display_order, is_active, created_at, updated_at FROM chapters WHERE subject_id=$1 ORDER BY display_order", subjectID)
+	rows, err := r.pool.Query(ctx, `SELECT ch.id, cs.subject_id AS subject_id, ch.title AS name, ch.description,
+		ch.order_no AS display_order, ch.is_active, ch.created_at, ch.updated_at
+		FROM academic.chapter ch
+		JOIN academic.curriculum_subject cs ON cs.id = ch.curriculum_subject_id
+		WHERE cs.subject_id=$1 ORDER BY ch.order_no`, subjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -600,7 +606,11 @@ func (r *Repository) ListAllChapters(ctx context.Context) ([]Chapter, error) {
 }
 
 func (r *Repository) GetChapter(ctx context.Context, id uuid.UUID) (*Chapter, error) {
-	row, err := r.pool.Query(ctx, "SELECT id, subject_id, name, description, display_order, is_active, created_at, updated_at FROM chapters WHERE id=$1", id)
+	row, err := r.pool.Query(ctx, `SELECT ch.id, cs.subject_id AS subject_id, ch.title AS name, ch.description,
+		ch.order_no AS display_order, ch.is_active, ch.created_at, ch.updated_at
+		FROM academic.chapter ch
+		JOIN academic.curriculum_subject cs ON cs.id = ch.curriculum_subject_id
+		WHERE ch.id=$1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -695,7 +705,11 @@ func (r *Repository) CreateTopic(ctx context.Context, t *Topic) error {
 func (r *Repository) GetTopic(ctx context.Context, id uuid.UUID) (*Topic, error) {
 	var t Topic
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, chapter_id, title, sequence, description, is_active, created_at, updated_at FROM topics WHERE id=$1`, id,
+		`SELECT t.id, sc.chapter_id AS chapter_id, t.name AS title, t.order_no AS sequence,
+			t.description, true AS is_active, t.created_at, NOW()
+		 FROM academic.topic t
+		 JOIN academic.subchapter sc ON sc.id = t.subchapter_id
+		 WHERE t.id=$1`, id,
 	).Scan(&t.ID, &t.ChapterID, &t.Title, &t.Sequence, &t.Description, &t.IsActive, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -760,7 +774,11 @@ func (r *Repository) CreateLearningOutcome(ctx context.Context, o *LearningOutco
 func (r *Repository) GetLearningOutcome(ctx context.Context, id uuid.UUID) (*LearningOutcome, error) {
 	var o LearningOutcome
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, topic_id, code, title, sequence, description, bloom_default, is_active, created_at, updated_at FROM learning_outcomes WHERE id=$1`, id,
+		`SELECT lo.id, lo.competency_id AS topic_id, NULL::text AS code, lo.title,
+			0 AS sequence, lo.description, lo.blooms_level AS bloom_default,
+			true AS is_active, lo.created_at, NOW()
+		 FROM academic.learning_outcome lo
+		 WHERE lo.id=$1`, id,
 	).Scan(&o.ID, &o.TopicID, &o.Code, &o.Title, &o.Sequence, &o.Description, &o.BloomDefault, &o.IsActive, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return nil, err
