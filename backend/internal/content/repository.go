@@ -278,34 +278,44 @@ func (r *repository) updateMaterialContent(ctx context.Context, id uuid.UUID, re
 		}
 	}
 
-	var publishedAt any
-	if req.Status != nil && *req.Status == StatusPublished {
-		if req.PublishedAt != nil {
-			publishedAt = req.PublishedAt
+	// published_at is only written on an explicit status transition: set on
+	// PUBLISHED, cleared when leaving PUBLISHED, untouched on nil-status edits.
+	sets := []string{"title = COALESCE($2, title)", "summary = COALESCE($3, summary)", "status_id = COALESCE($4, status_id)"}
+	args := []interface{}{id, req.Title, req.Body, statusID}
+	argN := 5
+	if req.Status != nil {
+		sets = append(sets, fmt.Sprintf("published_at = $%d", argN))
+		if *req.Status == StatusPublished {
+			if req.PublishedAt != nil {
+				args = append(args, *req.PublishedAt)
+			} else {
+				args = append(args, time.Now())
+			}
 		} else {
-			now := time.Now()
-			publishedAt = &now
+			args = append(args, nil)
 		}
+		argN++
 	}
+	sets = append(sets, "updated_at = NOW()")
 
-	if _, err := tx.Exec(ctx, `
-		UPDATE content.material SET
-			title = COALESCE($2, title),
-			summary = COALESCE($3, summary),
-			status_id = COALESCE($4, status_id),
-			published_at = $5,
-			updated_at = NOW()
-		WHERE id = $1`, id, req.Title, req.Body, statusID, publishedAt); err != nil {
+	if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE content.material SET %s WHERE id = $1", strings.Join(sets, ", ")), args...); err != nil {
 		return err
 	}
 
+	// Rebuild junctions on an academic-field edit; preserve the existing grade
+	// link (UpdateContentReq carries no GradeID, so read it before clearing).
 	if req.SubjectID != nil || req.ChapterID != nil || req.TopicID != nil {
+		var curGrade uuid.UUID
+		_ = tx.QueryRow(ctx, `
+			SELECT COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')
+			FROM (SELECT grade_id FROM content.material_grade WHERE material_id = $1 LIMIT 1) gr`, id).Scan(&curGrade)
+
 		if err := r.clearMaterialJunctions(ctx, tx, id); err != nil {
 			return err
 		}
 		if err := r.insertMaterialJunctions(ctx, tx, id, &Content{
 			SubjectID: ptrUUIDOrNil(req.SubjectID),
-			GradeID:   uuid.Nil,
+			GradeID:   curGrade,
 			ChapterID: req.ChapterID,
 			TopicID:   req.TopicID,
 		}); err != nil {

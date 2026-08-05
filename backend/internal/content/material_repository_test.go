@@ -425,4 +425,37 @@ func TestMaterialStatusTransitions(t *testing.T) {
 	if got2.PublishedAt != nil {
 		t.Error("PublishedAt should be nil after moving away from PUBLISHED")
 	}
+
+	// Re-publish, then a nil-status content edit must PRESERVE published_at
+	// (the earlier bug wiped it on every non-PUBLISHED update).
+	pub := StatusPublished
+	if err := r.UpdateContent(ctx, materialID, UpdateContentReq{Status: &pub}); err != nil {
+		t.Fatalf("UpdateContent(PUBLISHED): %v", err)
+	}
+	got3, err := r.GetMaterial(ctx, materialID)
+	if err != nil {
+		t.Fatalf("GetMaterial (re-publish): %v", err)
+	}
+	if got3.PublishedAt == nil {
+		t.Fatal("PublishedAt should be set after re-publish")
+	}
+	pubAt := *got3.PublishedAt
+
+	title := "Judul Baru Tanpa Status"
+	if err := r.UpdateContent(ctx, materialID, UpdateContentReq{Title: &title}); err != nil {
+		t.Fatalf("UpdateContent(nil status): %v", err)
+	}
+	got4, err := r.GetMaterial(ctx, materialID)
+	if err != nil {
+		t.Fatalf("GetMaterial (nil-status edit): %v", err)
+	}
+	if got4.Title != title {
+		t.Errorf("Title = %q, want %q", got4.Title, title)
+	}
+	if got4.Status != StatusPublished {
+		t.Errorf("Status = %q, want PUBLISHED unchanged", got4.Status)
+	}
+	if got4.PublishedAt == nil || !got4.PublishedAt.Equal(pubAt) {
+		t.Errorf("PublishedAt = %v, want preserved %v on nil-status edit", got4.PublishedAt, pubAt)
+	}
 }
