@@ -210,8 +210,15 @@ func (r *repository) createMaterialContent(ctx context.Context, c *Content) erro
 	slug = slug + "-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
 
 	var typeID *uuid.UUID
-	if f, ok := c.Metadata["content_format"].(string); ok {
-		if t, ok := types[f]; ok {
+	if f, ok := c.Metadata["content_format"]; ok {
+		var format string
+		switch v := f.(type) {
+		case MaterialFormat:
+			format = string(v)
+		case string:
+			format = v
+		}
+		if t, ok := types[format]; ok {
 			typeID = &t
 		}
 	}
@@ -419,6 +426,12 @@ func (r *repository) UpdateContent(ctx context.Context, id uuid.UUID, req Update
 }
 
 func (r *repository) DeleteContent(ctx context.Context, id uuid.UUID) error {
+	// Route deletes for content.material masters to the new-schema soft-delete;
+	// the legacy `contents` DELETE below keeps serving question/exam rows.
+	var isMaterial bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1)`, id).Scan(&isMaterial); err == nil && isMaterial {
+		return r.DeleteMaterial(ctx, id)
+	}
 	_, err := r.pool.Exec(ctx, `DELETE FROM contents WHERE id = $1`, id)
 	return err
 }

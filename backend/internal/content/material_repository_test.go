@@ -306,9 +306,10 @@ func TestMaterialRepositoryLifecycle(t *testing.T) {
 		t.Errorf("ListProgressByUser total=%d len=%d, want 1/1", lTotal, len(lps))
 	}
 
-	// DeleteMaterial soft-deletes + history.
-	if err := r.DeleteMaterial(ctx, materialID); err != nil {
-		t.Fatalf("DeleteMaterial: %v", err)
+	// DeleteContent (the service path material.go Service.Delete uses) must
+	// route to the material soft-delete, not the dropped legacy DROP.
+	if err := r.DeleteContent(ctx, materialID); err != nil {
+		t.Fatalf("DeleteContent (material): %v", err)
 	}
 	if _, err := r.GetMaterial(ctx, materialID); err == nil {
 		t.Error("GetMaterial after DeleteMaterial should error (deleted_at filtered)")
@@ -457,5 +458,36 @@ func TestMaterialStatusTransitions(t *testing.T) {
 	}
 	if got4.PublishedAt == nil || !got4.PublishedAt.Equal(pubAt) {
 		t.Errorf("PublishedAt = %v, want preserved %v on nil-status edit", got4.PublishedAt, pubAt)
+	}
+
+	// Non-TEXT format must be persisted as the material_type (the earlier
+	// type-assertion bug stored everything as TEXT). RICH_TEXT is a named
+	// MaterialFormat, so it exercises the type-switch fix.
+	rt := &Content{
+		ContentType: ContentTypeMaterial,
+		GradeID:     uuid.Nil,
+		SubjectID:   uuid.Nil,
+		Title:       "Materi Rich Text",
+		Body:        "Body.",
+		Status:      StatusDraft,
+		CreatedBy:   owner,
+		Metadata:    map[string]interface{}{"content_format": MaterialFormatRichText},
+	}
+	if err := r.CreateContent(ctx, rt); err != nil {
+		t.Fatalf("CreateContent(RICH_TEXT): %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM content.material_history WHERE material_id = $1`, rt.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM content.material WHERE id = $1`, rt.ID)
+	})
+	if err := r.CreateMaterial(ctx, &Material{ContentID: rt.ID, ContentFormat: MaterialFormatRichText}); err != nil {
+		t.Fatalf("CreateMaterial(RICH_TEXT): %v", err)
+	}
+	gotRT, err := r.GetMaterial(ctx, rt.ID)
+	if err != nil {
+		t.Fatalf("GetMaterial(RICH_TEXT): %v", err)
+	}
+	if gotRT.ContentFormat != MaterialFormatRichText {
+		t.Errorf("ContentFormat = %q, want RICH_TEXT", gotRT.ContentFormat)
 	}
 }
