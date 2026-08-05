@@ -105,13 +105,11 @@ func (r *Repository) GetLogs(ctx context.Context, limit int) ([]LogEntry, error)
 	}
 
 	query := `
-		SELECT 
-			id,
-			created_at,
-			severity,
-			COALESCE(entity_type, 'SYSTEM') as module,
-			description as message
-		FROM audit_logs
+		SELECT id, created_at,
+		       COALESCE(module, 'INFO') AS severity,
+		       COALESCE(module, 'SYSTEM') AS module,
+		       action AS message
+		FROM identity.activity_log
 		ORDER BY created_at DESC
 		LIMIT $1
 	`
