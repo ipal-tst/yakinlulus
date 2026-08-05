@@ -186,3 +186,90 @@ func TestQuestionBankRepositoryLifecycle(t *testing.T) {
 		t.Errorf("job status = %q, want SUCCESS (COMPLETED mapped)", jobStatus)
 	}
 }
+
+func TestQuestionBankStatusTransitions(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	owner := uuid.New()
+	if _, err := p.Exec(ctx, `
+		INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+		VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING`, owner, "qb_probe_"+owner.String()[:8]); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	q := &Question{
+		Content:      "soal transisi status",
+		Difficulty:   "EASY",
+		QuestionType: QuestionTypeSingleChoice,
+		CreatedBy:    owner,
+		Status:       "DRAFT",
+	}
+	if err := r.Create(ctx, q, nil); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	questionID := q.ID
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM question.question_history WHERE question_id = $1`, questionID)
+		_, _ = p.Exec(ctx, `DELETE FROM question.question WHERE id = $1`, questionID)
+		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+	})
+
+	getStatus := func() string {
+		var out string
+		if err := p.QueryRow(ctx, `
+			SELECT COALESCE(st.code, '') FROM question.question q
+			LEFT JOIN question.question_status st ON st.id = q.status_id
+			WHERE q.id = $1`, questionID).Scan(&out); err != nil {
+			t.Fatalf("read status: %v", err)
+		}
+		return out
+	}
+
+	// Publish (DRAFT -> PUBLISHED). Must not error, status flips, published_at set.
+	if err := r.Publish(ctx, questionID, owner); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if s := getStatus(); s != "PUBLISHED" {
+		t.Fatalf("after Publish status = %q, want PUBLISHED", s)
+	}
+	if got, _ := r.FindByID(ctx, questionID); got.PublishedAt == nil {
+		t.Error("after Publish, published_at should be set")
+	}
+
+	// Archive (PUBLISHED -> ARCHIVED). Must not error.
+	if err := r.ArchiveQuestion(ctx, questionID, owner); err != nil {
+		t.Fatalf("ArchiveQuestion: %v", err)
+	}
+	if s := getStatus(); s != "ARCHIVED" {
+		t.Fatalf("after Archive status = %q, want ARCHIVED", s)
+	}
+	// published_at should now be nil (not PUBLISHED).
+	if got, _ := r.FindByID(ctx, questionID); got.PublishedAt != nil {
+		t.Error("after Archive, published_at should be nil")
+	}
+
+	// Restore (ARCHIVED -> DRAFT). Must not error (was the Critical bug).
+	if err := r.RestoreQuestion(ctx, questionID, owner); err != nil {
+		t.Fatalf("RestoreQuestion: %v", err)
+	}
+	if s := getStatus(); s != "DRAFT" {
+		t.Fatalf("after Restore status = %q, want DRAFT", s)
+	}
+
+	// Publish again then Unpublish (PUBLISHED -> DRAFT). Must not error.
+	if err := r.Publish(ctx, questionID, owner); err != nil {
+		t.Fatalf("Publish (2nd): %v", err)
+	}
+	if err := r.UnpublishQuestion(ctx, questionID, owner); err != nil {
+		t.Fatalf("UnpublishQuestion: %v", err)
+	}
+	if s := getStatus(); s != "DRAFT" {
+		t.Fatalf("after Unpublish status = %q, want DRAFT", s)
+	}
+	if got, _ := r.FindByID(ctx, questionID); got.PublishedAt != nil {
+		t.Error("after Unpublish, published_at should be nil")
+	}
+}

@@ -104,7 +104,9 @@ const questionColumns = `
 	COALESCE(e.content, '')::text,
 	COALESCE(st.code, 'DRAFT')::text,
 	COALESCE(q.created_by, '00000000-0000-0000-0000-000000000000')::uuid,
-	(SELECT MIN(h.created_at) FROM question.question_history h WHERE h.question_id = q.id AND h.new_json->>'status' = 'PUBLISHED'),
+	CASE WHEN st.code = 'PUBLISHED' THEN
+		(SELECT MIN(h.created_at) FROM question.question_history h WHERE h.question_id = q.id AND h.new_json->>'status' = 'PUBLISHED')
+	ELSE NULL END,
 	q.created_at,
 	q.updated_at,
 	COALESCE(s.name, '')::text,
@@ -523,7 +525,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID,
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) setStatus(ctx context.Context, id uuid.UUID, code, fromCode string, clearPublished bool, userID uuid.UUID, summary string) error {
+func (r *Repository) setStatus(ctx context.Context, id uuid.UUID, code, fromCode string, userID uuid.UUID, summary string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -535,55 +537,43 @@ func (r *Repository) setStatus(ctx context.Context, id uuid.UUID, code, fromCode
 		return err
 	}
 
-	sql := `UPDATE question.question SET status_id = $1`
-	args := []interface{}{statuses[code]}
-	if clearPublished {
-		sql += `, published_at = NULL`
-	}
-	sql += `, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`
-	args = append(args, id)
+	sql := `UPDATE question.question SET status_id = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`
+	args := []interface{}{statuses[code], id}
 	if fromCode != "" {
 		sql += ` AND status_id = (SELECT id FROM question.question_status WHERE code = $3)`
 		args = append(args, fromCode)
 	}
 
-	var tag pgconn.CommandTag
-	if fromCode != "" {
-		_, err = tx.Exec(ctx, sql, args...)
-	} else {
-		tag, err = tx.Exec(ctx, sql, args...)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return tx.Commit(ctx)
-		}
-	}
+	tag, err := tx.Exec(ctx, sql, args...)
 	if err != nil {
 		return err
 	}
+	if tag.RowsAffected() == 0 {
+		// Status precondition not met; nothing changed.
+		return tx.Commit(ctx)
+	}
 
 	snap, _ := json.Marshal(historySnapshot{Status: code, Summary: summary})
-	if err := r.insertHistory(ctx, tx, id, historyActionForStatus(code), userID, nil, snap); err != nil {
+	if err := r.insertHistory(ctx, tx, id, historyActionForTransition(code, fromCode), userID, nil, snap); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
 func (r *Repository) Publish(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return r.setStatus(ctx, id, "PUBLISHED", "DRAFT", false, userID, "question published")
+	return r.setStatus(ctx, id, "PUBLISHED", "DRAFT", userID, "question published")
 }
 
 func (r *Repository) ArchiveQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return r.setStatus(ctx, id, "ARCHIVED", "", false, userID, "question archived")
+	return r.setStatus(ctx, id, "ARCHIVED", "", userID, "question archived")
 }
 
 func (r *Repository) RestoreQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return r.setStatus(ctx, id, "DRAFT", "ARCHIVED", true, userID, "question restored")
+	return r.setStatus(ctx, id, "DRAFT", "ARCHIVED", userID, "question restored")
 }
 
 func (r *Repository) UnpublishQuestion(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return r.setStatus(ctx, id, "DRAFT", "PUBLISHED", true, userID, "question unpublished")
+	return r.setStatus(ctx, id, "DRAFT", "PUBLISHED", userID, "question unpublished")
 }
 
 func (r *Repository) CloneQuestion(ctx context.Context, q *Question, opts []QuestionOption) error {
@@ -880,12 +870,17 @@ func historyAction(changeType string) string {
 	return "UPDATE"
 }
 
-func historyActionForStatus(code string) string {
+func historyActionForTransition(code, fromCode string) string {
 	switch code {
 	case "ARCHIVED":
 		return "ARCHIVE"
 	case "DRAFT":
-		return "RESTORE"
+		if fromCode == "ARCHIVED" {
+			return "RESTORE"
+		}
+		return "UPDATE" // includes unpublish (PUBLISHED->DRAFT)
+	case "PUBLISHED":
+		return "APPROVE"
 	default:
 		return "UPDATE"
 	}
