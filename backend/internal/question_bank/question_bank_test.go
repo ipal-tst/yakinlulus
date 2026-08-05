@@ -272,4 +272,30 @@ func TestQuestionBankStatusTransitions(t *testing.T) {
 	if got, _ := r.FindByID(ctx, questionID); got.PublishedAt != nil {
 		t.Error("after Unpublish, published_at should be nil")
 	}
+
+	// Wrong-state publish must be a no-op (no history row written).
+	historyCount := func() int {
+		var n int
+		if err := p.QueryRow(ctx, `SELECT count(*) FROM question.question_history WHERE question_id = $1`, questionID).Scan(&n); err != nil {
+			t.Fatalf("read history count: %v", err)
+		}
+		return n
+	}
+	// Bring it to PUBLISHED, then attempt a second publish (DRAFT precondition unmet).
+	if err := r.Publish(ctx, questionID, owner); err != nil {
+		t.Fatalf("Publish (setup): %v", err)
+	}
+	if s := getStatus(); s != "PUBLISHED" {
+		t.Fatalf("setup publish status = %q, want PUBLISHED", s)
+	}
+	before := historyCount()
+	if err := r.Publish(ctx, questionID, owner); err != nil {
+		t.Fatalf("Publish (wrong state, already PUBLISHED): %v", err)
+	}
+	if s := getStatus(); s != "PUBLISHED" {
+		t.Fatalf("wrong-state publish changed status to %q, want PUBLISHED unchanged", s)
+	}
+	if after := historyCount(); after != before {
+		t.Errorf("wrong-state publish wrote history: before=%d after=%d, want unchanged", before, after)
+	}
 }
