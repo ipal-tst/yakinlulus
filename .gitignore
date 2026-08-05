@@ -42,3 +42,8 @@ Thumbs.db
 # Temp
 /tmp/
 /tools/
+
+# SDD subagent working files
+.superpowers/sdd/progress.md
+.superpowers/sdd/task-*-brief.md
+.superpowers/sdd/task-*-report.md
