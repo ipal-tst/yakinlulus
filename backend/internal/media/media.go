@@ -161,7 +161,11 @@ func (r *Repository) ListAll(ctx context.Context, limit, offset int, mimeFilter 
 		SELECT `+mediaColumns+`
 		FROM media.asset a
 		LEFT JOIN media.asset_storage st ON st.id = a.storage_id
-		LEFT JOIN media.asset_reference ref ON ref.asset_id = a.id
+		LEFT JOIN LATERAL (
+			SELECT module, entity_id FROM media.asset_reference
+			WHERE asset_id = a.id
+			ORDER BY created_at LIMIT 1
+		) ref ON true
 		`+where+` ORDER BY a.created_at DESC LIMIT $`+fmt.Sprint(argN)+` OFFSET $`+fmt.Sprint(argN+1),
 		append(args, limit, offset)...)
 	if err != nil {
