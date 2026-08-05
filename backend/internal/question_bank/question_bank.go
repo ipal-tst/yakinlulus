@@ -337,25 +337,8 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 		return err
 	}
 
-	for i, opt := range opts {
-		opt.QuestionID = q.ID
-		opt.DisplayOrder = i
-		opt.ID = uuid.New()
-		optScore := 0.0
-		if opt.IsCorrect {
-			optScore = score
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
-			VALUES ($1, $2, $3, $4, $5, $6)`,
-			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO question.option_block (option_id, block_order, block_type, content)
-			VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.Content); err != nil {
-			return err
-		}
+	if err := insertOptions(ctx, tx, versionID, opts, score); err != nil {
+		return err
 	}
 
 	if q.Explanation != "" {
@@ -380,7 +363,7 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) Update(ctx context.Context, q *Question, changedBy uuid.UUID) error {
+func (r *Repository) Update(ctx context.Context, q *Question, opts []QuestionOption, changedBy uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -400,6 +383,18 @@ func (r *Repository) Update(ctx context.Context, q *Question, changedBy uuid.UUI
 	if err := tx.QueryRow(ctx, `
 		SELECT COALESCE(MAX(version_no), 0) + 1 FROM question.question_version WHERE question_id = $1`, q.ID).Scan(&nextNo); err != nil {
 		return err
+	}
+
+	// Carry the question score through the version bump: the correct option's
+	// stored score IS the question score. Explicit positive q.Score wins;
+	// otherwise reuse the current correct-option score so it is never reset.
+	score := q.Score
+	if score <= 0 {
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE((SELECT MAX(op.score) FROM question.question_option op
+				WHERE op.question_version_id = $1 AND op.is_correct AND op.score > 0), 1.0)::float8`, *curVer).Scan(&score); err != nil {
+			return err
+		}
 	}
 
 	var newVer uuid.UUID
@@ -428,7 +423,7 @@ func (r *Repository) Update(ctx context.Context, q *Question, changedBy uuid.UUI
 			return err
 		}
 	}
-	if err := copyOptions(ctx, tx, *curVer, newVer); err != nil {
+	if err := insertOptions(ctx, tx, newVer, opts, score); err != nil {
 		return err
 	}
 	if err := r.insertMetadata(ctx, tx, q); err != nil {
@@ -441,57 +436,37 @@ func (r *Repository) Update(ctx context.Context, q *Question, changedBy uuid.UUI
 		return err
 	}
 
-	return tx.Commit(ctx)
-}
-
-// copyOptions clones the options (with option_block content) of one version
-// into another. Used so every new version carries a full option set.
-func copyOptions(ctx context.Context, tx pgx.Tx, fromVer, toVer uuid.UUID) error {
-	type opt struct {
-		label     string
-		score     float64
-		isCorrect bool
-		disp      int
-		content   *string
-	}
-	rows, err := tx.Query(ctx, `
-		SELECT op.label, op.score, op.is_correct, op.display_order,
-		       (SELECT ob.content FROM question.option_block ob WHERE ob.option_id = op.id ORDER BY ob.block_order LIMIT 1)
-		FROM question.question_option op
-		WHERE op.question_version_id = $1
-		ORDER BY op.display_order`, fromVer)
+	snap, err := buildHistorySnapshot(q, opts, "question updated")
 	if err != nil {
 		return err
 	}
-	var items []opt
-	for rows.Next() {
-		var o opt
-		if err := rows.Scan(&o.label, &o.score, &o.isCorrect, &o.disp, &o.content); err != nil {
-			rows.Close()
-			return err
-		}
-		items = append(items, o)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
+	if err := r.insertHistory(ctx, tx, q.ID, "UPDATE", changedBy, snap, snap); err != nil {
 		return err
 	}
 
-	for _, o := range items {
-		var optID uuid.UUID
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO question.question_option (question_version_id, label, score, is_correct, display_order)
-			VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-			toVer, o.label, o.score, o.isCorrect, o.disp).Scan(&optID); err != nil {
-			return err
+	return tx.Commit(ctx)
+}
+
+// insertOptions writes the given options (with option_block content) into a
+// version, applying score to the correct option. Create/Update/ReplaceOptions
+// all funnel through here so scoring stays consistent.
+func insertOptions(ctx context.Context, tx pgx.Tx, versionID uuid.UUID, opts []QuestionOption, score float64) error {
+	for i, opt := range opts {
+		opt.DisplayOrder = i
+		opt.ID = uuid.New()
+		optScore := 0.0
+		if opt.IsCorrect {
+			optScore = score
 		}
-		content := ""
-		if o.content != nil {
-			content = *o.content
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
+			return err
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO question.option_block (option_id, block_order, block_type, content)
-			VALUES ($1, 0, 'PARAGRAPH', $2)`, optID, content); err != nil {
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.Content); err != nil {
 			return err
 		}
 	}
@@ -692,6 +667,16 @@ func (r *Repository) ReplaceOptions(ctx context.Context, questionID uuid.UUID, o
 		return err
 	}
 
+	// Preserve the question score: the correct option's stored score IS the
+	// question score. Read it before wiping options so a replace never resets
+	// the score to 1.0 (data-loss regression).
+	var score float64
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE((SELECT MAX(op.score) FROM question.question_option op
+			WHERE op.question_version_id = $1 AND op.is_correct AND op.score > 0), 1.0)::float8`, versionID).Scan(&score); err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec(ctx, `
 		DELETE FROM question.option_block WHERE option_id IN
 		(SELECT id FROM question.question_option WHERE question_version_id = $1)`, versionID); err != nil {
@@ -701,25 +686,8 @@ func (r *Repository) ReplaceOptions(ctx context.Context, questionID uuid.UUID, o
 		return err
 	}
 
-	for i, opt := range opts {
-		opt.QuestionID = questionID
-		opt.DisplayOrder = i
-		opt.ID = uuid.New()
-		optScore := 0.0
-		if opt.IsCorrect {
-			optScore = 1.0
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
-			VALUES ($1, $2, $3, $4, $5, $6)`,
-			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO question.option_block (option_id, block_order, block_type, content)
-			VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.Content); err != nil {
-			return err
-		}
+	if err := insertOptions(ctx, tx, versionID, opts, score); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }
@@ -1114,40 +1082,22 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateQuestionRe
 		q.StimulusID = &sid
 	}
 
-	if err := s.repo.Update(ctx, q, changedBy); err != nil {
-		return nil, err
-	}
-
-	changeType := "updated"
-	summary := "content/difficulty updated"
-	if existing.Content != q.Content {
-		summary = "content updated"
-	} else if existing.Difficulty != q.Difficulty {
-		summary = "difficulty changed to " + q.Difficulty
-	} else if existing.QuestionType != q.QuestionType {
-		summary = "question_type changed to " + string(q.QuestionType)
-	}
-
-	// Record revision
+	// Carry options into the atomic update: use request options if provided,
+	// otherwise reuse the current options so the new version keeps them.
 	var opts []QuestionOption
 	if len(req.Options) > 0 {
 		for _, o := range req.Options {
 			opts = append(opts, QuestionOption{Label: o.Label, Content: o.Content, IsCorrect: o.Correct})
 		}
-		if err := s.repo.ReplaceOptions(ctx, id, opts); err != nil {
+	} else {
+		existingOpts, err := s.repo.GetOptions(ctx, id)
+		if err != nil {
 			return nil, err
 		}
-		changeType = "updated"
-		summary = "content and options updated"
-	}
-
-	// If no new options provided, fetch existing for revision record
-	if len(opts) == 0 {
-		existingOpts, _ := s.repo.GetOptions(ctx, id)
 		opts = existingOpts
 	}
 
-	if err := s.repo.RecordRevision(ctx, q, opts, &changedBy, changeType, summary); err != nil {
+	if err := s.repo.Update(ctx, q, opts, changedBy); err != nil {
 		return nil, err
 	}
 
