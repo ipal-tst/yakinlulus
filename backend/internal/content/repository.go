@@ -1825,11 +1825,21 @@ func legacyAttemptStatus(cbtStatus string) ExamAttemptStatus {
 // row, creating one (status REGISTER) when absent.
 func (r *repository) findOrCreateParticipant(ctx context.Context, tx pgx.Tx, examID, studentID uuid.UUID) (uuid.UUID, error) {
 	var pid uuid.UUID
-	if err := tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		INSERT INTO cbt.exam_participant (exam_id, student_id, status)
 		VALUES ($1, $2, 'REGISTER')
-		ON CONFLICT (exam_id, student_id) DO UPDATE SET status = EXCLUDED.status
-		RETURNING id`, examID, studentID).Scan(&pid); err != nil {
+		ON CONFLICT (exam_id, student_id) DO NOTHING
+		RETURNING id`, examID, studentID).Scan(&pid)
+	if err == pgx.ErrNoRows {
+		// Existing participant: return it unchanged to preserve its state
+		// (READY/STARTED/FINISHED must not be reset to REGISTER on re-attempt).
+		if err := tx.QueryRow(ctx, `
+			SELECT id FROM cbt.exam_participant WHERE exam_id = $1 AND student_id = $2`, examID, studentID).Scan(&pid); err != nil {
+			return uuid.Nil, err
+		}
+		return pid, nil
+	}
+	if err != nil {
 		return uuid.Nil, err
 	}
 	return pid, nil
@@ -1932,19 +1942,22 @@ func (r *repository) upsertGrading(ctx context.Context, tx pgx.Tx, attemptID uui
 	// passed compares score against the exam's passing_score (defaults to pass
 	// when the exam defines none). Attempt → participant → exam → metadata.
 	var passingScore *float64
-	_ = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT md.passing_score
 		FROM cbt.exam_attempt a
 		JOIN cbt.exam_participant p ON p.id = a.participant_id
 		JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
 		WHERE a.id = $1`, attemptID).Scan(&passingScore)
+	if err != nil && err != pgx.ErrNoRows {
+		return err
+	}
 	passed := true
 	if passingScore != nil && *passingScore > 0 {
 		passed = score >= *passingScore
 	}
 
 	var total, answered, correct int
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		WITH aq AS (
 			SELECT aq.question_id, sa.selected_option
 			FROM cbt.attempt_question aq

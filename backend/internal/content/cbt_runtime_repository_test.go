@@ -368,6 +368,28 @@ func TestCBTRuntimeRepositoryLifecycle(t *testing.T) {
 	if _, err := r.GetPracticeSet(ctx, ps.ContentID); err == nil {
 		t.Error("GetPracticeSet after delete should error")
 	}
+
+	// A re-attempt must not reset an existing participant's state (the old
+	// find-or-create rewrote status to REGISTER on conflict).
+	var pid uuid.UUID
+	if err := p.QueryRow(ctx, `SELECT id FROM cbt.exam_participant WHERE exam_id = $1 AND student_id = $2`, examID, student).Scan(&pid); err != nil {
+		t.Fatalf("read participant id: %v", err)
+	}
+	if _, err := p.Exec(ctx, `UPDATE cbt.exam_participant SET status = 'STARTED' WHERE id = $1`, pid); err != nil {
+		t.Fatalf("set participant STARTED: %v", err)
+	}
+	second := &ExamAttempt{ExamContentID: examID, UserID: student, AttemptNumber: 2, Status: AttemptInProgress, StartedAt: time.Now()}
+	if err := r.CreateExamAttempt(ctx, second); err != nil {
+		t.Fatalf("CreateExamAttempt (2nd): %v", err)
+	}
+	var partStatus string
+	if err := p.QueryRow(ctx, `SELECT status FROM cbt.exam_participant WHERE id = $1`, pid).Scan(&partStatus); err != nil {
+		t.Fatalf("read participant status: %v", err)
+	}
+	if partStatus != "STARTED" {
+		t.Errorf("participant status after re-attempt = %q, want STARTED (preserved)", partStatus)
+	}
+	_, _ = p.Exec(ctx, `DELETE FROM cbt.exam_attempt WHERE id = $1`, second.ID)
 }
 
 // assertRuntimeResidueZero asserts every cbt/content/identity probe row is
