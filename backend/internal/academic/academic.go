@@ -160,7 +160,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) ListLevels(ctx context.Context) ([]EducationLevel, error) {
-	rows, err := r.pool.Query(ctx, "SELECT id, name, code, display_order, is_active, created_at, updated_at FROM education_levels ORDER BY display_order")
+	rows, err := r.pool.Query(ctx, "SELECT id, name, code, sort_order, true AS is_active, created_at, NOW() FROM academic.education_level ORDER BY sort_order ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +170,11 @@ func (r *Repository) ListLevels(ctx context.Context) ([]EducationLevel, error) {
 
 func (r *Repository) ListGrades(ctx context.Context) ([]Grade, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT g.id, g.education_level_id, COALESCE(el.code, ''), g.name, g.alias, g.display_order, g.is_active, g.created_at, g.updated_at 
-		FROM grades g
-		LEFT JOIN education_levels el ON g.education_level_id = el.id
-		ORDER BY g.display_order
+		SELECT g.id, g.education_level_id, COALESCE(el.code, '') AS level_code, g.name, NULL::text AS alias,
+		       g.sort_order, true AS is_active, g.created_at, NOW()
+		FROM academic.grade g
+		JOIN academic.education_level el ON el.id = g.education_level_id
+		ORDER BY el.sort_order, g.sort_order
 	`)
 	if err != nil {
 		return nil, err
@@ -458,22 +459,24 @@ func (r *Repository) DeleteLevel(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UUID) ([]Subject, error) {
-	query := `SELECT s.id, s.level_id, s.grade_id,
+	query := `SELECT s.id, cs.education_level_id AS level_id, NULL::uuid AS grade_id,
 		COALESCE(el.code, ''), COALESCE(el.name, ''),
-		COALESCE(g.alias, ''), COALESCE(g.name, ''),
-		s.name, s.code, s.description, s.is_active, s.display_order, s.created_at, s.updated_at
-		FROM subjects s
-		LEFT JOIN education_levels el ON s.level_id = el.id
-		LEFT JOIN grades g ON s.grade_id = g.id`
+		NULL::text, NULL::text,
+		s.name, s.code, s.description, s.is_active, cs.sort_order, s.created_at, s.updated_at
+		FROM academic.subject s
+		LEFT JOIN academic.curriculum_subject cs ON cs.subject_id = s.id
+		LEFT JOIN academic.education_level el ON el.id = cs.education_level_id`
+	groupBy := ` GROUP BY s.id, cs.education_level_id, el.code, el.name, el.sort_order, cs.sort_order`
+	orderBy := ` ORDER BY el.sort_order, cs.sort_order`
 	var rows pgx.Rows
 	var err error
 	switch {
 	case gradeID != nil:
-		rows, err = r.pool.Query(ctx, query+` WHERE s.grade_id=$1 ORDER BY s.display_order`, *gradeID)
+		rows, err = r.pool.Query(ctx, query+` WHERE cs.grade_id=$1`+groupBy+orderBy, *gradeID)
 	case levelID != nil:
-		rows, err = r.pool.Query(ctx, query+` WHERE s.level_id=$1 ORDER BY s.display_order`, *levelID)
+		rows, err = r.pool.Query(ctx, query+` WHERE cs.education_level_id=$1`+groupBy+orderBy, *levelID)
 	default:
-		rows, err = r.pool.Query(ctx, query+` ORDER BY s.display_order`)
+		rows, err = r.pool.Query(ctx, query+groupBy+orderBy)
 	}
 	if err != nil {
 		return nil, err
@@ -574,10 +577,12 @@ func (r *Repository) ListChapters(ctx context.Context, subjectID uuid.UUID) ([]C
 }
 
 func (r *Repository) ListAllChapters(ctx context.Context) ([]Chapter, error) {
-	rows, err := r.pool.Query(ctx, `SELECT c.id, c.subject_id, c.name, c.description, c.display_order, c.is_active, c.created_at, c.updated_at, COALESCE(s.name, '')::text
-		FROM chapters c
-		LEFT JOIN subjects s ON c.subject_id = s.id
-		ORDER BY s.name, c.display_order`)
+	rows, err := r.pool.Query(ctx, `SELECT ch.id, cs.subject_id AS subject_id, ch.title AS name, ch.description,
+		ch.order_no AS display_order, ch.is_active, ch.created_at, ch.updated_at, COALESCE(s.name, '')::text AS subject_name
+		FROM academic.chapter ch
+		JOIN academic.curriculum_subject cs ON cs.id = ch.curriculum_subject_id
+		JOIN academic.subject s ON s.id = cs.subject_id
+		ORDER BY ch.order_no`)
 	if err != nil {
 		return nil, err
 	}
@@ -653,11 +658,15 @@ func (r *Repository) DeleteChapter(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) ListAllTopics(ctx context.Context) ([]Topic, error) {
-	rows, err := r.pool.Query(ctx, `SELECT t.id, t.chapter_id, t.title, t.sequence, t.description, t.is_active, t.created_at, t.updated_at, COALESCE(ch.name, '')::text, COALESCE(s.name, '')::text
-		FROM topics t
-		LEFT JOIN chapters ch ON t.chapter_id = ch.id
-		LEFT JOIN subjects s ON ch.subject_id = s.id
-		ORDER BY s.name, ch.display_order, t.sequence`)
+	rows, err := r.pool.Query(ctx, `SELECT t.id, sc.chapter_id AS chapter_id, t.name AS title, t.order_no AS sequence,
+		t.description, true AS is_active, t.created_at, NOW(),
+		COALESCE(ch.title, '')::text AS chapter_name, COALESCE(s.name, '')::text AS subject_name
+		FROM academic.topic t
+		JOIN academic.subchapter sc ON sc.id = t.subchapter_id
+		JOIN academic.chapter ch ON ch.id = sc.chapter_id
+		JOIN academic.curriculum_subject cs ON cs.id = ch.curriculum_subject_id
+		JOIN academic.subject s ON s.id = cs.subject_id
+		ORDER BY ch.order_no, sc.order_no, t.order_no`)
 	if err != nil {
 		return nil, err
 	}
@@ -717,7 +726,12 @@ func (r *Repository) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *Repository) ListLearningOutcomes(ctx context.Context, topicID uuid.UUID) ([]LearningOutcome, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, topic_id, code, title, sequence, description, bloom_default, is_active, created_at, updated_at FROM learning_outcomes WHERE topic_id=$1 ORDER BY sequence`, topicID)
+	rows, err := r.pool.Query(ctx, `SELECT lo.id, lo.competency_id AS topic_id, NULL::text AS code, lo.title,
+		0 AS sequence, lo.description, lo.blooms_level AS bloom_default,
+		true AS is_active, lo.created_at, NOW()
+		FROM academic.learning_outcome lo
+		WHERE lo.competency_id=$1
+		ORDER BY lo.created_at`, topicID)
 	if err != nil {
 		return nil, err
 	}
