@@ -53,7 +53,11 @@ func TestExamDeleteOwnership(t *testing.T) {
 		t.Fatalf("create exam: %v", err)
 	}
 	id := base.ID
-	defer repo.DeleteContent(ctx, id) // zero residue
+	// Hard-delete the probe exam (soft-delete leaves deleted_at rows that
+	// accumulate residue across runs).
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM cbt.exam WHERE id=$1`, id)
+	}()
 
 	exam, err := repo.GetExam(ctx, id)
 	if err != nil {

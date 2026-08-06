@@ -56,7 +56,12 @@ func TestServiceDeleteOwnership(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 	id := base.ID
-	defer svc.content.DeleteContent(ctx, id) // zero residue
+	// Hard-delete the probe material (soft-delete leaves deleted_at rows that
+	// accumulate residue across runs).
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM content.material WHERE id=$1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM content.material_history WHERE material_id=$1`, id)
+	}()
 
 	mt, err := svc.FindByID(ctx, id)
 	if err != nil {
