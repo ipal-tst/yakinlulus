@@ -1,6 +1,6 @@
 # Guardrail.md
 
-Version: 1.0
+Version: 2.0
 
 ## Objective
 
@@ -12,47 +12,36 @@ Default behavior is **read-only** unless modification is explicitly requested.
 
 ---
 
-# ANTIGRAVITY SCOPE — FRONTEND ONLY (HARD RULE)
+# WRITE SCOPE — USER-APPROVED WORKFLOW
 
-This repository is **backend-first**. The backend (`backend/`), database migrations,
-API contract, and documentation are the **protected, immutable source of truth**.
+This is a full-stack repository. The agent may write anywhere when the task requires it,
+subject to explicit user approval for backend/database operations (per user grant on
+2026-08-06).
 
-Antigravity's ONLY job is to **build the frontend**. Everything else is off-limits.
+## Write Scope (ALLOWED — create/edit/delete, task-required)
 
-## Write Scope (ALLOWED — create/edit/delete)
-
-- `frontend/**` — Antigravity may freely create, edit, and delete files **only inside
-  the `frontend/` directory** (the frontend is being built from scratch).
+- `frontend/**` — freely create, edit, and delete (frontend built from scratch).
+- `backend/**` — code edits ONLY when the user explicitly approved a task involving
+  backend. Never unilaterally.
+- `docs/**` — create/edit when part of the requested task.
+- Root config files (`README.md`, `AGENTS.md`, `guardrail.md`, `design.md`,
+  `.gitignore`) — edit when the user explicitly asks.
 
 ## Read-Only Scope (ALLOWED — read only, NEVER write)
 
-- `backend/**` — may READ code to understand endpoints/schemas, NEVER write.
-- `docs/frontend/API-contract.md`, `docs/frontend/PAGE-WIRING.md` — source of truth for
-  endpoints and page structure. Read, follow, NEVER modify.
-- `backend/openapi.yaml` — API spec. Read, NEVER modify.
-- `design.md` — design system spec. Read, follow, NEVER modify.
-- `README.md`, `AGENTS.md`, `guardrail.md`, `.gitignore` — read; never edit.
+- None permanently; treat unrequested areas as read-only until approved.
 
-## Forbidden (STRICTLY NEVER — regardless of "helpfulness")
+## Requires Explicit Approval (STRICTLY NEVER without user OK each time)
 
-- **NEVER modify, delete, rename, move, or refactor ANY file inside `backend/`.**
-  No exceptions. This includes Go code, migrations, `openapi.yaml`, config, tests,
-  `go.mod`, `go.sum`.
-- **NEVER run backend commands that mutate state:**
-  `go run ./cmd/migrate*`, `go run ./cmd/reset_db*`, `go run ./cmd/seed*`, or any SQL
-  against the database.
-- NEVER modify `docs/` (any file), migrations, or root config files.
-- NEVER "optimize", "clean up", or "fix" anything outside `frontend/` even if it looks
-  broken, outdated, or incorrect.
-- NEVER commit, stage, or push files outside `frontend/`. If a git diff contains any
-  non-`frontend/` change, STOP and ask.
+- **DB state changes:** `go run ./cmd/migrate*`, `go run ./cmd/reset_db*`,
+  `go run ./cmd/seed*`, or any SQL against the database.
+- **Backend code edits** outside an explicitly approved backend task.
+- Committing files outside the task scope.
 
 ## The One-Way Gate
 
-> If a change is needed outside `frontend/`, Antigravity does NOT make it. It must
-> report the need to the user and stop. The user will handle backend/API changes.
-
-The backend is the contract. The frontend must conform to it — never the reverse.
+> If a change is needed outside the user-approved scope, the agent does NOT make it.
+> It must report the need to the user and stop. The user grants approval per request.
 
 ---
 
@@ -88,7 +77,7 @@ Do NOT touch any unrelated files.
 
 # Forbidden Operations
 
-Unless the user explicitly writes the command, NEVER:
+Unless the user explicitly approves, NEVER:
 
 - delete files
 - rename files
@@ -104,6 +93,8 @@ Unless the user explicitly writes the command, NEVER:
 - remove configuration
 - remove API endpoints
 - remove environment variables
+
+Task-required changes are exempt when the user approved the task.
 
 ---
 
@@ -218,7 +209,7 @@ Never:
 - rewrite migration history
 - change production schema
 
-unless explicitly requested.
+unless explicitly requested/approved by the user per operation.
 
 Schema changes must be additive whenever possible.
 
@@ -287,8 +278,6 @@ If more than 10 files would be modified:
 STOP.
 
 Ask for confirmation.
-
----
 
 # Dangerous Commands
 
@@ -389,11 +378,10 @@ Never guess.
 
 # Protected Directories
 
-Treat these directories as protected unless explicitly included in the task.
+Treat these directories as protected unless the task explicitly requires them
+(with user approval for backend/database):
 
-backend/            # ABSOLUTELY protected — never modify/delete (see ANTIGRAVITY SCOPE)
-
-docs/
+backend/
 
 database/migrations/
 
@@ -413,7 +401,7 @@ archive/
 
 # Absolute Rule
 
-The AI MUST NEVER modify, delete, rename, move, or refactor files outside the explicit scope requested by the user.
+The AI MUST NOT modify, delete, rename, move, or refactor files outside the scope approved by the user for the current task.
 
 If a change is not required to complete the requested task,
 
