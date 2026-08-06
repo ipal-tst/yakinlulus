@@ -61,7 +61,7 @@ const resultProjection = `
 	COALESCE(g.score,0) AS score,
 	COALESCE(md.passing_score, 60.0) AS passing_grade,
 	COALESCE(g.passed, false) AS is_passed,
-	EXTRACT(EPOCH FROM (COALESCE(a.finished_at, a.started_at) - a.started_at))::int AS duration_seconds,
+	EXTRACT(EPOCH FROM (COALESCE(a.finished_at, NOW()) - a.started_at))::int AS duration_seconds,
 	a.started_at AS created_at`
 
 func (r *Repository) GetResult(ctx context.Context, sessionID uuid.UUID) (*Result, error) {
