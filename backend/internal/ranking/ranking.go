@@ -2,6 +2,7 @@ package ranking
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"yakinlulus.id/backend/internal/middleware"
@@ -128,16 +130,32 @@ func (r *Repository) CountPackageSubjects(ctx context.Context, packageID uuid.UU
 	return n, err
 }
 
+// FetchRawScores returns, for each (attempt, subject), the attempt's whole-exam
+// score attributed to that subject proportionally to the per-question grading
+// achieved on that subject. In the new model a cbt.exam spans a single
+// cbt.grading_result.score (0-100) per attempt; that total is split across the
+// attempt's subjects by the share of cbt.grading_detail points scored in each,
+// so a multi-subject package never duplicates the same measurement (Total is
+// exactly the whole-attempt score, once). Attempts with no per-question grading
+// detail yet (e.g. in-flight GRADING) fall back to attributing the whole score to
+// a single package subject so the attempt is still counted exactly once.
 func (r *Repository) FetchRawScores(ctx context.Context, packageID uuid.UUID, from, to time.Time) ([]rawScore, error) {
+	const attemptStatuses = "'SUBMITTED', 'GRADING', 'COMPLETED'"
+
+	type attemptScore struct {
+		attemptID  string
+		userID     uuid.UUID
+		fullName   string
+		schoolName string
+		total      float64
+	}
+
 	rows, err := r.pool.Query(ctx,
-		`SELECT p.student_id,
+		`SELECT a.id::text, p.student_id,
 		        COALESCE(up.full_name, l.username),
 		        COALESCE(sc.name, ''),
-		        qs.subject_id::text,
 		        gr.score::float8
 		 FROM cbt.exam_package ep
-		 JOIN cbt.exam_package_question epq ON epq.package_id = ep.id
-		 JOIN question.question_subject qs ON qs.question_id = epq.question_id
 		 JOIN cbt.exam_participant p ON p.exam_id = ep.exam_id
 		 JOIN cbt.exam_attempt a ON a.participant_id = p.id
 		 JOIN cbt.grading_result gr ON gr.attempt_id = a.id
@@ -146,24 +164,106 @@ func (r *Repository) FetchRawScores(ctx context.Context, packageID uuid.UUID, fr
 		 LEFT JOIN academic.student_enrollment se ON se.student_id = l.id AND se.status = 'ACTIVE'
 		 LEFT JOIN academic.school sc ON sc.id = se.school_id
 		 WHERE ep.id = $1
-		   AND a.status IN ('SUBMITTED', 'GRADING', 'COMPLETED')
+		   AND a.status IN (`+attemptStatuses+`)
 		   AND a.finished_at >= $2 AND a.finished_at < $3`,
 		packageID, from, to)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []rawScore
+	attempts := map[string]*attemptScore{}
 	for rows.Next() {
-		var rs rawScore
-		var best float64
-		if err := rows.Scan(&rs.UserID, &rs.FullName, &rs.SchoolName, &rs.SubjectID, &best); err != nil {
+		var a attemptScore
+		if err := rows.Scan(&a.attemptID, &a.userID, &a.fullName, &a.schoolName, &a.total); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		rs.Best = best
-		out = append(out, rs)
+		attempts[a.attemptID] = &a
 	}
-	return out, rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(attempts) == 0 {
+		return nil, nil
+	}
+
+	// Per-subject weighted points sourced from grading_detail, keyed per attempt.
+	bySubject := map[string]map[string]float64{} // attemptID -> subject -> points
+	attemptPoints := map[string]float64{}        // attemptID -> total points
+	srows, err := r.pool.Query(ctx,
+		`SELECT a.id::text, qs.subject_id::text, SUM(gd.score)::float8
+		 FROM cbt.exam_package ep
+		 JOIN cbt.exam_participant p ON p.exam_id = ep.exam_id
+		 JOIN cbt.exam_attempt a ON a.participant_id = p.id
+		 JOIN cbt.attempt_question aq ON aq.attempt_id = a.id
+		 JOIN cbt.grading_detail gd ON gd.attempt_question_id = aq.id
+		 JOIN question.question_subject qs ON qs.question_id = aq.question_id
+		 WHERE ep.id = $1
+		   AND a.status IN (`+attemptStatuses+`)
+		   AND a.finished_at >= $2 AND a.finished_at < $3
+		 GROUP BY a.id, qs.subject_id`,
+		packageID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	for srows.Next() {
+		var aid, subject string
+		var pts float64
+		if err := srows.Scan(&aid, &subject, &pts); err != nil {
+			srows.Close()
+			return nil, err
+		}
+		if bySubject[aid] == nil {
+			bySubject[aid] = map[string]float64{}
+		}
+		bySubject[aid][subject] += pts
+		attemptPoints[aid] += pts
+	}
+	srows.Close()
+	if err := srows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Fallback subject when an attempt has no per-question grading detail yet.
+	var fallbackSubject string
+	if err := r.pool.QueryRow(ctx,
+		`SELECT qs.subject_id::text
+		 FROM cbt.exam_package ep
+		 JOIN cbt.exam_package_question epq ON epq.package_id = ep.id
+		 JOIN question.question_subject qs ON qs.question_id = epq.question_id
+		 WHERE ep.id = $1
+		 ORDER BY epq.question_order
+		 LIMIT 1`, packageID).Scan(&fallbackSubject); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]rawScore, 0, len(attempts))
+	for _, a := range attempts {
+		subjects := bySubject[a.attemptID]
+		totalPoints := attemptPoints[a.attemptID]
+		if len(subjects) > 0 && totalPoints > 0 {
+			for subject, pts := range subjects {
+				out = append(out, rawScore{
+					UserID:     a.userID,
+					FullName:   a.fullName,
+					SchoolName: a.schoolName,
+					SubjectID:  subject,
+					Best:       a.total * pts / totalPoints,
+				})
+			}
+			continue
+		}
+		if fallbackSubject != "" {
+			out = append(out, rawScore{
+				UserID:     a.userID,
+				FullName:   a.fullName,
+				SchoolName: a.schoolName,
+				SubjectID:  fallbackSubject,
+				Best:       a.total,
+			})
+		}
+	}
+	return out, nil
 }
 
 // ---- Service ----

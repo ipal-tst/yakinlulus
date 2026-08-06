@@ -148,9 +148,11 @@ func (r *Repository) Create(ctx context.Context, req SavePackageRequest) (*ExamP
 		return nil, err
 	}
 	if gradeID != nil {
-		_, _ = r.pool.Exec(ctx,
+		if _, err := r.pool.Exec(ctx,
 			`INSERT INTO cbt.exam_grade (exam_id, grade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			examID, *gradeID)
+			examID, *gradeID); err != nil {
+			return nil, err
+		}
 	}
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx,
@@ -191,13 +193,23 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SavePackageRe
 			gradeID = &gid
 		}
 	}
-	if _, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_grade WHERE exam_id = $1`, examID); err != nil {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `DELETE FROM cbt.exam_grade WHERE exam_id = $1`, examID); err != nil {
 		return nil, err
 	}
 	if gradeID != nil {
-		_, _ = r.pool.Exec(ctx,
+		if _, err := tx.Exec(ctx,
 			`INSERT INTO cbt.exam_grade (exam_id, grade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			examID, *gradeID)
+			examID, *gradeID); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 	return r.GetByID(ctx, id)
 }

@@ -8,6 +8,13 @@
 --
 -- cbt.exam has no grade_id column; the grade link lives on cbt.exam_grade.
 -- education_level is derived through academic.grade -> academic.education_level.
+--
+-- NOTE (multi-grade package): cbt.exam_grade is N:M, so an exam registered
+-- against more than one academic.grade would make this view emit one package
+-- row per grade (an API-level duplicate, since ExamPackage has a single
+-- GradeID). The exam_packages Create/Update path writes exactly one grade, so
+-- the common case yields one row. Leave documented rather than aggregate so the
+-- committed view matches what is applied on the shared DB.
 
 ALTER TABLE cbt.exam_package ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 ALTER TABLE cbt.exam_package ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
