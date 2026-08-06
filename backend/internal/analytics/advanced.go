@@ -51,16 +51,19 @@ type SchoolStats struct {
 
 func (r *Repository) GetLeaderboardBySubject(ctx context.Context, subjectID uuid.UUID) ([]LeaderboardEntry, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT u.id, u.full_name,
-			COALESCE(COUNT(*) FILTER (WHERE aa.is_correct = true)::float8 / NULLIF(COUNT(*), 0) * 100, 0) AS avg_score,
-			COUNT(DISTINCT a.exam_content_id) AS total_exams
-		FROM content_exam_answers aa
-		JOIN content_exam_attempts a ON a.id = aa.attempt_id
-		JOIN content_exam_questions eq ON eq.question_content_id = aa.question_content_id
-		JOIN contents q ON q.id = eq.question_content_id
-		JOIN users u ON u.id = a.user_id
-		WHERE q.subject_id = $1 AND aa.is_correct IS NOT NULL
-		GROUP BY u.id, u.full_name
+		SELECT u.id, COALESCE(pf.full_name, u.username),
+			COALESCE(AVG(g.score), 0),
+			COUNT(DISTINCT a.id) AS total_exams
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		JOIN identity.user u ON u.id = p.student_id
+		LEFT JOIN identity.user_profile pf ON pf.user_id = u.id
+		JOIN cbt.grading_result g ON g.attempt_id = a.id
+		WHERE EXISTS (
+			SELECT 1 FROM cbt.attempt_question aq
+			JOIN question.question_subject qs ON qs.question_id = aq.question_id
+			WHERE aq.attempt_id = a.id AND qs.subject_id = $1)
+		GROUP BY u.id, pf.full_name, u.username
 		ORDER BY avg_score DESC`)
 	if err != nil {
 		return nil, err
@@ -86,13 +89,19 @@ func (r *Repository) GetLeaderboardBySubject(ctx context.Context, subjectID uuid
 
 func (r *Repository) GetStudentTimeline(ctx context.Context, studentID uuid.UUID) ([]ProgressEntry, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT a.created_at::date AS date, COALESCE(a.total_score, 0) AS score, c.title AS exam_title,
+		SELECT COALESCE(a.finished_at, a.created_at)::date AS date,
+			COALESCE(g.score, 0) AS score, e.title AS exam_title,
 			COALESCE(s.name, '') AS subject
-		FROM content_exam_attempts a
-		JOIN contents c ON c.id = a.exam_content_id
-		LEFT JOIN subjects s ON s.id = c.subject_id
-		WHERE a.user_id = $1 AND a.created_at >= NOW() - INTERVAL '30 days'
-		ORDER BY a.created_at DESC`, studentID)
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		JOIN cbt.exam e ON e.id = p.exam_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		LEFT JOIN LATERAL (
+			SELECT subj.name FROM cbt.exam_subject es
+			JOIN academic.subject subj ON subj.id = es.subject_id
+			WHERE es.exam_id = e.id LIMIT 1) s ON true
+		WHERE p.student_id = $1 AND COALESCE(a.finished_at, a.created_at) >= NOW() - INTERVAL '30 days'
+		ORDER BY COALESCE(a.finished_at, a.created_at) DESC`, studentID)
 	if err != nil {
 		return nil, err
 	}
@@ -120,14 +129,15 @@ func (r *Repository) GetExamDifficulty(ctx context.Context, examID uuid.UUID) (*
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT cq.difficulty,
-			COUNT(DISTINCT eq.question_content_id) AS count,
-			COALESCE(AVG(CASE WHEN qa.correct_count > 0 THEN 1.0 ELSE 0.0 END), 0) * 100 AS avg_score
-		FROM content_exam_questions eq
-		JOIN content_questions cq ON cq.content_id = eq.question_content_id
-		LEFT JOIN question_analytics qa ON qa.question_id = eq.question_content_id
-		WHERE eq.exam_content_id = $1
-		GROUP BY cq.difficulty`, examID)
+		SELECT COALESCE(qm.difficulty_level, 'MEDIUM'),
+			COUNT(DISTINCT pq.question_id) AS count,
+			COALESCE(AVG(CASE WHEN qs.correct_count > 0 THEN 100.0 ELSE 0.0 END), 0) AS avg_score
+		FROM cbt.exam_package_question pq
+		JOIN cbt.exam_package pkg ON pkg.id = pq.package_id
+		LEFT JOIN question.question_metadata qm ON qm.question_id = pq.question_id
+		LEFT JOIN cbt.question_statistics qs ON qs.question_id = pq.question_id
+		WHERE pkg.exam_id = $1
+		GROUP BY qm.difficulty_level`, examID)
 	if err != nil {
 		return nil, err
 	}
@@ -155,12 +165,12 @@ func (r *Repository) GetSchoolStats(ctx context.Context) (*SchoolStats, error) {
 	s := &SchoolStats{}
 	err := r.pool.QueryRow(ctx, `
 		SELECT
-			(SELECT COUNT(*) FROM users WHERE role = 'STUDENT'),
-			(SELECT COUNT(*) FROM users WHERE role = 'TEACHER'),
-			(SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM'),
-			(SELECT COUNT(*) FROM content_questions),
-			(SELECT COUNT(*) FROM content_exam_attempts WHERE status = 'IN_PROGRESS'),
-			(SELECT COALESCE(AVG(total_score), 0) FROM content_exam_attempts)`).Scan(
+			(SELECT COUNT(DISTINCT ur.user_id) FROM identity.user_role ur JOIN identity.role rol ON rol.id = ur.role_id WHERE rol.code = 'STUDENT'),
+			(SELECT COUNT(DISTINCT ur.user_id) FROM identity.user_role ur JOIN identity.role rol ON rol.id = ur.role_id WHERE rol.code IN ('GURU','TEACHER')),
+			(SELECT COUNT(*) FROM cbt.exam WHERE deleted_at IS NULL),
+			(SELECT COUNT(*) FROM question.question WHERE deleted_at IS NULL),
+			(SELECT COUNT(*) FROM cbt.exam_attempt WHERE status = 'STARTED'),
+			(SELECT COALESCE(AVG(score), 0) FROM cbt.grading_result)`).Scan(
 		&s.TotalStudents, &s.TotalTeachers, &s.TotalExams,
 		&s.TotalQuestions, &s.ActiveSessions, &s.AvgScore)
 	if err != nil {

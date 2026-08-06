@@ -149,38 +149,56 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// finishedAttempt filters cbt.exam_attempt rows to those treated as finished
+// (same status mapping as Batch 3 runtime 3.1: COMPLETED/SUBMITTED/GRADING).
+func finishedAttemptStatus() string {
+	return `'COMPLETED','SUBMITTED','GRADING'`
+}
+
 func (r *Repository) GetExamAnalytics(ctx context.Context, examID uuid.UUID) (*ExamAnalyticsDetail, error) {
 	a := &ExamAnalyticsDetail{}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_participants WHERE exam_content_id=$1`, examID).Scan(&a.TotalParticipants)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&a.TotalStarted)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1 AND status IN ('FINISHED','SUBMITTED','GRADED','TERMINATED')`, examID).Scan(&a.TotalFinished)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&a.AverageScore)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&a.HighestScore)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MIN(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&a.LowestScore)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_participant WHERE exam_id=$1`, examID).Scan(&a.TotalParticipants)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&a.TotalStarted)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND a.status IN (`+finishedAttemptStatus()+`)`, examID).Scan(&a.TotalFinished)
+
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&a.AverageScore)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&a.HighestScore)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(MIN(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&a.LowestScore)
 
 	var totalResults, passed int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&totalResults)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&totalResults)
 	if totalResults > 0 {
-		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1 AND is_passed=true`, examID).Scan(&passed)
+		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+			JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND g.passed=true`, examID).Scan(&passed)
 		a.PassRate = float64(passed) / float64(totalResults) * 100
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(time_spent_seconds),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&a.AvgDurationSec)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (a.finished_at - a.started_at))),0) FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND a.finished_at IS NOT NULL`, examID).Scan(&a.AvgDurationSec)
 
-	// Question breakdown for this exam
+	// Question breakdown for this exam.
 	rows, err := r.pool.Query(ctx,
-		`SELECT cq.content_id, c.title,
-		 COUNT(aa.attempt_id) AS total_attempts,
-		 COUNT(*) FILTER (WHERE aa.is_correct = true) AS correct_count,
-		 COUNT(*) FILTER (WHERE aa.is_correct = false) AS wrong_count
-		 FROM content_exam_questions eq
-		 JOIN content_questions cq ON cq.content_id = eq.question_content_id
-		 JOIN contents c ON c.id = cq.content_id
-		 LEFT JOIN content_exam_answers aa ON aa.question_content_id = cq.content_id
-		 WHERE eq.exam_content_id = $1
-		 GROUP BY cq.content_id, c.title
-		 ORDER BY total_attempts DESC`, examID)
+		`SELECT gd.question_id,
+		 COALESCE((SELECT b.content FROM question.question_block b
+		           JOIN question.question_version v ON v.id=b.question_version_id
+		           WHERE v.question_id=gd.question_id AND v.is_current AND b.block_type='PARAGRAPH'
+		           ORDER BY b.block_order LIMIT 1), q.question_code),
+		 COUNT(gd.id),
+		 COUNT(*) FILTER (WHERE gd.status_correct),
+		 COUNT(*) FILTER (WHERE NOT gd.status_correct)
+		 FROM cbt.grading_detail gd
+		 JOIN cbt.attempt_question aq ON aq.id=gd.attempt_question_id
+		 JOIN cbt.exam_attempt a ON a.id=aq.attempt_id
+		 JOIN cbt.exam_participant p ON p.id=a.participant_id
+		 JOIN question.question q ON q.id=gd.question_id
+		 WHERE p.exam_id=$1
+		 GROUP BY gd.question_id, q.question_code
+		 ORDER BY COUNT(gd.id) DESC`, examID)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -202,44 +220,49 @@ func (r *Repository) GetExamAnalytics(ctx context.Context, examID uuid.UUID) (*E
 func (r *Repository) GetStudentAnalytics(ctx context.Context, studentID uuid.UUID) (*StudentAnalytics, error) {
 	a := &StudentAnalytics{}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1`, studentID).Scan(&a.TotalExamsTaken)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score),0) FROM content_exam_attempts WHERE user_id=$1`, studentID).Scan(&a.AverageScore)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts a JOIN content_exams ce ON ce.content_id = a.exam_content_id WHERE a.user_id=$1 AND a.total_score >= ce.passing_score`, studentID).Scan(&a.TotalPassed)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND total_score IS NOT NULL`, studentID).Scan(new(int))
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.student_id=$1`, studentID).Scan(&a.TotalExamsTaken)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.student_id=$1`, studentID).Scan(&a.AverageScore)
 
-	// TotalQuestions, TotalCorrect, TotalWrong, TotalUnanswered, Accuracy
+	var scored, passed int
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.student_id=$1`, studentID).Scan(&scored)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.student_id=$1 AND g.passed=true`, studentID).Scan(&passed)
+	a.TotalPassed = passed
+	a.TotalFailed = scored - passed
+
+	// TotalQuestions, TotalCorrect, TotalWrong, TotalUnanswered, Accuracy.
 	r.pool.QueryRow(ctx,
 		`SELECT COALESCE(COUNT(*), 0),
-		        COALESCE(COUNT(*) FILTER (WHERE is_correct = true), 0),
-		        COALESCE(COUNT(*) FILTER (WHERE is_correct = false), 0),
-		        COALESCE(COUNT(*) FILTER (WHERE is_correct IS NULL), 0)
-		 FROM content_exam_answers aa
-		 JOIN content_exam_attempts a ON a.id = aa.attempt_id
-		 WHERE a.user_id = $1`, studentID,
+		        COALESCE(COUNT(*) FILTER (WHERE gd.status_correct), 0),
+		        COALESCE(COUNT(*) FILTER (WHERE NOT gd.status_correct AND NOT gd.is_blank), 0),
+		        COALESCE(COUNT(*) FILTER (WHERE gd.is_blank), 0)
+		 FROM cbt.grading_detail gd
+		 JOIN cbt.attempt_question aq ON aq.id=gd.attempt_question_id
+		 JOIN cbt.exam_attempt a ON a.id=aq.attempt_id
+		 JOIN cbt.exam_participant p ON p.id=a.participant_id
+		 WHERE p.student_id=$1`, studentID,
 	).Scan(&a.TotalQuestions, &a.TotalCorrect, &a.TotalWrong, &a.TotalUnanswered)
 	if a.TotalCorrect+a.TotalWrong > 0 {
 		a.Accuracy = float64(a.TotalCorrect) / float64(a.TotalCorrect+a.TotalWrong) * 100
 	}
 
-	// TotalFailed = took exam with score < passing
-	var totalWithScore int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE user_id=$1 AND total_score IS NOT NULL`, studentID).Scan(&totalWithScore)
-	a.TotalFailed = totalWithScore - a.TotalPassed
-
-	// Subject breakdown
+	// Subject breakdown.
 	sRows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name,
-		 COUNT(aa.attempt_id) AS total,
-		 COUNT(*) FILTER (WHERE aa.is_correct = true) AS correct,
-		 COUNT(*) FILTER (WHERE aa.is_correct = false) AS wrong
-		 FROM content_exam_answers aa
-		 JOIN content_exam_questions eq ON eq.question_content_id = aa.question_content_id
-		 JOIN contents q ON q.id = eq.question_content_id
-		 JOIN subjects s ON s.id = q.subject_id
-		 JOIN content_exam_attempts a ON a.id = aa.attempt_id
-		 WHERE a.user_id = $1
+		 COUNT(gd.id),
+		 COUNT(*) FILTER (WHERE gd.status_correct),
+		 COUNT(*) FILTER (WHERE NOT gd.status_correct)
+		 FROM cbt.grading_detail gd
+		 JOIN cbt.attempt_question aq ON aq.id=gd.attempt_question_id
+		 JOIN cbt.exam_attempt a ON a.id=aq.attempt_id
+		 JOIN cbt.exam_participant p ON p.id=a.participant_id
+		 JOIN question.question_subject qs ON qs.question_id=gd.question_id
+		 JOIN academic.subject s ON s.id=qs.subject_id
+		 WHERE p.student_id=$1
 		 GROUP BY s.id, s.name
-		 ORDER BY correct::float / NULLIF(total,0) ASC`, studentID)
+		 ORDER BY COUNT(gd.id) ASC`, studentID)
 	if err == nil {
 		defer sRows.Close()
 		for sRows.Next() {
@@ -256,15 +279,15 @@ func (r *Repository) GetStudentAnalytics(ctx context.Context, studentID uuid.UUI
 		}
 	}
 
-	// Recent results
+	// Recent results.
 	rRows, err := r.pool.Query(ctx,
-		`SELECT a.exam_content_id, c.title, COALESCE(a.total_score, 0),
-		        COALESCE(a.total_score >= ce.passing_score, false), a.created_at
-		 FROM content_exam_attempts a
-		 JOIN contents c ON c.id = a.exam_content_id
-		 LEFT JOIN content_exams ce ON ce.content_id = a.exam_content_id
-		 WHERE a.user_id = $1
-		 ORDER BY a.created_at DESC LIMIT 10`, studentID)
+		`SELECT p.exam_id, e.title, COALESCE(g.score, 0), COALESCE(g.passed, false), COALESCE(a.finished_at, a.created_at)
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id=a.participant_id
+		 LEFT JOIN cbt.grading_result g ON g.attempt_id=a.id
+		 JOIN cbt.exam e ON e.id=p.exam_id
+		 WHERE p.student_id=$1
+		 ORDER BY COALESCE(a.finished_at, a.created_at) DESC LIMIT 10`, studentID)
 	if err == nil {
 		defer rRows.Close()
 		for rRows.Next() {
@@ -284,20 +307,24 @@ func (r *Repository) GetQuestionAnalytics(ctx context.Context, questionID uuid.U
 
 	r.pool.QueryRow(ctx,
 		`SELECT COUNT(*),
-		 COUNT(*) FILTER (WHERE is_correct = true),
-		 COUNT(*) FILTER (WHERE is_correct = false)
-		 FROM content_exam_answers WHERE question_content_id=$1`, questionID).Scan(&a.TotalAttempts, &a.CorrectCount, &a.WrongCount)
+		 COUNT(*) FILTER (WHERE status_correct),
+		 COUNT(*) FILTER (WHERE NOT status_correct)
+		 FROM cbt.grading_detail WHERE question_id=$1`, questionID).Scan(&a.TotalAttempts, &a.CorrectCount, &a.WrongCount)
 	total := a.CorrectCount + a.WrongCount
 	if total > 0 {
 		a.Accuracy = float64(a.CorrectCount) / float64(total) * 100
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_questions WHERE question_content_id=$1`, questionID).Scan(&a.UsedInExamsCount)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_package_question WHERE question_id=$1`, questionID).Scan(&a.UsedInExamsCount)
 
 	oRows, err := r.pool.Query(ctx,
-		`SELECT o.id, o.option_text,
-		 (SELECT COUNT(*) FROM content_exam_answers aa WHERE aa.question_content_id = $1 AND o.id = ANY(aa.selected_options)) AS picked
-		 FROM content_question_options o WHERE o.content_id = $1
+		`SELECT o.id, o.label,
+		 (SELECT COUNT(*) FROM cbt.student_answer sa
+		  JOIN cbt.attempt_question aq ON aq.id=sa.attempt_question_id
+		  WHERE aq.question_id = $1 AND o.label = ANY(string_to_array(sa.selected_option, ','))) AS picked
+		 FROM question.question_option o
+		 JOIN question.question_version v ON v.id=o.question_version_id
+		 WHERE v.question_id=$1 AND v.is_current
 		 ORDER BY o.display_order`, questionID)
 	if err == nil {
 		defer oRows.Close()
@@ -315,22 +342,22 @@ func (r *Repository) GetQuestionAnalytics(ctx context.Context, questionID uuid.U
 
 func (r *Repository) GetAdminExamReports(ctx context.Context, limit, offset int) ([]AdminReportItem, int, error) {
 	var total int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM'`).Scan(&total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam WHERE deleted_at IS NULL`).Scan(&total)
 
 	rows, err := r.pool.Query(ctx,
 		`SELECT e.id, e.title,
-		 (SELECT COUNT(*) FROM content_exam_participants WHERE exam_content_id=e.id) AS participants,
-		 (SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=e.id) AS started,
-		 (SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=e.id AND status IN ('FINISHED','SUBMITTED','GRADED','TERMINATED')) AS finished,
-		 (SELECT COALESCE(AVG(total_score),0) FROM content_exam_attempts WHERE exam_content_id=e.id) AS avg_score,
+		 (SELECT COUNT(*) FROM cbt.exam_participant ep WHERE ep.exam_id=e.id) AS participants,
+		 (SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id) AS started,
+		 (SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id AND a.status IN (`+finishedAttemptStatus()+`)) AS finished,
+		 (SELECT COALESCE(AVG(g.score),0) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id) AS avg_score,
 		 CASE
-		   WHEN (SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=e.id) > 0
-		   THEN (SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=e.id AND total_score >= 60)::float
-		      / (SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=e.id) * 100
+		   WHEN (SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id) > 0
+		   THEN (SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id AND g.passed)::float
+		      / (SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=e.id) * 100
 		   ELSE 0
 		 END AS pass_rate
-		 FROM contents e
-		 WHERE e.content_type = 'EXAM'
+		 FROM cbt.exam e
+		 WHERE e.deleted_at IS NULL
 		 ORDER BY e.created_at DESC
 		 LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -353,33 +380,42 @@ func (r *Repository) GetAdminExamReportByID(ctx context.Context, examID uuid.UUI
 	d := &AdminReportDetail{}
 
 	err := r.pool.QueryRow(ctx,
-		`SELECT c.id, c.title, c.status, ce.duration_minutes, ce.passing_score
-		 FROM contents c JOIN content_exams ce ON ce.content_id = c.id
-		 WHERE c.id=$1 AND c.content_type='EXAM'`, examID,
+		`SELECT e.id, e.title, COALESCE(st.code,''), COALESCE(md.duration_minute,0), COALESCE(md.passing_score,0)
+		 FROM cbt.exam e
+		 LEFT JOIN cbt.exam_status st ON st.id=e.status_id
+		 LEFT JOIN cbt.exam_metadata md ON md.exam_id=e.id
+		 WHERE e.id=$1 AND e.deleted_at IS NULL`, examID,
 	).Scan(&d.ExamID, &d.Title, &d.Status, &d.DurationMinutes, &d.PassingGrade)
 	if err != nil {
 		return nil, err
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_participants WHERE exam_content_id=$1`, examID).Scan(&d.TotalParticipants)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&d.TotalStarted)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1 AND status IN ('FINISHED','SUBMITTED','GRADED','TERMINATED')`, examID).Scan(&d.TotalFinished)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&d.AverageScore)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&d.HighestScore)
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MIN(total_score),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&d.LowestScore)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_participant WHERE exam_id=$1`, examID).Scan(&d.TotalParticipants)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&d.TotalStarted)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_attempt a JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND a.status IN (`+finishedAttemptStatus()+`)`, examID).Scan(&d.TotalFinished)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&d.AverageScore)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&d.HighestScore)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(MIN(g.score),0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&d.LowestScore)
 
 	var totalResults, passed int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&totalResults)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID).Scan(&totalResults)
 	if totalResults > 0 {
-		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE exam_content_id=$1 AND total_score >= $2`, examID, d.PassingGrade).Scan(&passed)
+		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g
+			JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND g.passed=true`, examID).Scan(&passed)
 		d.PassRate = float64(passed) / float64(totalResults) * 100
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(time_spent_seconds),0) FROM content_exam_attempts WHERE exam_content_id=$1`, examID).Scan(&d.AvgDurationSec)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (a.finished_at - a.started_at))),0) FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1 AND a.finished_at IS NOT NULL`, examID).Scan(&d.AvgDurationSec)
 
 	d.ScoreDistribution = []int{0, 0, 0, 0, 0}
 	distRows, err := r.pool.Query(ctx,
-		`SELECT total_score FROM content_exam_attempts WHERE exam_content_id=$1`, examID)
+		`SELECT g.score FROM cbt.grading_result g
+		 JOIN cbt.exam_attempt a ON a.id=g.attempt_id JOIN cbt.exam_participant p ON p.id=a.participant_id WHERE p.exam_id=$1`, examID)
 	if err == nil {
 		defer distRows.Close()
 		for distRows.Next() {
@@ -408,32 +444,33 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 		ItemFitIndex: 0.42,
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_participants`).Scan(&ov.TotalParticipants)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM'`).Scan(&ov.TotalExams)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions`).Scan(&ov.TotalQuestions)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_answers`).Scan(&ov.TotalAnswers)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_participant`).Scan(&ov.TotalParticipants)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam WHERE deleted_at IS NULL`).Scan(&ov.TotalExams)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM question.question WHERE deleted_at IS NULL`).Scan(&ov.TotalQuestions)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.student_answer`).Scan(&ov.TotalAnswers)
 
-	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(total_score), 0) FROM content_exam_attempts WHERE status IN ('FINISHED','SUBMITTED','GRADED')`).Scan(&ov.AverageScore)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(AVG(g.score), 0) FROM cbt.grading_result g
+		JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`)`).Scan(&ov.AverageScore)
 
 	var totalAttempts, passed int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE status IN ('FINISHED','SUBMITTED','GRADED')`).Scan(&totalAttempts)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`)`).Scan(&totalAttempts)
 	if totalAttempts > 0 {
-		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_exam_attempts WHERE status IN ('FINISHED','SUBMITTED','GRADED') AND total_score >= 600`).Scan(&passed)
+		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`) AND g.score >= 600`).Scan(&passed)
 		ov.PassRate = float64(passed) / float64(totalAttempts) * 100
 	} else {
 		ov.PassRate = 0.0
 	}
 
-	// Calculate Item Fit Index (Item Discrimination) from attempt answers ratio
+	// Item Fit Index from grading_detail correctness ratio.
 	var totalAnsCount, correctAnsCount int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE is_correct = true) FROM content_exam_answers`).Scan(&totalAnsCount, &correctAnsCount)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE status_correct) FROM cbt.grading_detail`).Scan(&totalAnsCount, &correctAnsCount)
 	if totalAnsCount > 0 {
 		ov.ItemFitIndex = float64(correctAnsCount) / float64(totalAnsCount)
 	} else {
 		ov.ItemFitIndex = 0.0
 	}
 
-	distRows, err := r.pool.Query(ctx, `SELECT total_score FROM content_exam_attempts`)
+	distRows, err := r.pool.Query(ctx, `SELECT g.score FROM cbt.grading_result g`)
 	if err == nil {
 		defer distRows.Close()
 		for distRows.Next() {
@@ -454,12 +491,14 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 
 	subjRows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name,
-		 COALESCE(AVG(a.total_score), 0) AS avg_score,
-		 COUNT(DISTINCT cq.id) AS total_q
-		 FROM subjects s
-		 LEFT JOIN contents cq ON cq.subject_id = s.id AND cq.content_type = 'QUESTION'
-		 LEFT JOIN contents ce ON ce.subject_id = s.id AND ce.content_type = 'EXAM'
-		 LEFT JOIN content_exam_attempts a ON a.exam_content_id = ce.id
+		 COALESCE(AVG(g.score), 0) AS avg_score,
+		 COUNT(DISTINCT gd.question_id) AS total_q
+		 FROM academic.subject s
+		 LEFT JOIN question.question_subject qs ON qs.subject_id=s.id
+		 LEFT JOIN cbt.grading_detail gd ON gd.question_id=qs.question_id
+		 LEFT JOIN cbt.attempt_question aq ON aq.id=gd.attempt_question_id
+		 LEFT JOIN cbt.exam_attempt a ON a.id=aq.attempt_id
+		 LEFT JOIN cbt.grading_result g ON g.attempt_id=a.id
 		 GROUP BY s.id, s.name
 		 ORDER BY s.name LIMIT 10`)
 	if err == nil {
@@ -598,8 +637,8 @@ func (h *Handler) GetAdminExamReportByID(c *fiber.Ctx) error {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := middleware.RequireAuth(h.role)
-	ro := middleware.RequireRole("ADMIN", "STAFF", "TEACHER")
-	adminOnly := middleware.RequireRole("ADMIN")
+	ro := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
+	adminOnly := middleware.RequireRole("SUPER_ADMIN")
 
 	an := router.Group("/analytics", auth)
 	an.Get("/exams/:id", h.GetExamAnalytics)
