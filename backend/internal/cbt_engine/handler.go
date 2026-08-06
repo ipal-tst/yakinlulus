@@ -66,8 +66,8 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	// Analytics
 	exams.Get("/:id/analytics", h.GetAnalytics)
 
-	// Practice endpoints
-	practice := authed.Group("/practice")
+	// Practice endpoints (exam engine) — distinct prefix from /practice/sessions
+	practice := authed.Group("/exam-practice")
 	practice.Post("/material/:materialId", h.StartMaterialPractice)
 	practice.Post("/subject", h.StartSubjectPractice)
 	practice.Post("/tags", h.StartTagBasedPractice)
