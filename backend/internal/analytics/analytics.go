@@ -315,7 +315,7 @@ func (r *Repository) GetQuestionAnalytics(ctx context.Context, questionID uuid.U
 		a.Accuracy = float64(a.CorrectCount) / float64(total) * 100
 	}
 
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam_package_question WHERE question_id=$1`, questionID).Scan(&a.UsedInExamsCount)
+	r.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT pkg.exam_id) FROM cbt.exam_package_question pq JOIN cbt.exam_package pkg ON pkg.id=pq.package_id WHERE pq.question_id=$1`, questionID).Scan(&a.UsedInExamsCount)
 
 	oRows, err := r.pool.Query(ctx,
 		`SELECT o.id, o.label,
@@ -455,7 +455,7 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 	var totalAttempts, passed int
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`)`).Scan(&totalAttempts)
 	if totalAttempts > 0 {
-		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`) AND g.score >= 600`).Scan(&passed)
+		r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.grading_result g JOIN cbt.exam_attempt a ON a.id=g.attempt_id WHERE a.status IN (`+finishedAttemptStatus()+`) AND g.passed`).Scan(&passed)
 		ov.PassRate = float64(passed) / float64(totalAttempts) * 100
 	} else {
 		ov.PassRate = 0.0
@@ -470,6 +470,8 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 		ov.ItemFitIndex = 0.0
 	}
 
+	// grading_result.score is 0-100 (matching every other consumer in this
+	// migration); distribute across the four legacy nominal bands.
 	distRows, err := r.pool.Query(ctx, `SELECT g.score FROM cbt.grading_result g`)
 	if err == nil {
 		defer distRows.Close()
@@ -477,11 +479,11 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 			var score float64
 			distRows.Scan(&score)
 			switch {
-			case score >= 700:
+			case score >= 85:
 				ov.ScoreDistribution.Bracket700Plus++
-			case score >= 600:
+			case score >= 70:
 				ov.ScoreDistribution.Bracket600_699++
-			case score >= 500:
+			case score >= 60:
 				ov.ScoreDistribution.Bracket500_599++
 			default:
 				ov.ScoreDistribution.BracketBelow500++

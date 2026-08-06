@@ -275,6 +275,102 @@ func TestAnalyticsRepositoryMigration(t *testing.T) {
 	}
 }
 
+// TestAnalyticsAdminOverviewAndDifficulty covers the two Critical fixes: the
+// admin overview must treat grading_result.score on the 0-100 scale (pass via
+// g.passed; brackets on 0-100), and GetExamDifficulty must not merge NULL
+// metadata into MEDIUM.
+func TestAnalyticsAdminOverviewAndDifficulty(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	var examID, student uuid.UUID
+	t.Cleanup(func() { assertAnalyticsResidueZero(t, p, examID, student, uuid.Nil, uuid.Nil, uuid.Nil, uuid.Nil) })
+
+	student = seedUser(t, p, ctx, "ov_student")
+	cr := contentpkg.NewRepository(p)
+	base := &contentpkg.Content{
+		ContentType: contentpkg.ContentTypeExam,
+		GradeID:     uuid.Nil,
+		SubjectID:   uuid.Nil,
+		Title:       "Overview Exam",
+		Body:        "desc",
+		Status:      contentpkg.StatusDraft,
+		CreatedBy:   student,
+	}
+	if err := cr.CreateContent(ctx, base); err != nil {
+		t.Fatalf("CreateContent(EXAM): %v", err)
+	}
+	if err := cr.CreateExam(ctx, &contentpkg.Exam{ContentID: base.ID, DurationMinutes: 60, PassingScore: 50}); err != nil {
+		t.Fatalf("CreateExam: %v", err)
+	}
+	examID = base.ID
+	t.Cleanup(func() { _, _ = p.Exec(ctx, `DELETE FROM cbt.exam WHERE id = $1`, examID) })
+
+	var pid uuid.UUID
+	if err := p.QueryRow(ctx, `INSERT INTO cbt.exam_participant (exam_id, student_id, status) VALUES ($1,$2,'STARTED') RETURNING id`, examID, student).Scan(&pid); err != nil {
+		t.Fatalf("participant: %v", err)
+	}
+	var attemptID uuid.UUID
+	if err := p.QueryRow(ctx, `INSERT INTO cbt.exam_attempt (id, participant_id, attempt_no, started_at, finished_at, status) VALUES (gen_random_uuid(), $1, 1, NOW()-interval '10 min', NOW(), 'COMPLETED') RETURNING id`, pid).Scan(&attemptID); err != nil {
+		t.Fatalf("attempt: %v", err)
+	}
+	// score 90 (> 85 bracket) and passed=true.
+	if _, err := p.Exec(ctx, `INSERT INTO cbt.grading_result (attempt_id, score, correct, wrong, blank, passed) VALUES ($1, 90, 5, 0, 0, true)`, attemptID); err != nil {
+		t.Fatalf("grading_result: %v", err)
+	}
+
+	ov, err := r.GetAdminOverviewAnalytics(ctx)
+	if err != nil {
+		t.Fatalf("GetAdminOverviewAnalytics: %v", err)
+	}
+	if ov.PassRate != 100 {
+		t.Errorf("overview PassRate = %v, want 100 (single passed attempt)", ov.PassRate)
+	}
+	if ov.AverageScore != 90 {
+		t.Errorf("overview AverageScore = %v, want 90", ov.AverageScore)
+	}
+	if ov.ScoreDistribution.Bracket700Plus != 1 {
+		t.Errorf("overview bracket700+ = %d, want 1 (score 90 on 0-100 scale)", ov.ScoreDistribution.Bracket700Plus)
+	}
+	if ov.TotalExams < 1 {
+		t.Errorf("overview TotalExams = %d, want >=1", ov.TotalExams)
+	}
+
+	// Difficulty: one question keeps EASY metadata (set by seedQuestion),
+	// one question has its metadata deleted (NULL → must group as MEDIUM via
+	// COALESCE, not its own bucket).
+	qE := seedQuestion(t, p, ctx, uuid.Nil)
+	qN := seedQuestion(t, p, ctx, uuid.Nil)
+	t.Cleanup(func() { _, _ = p.Exec(ctx, `DELETE FROM question.question_metadata WHERE question_id=$1`, qN) })
+	if _, err := p.Exec(ctx, `DELETE FROM question.question_metadata WHERE question_id=$1`, qN); err != nil {
+		t.Fatalf("delete null-metadata question: %v", err)
+	}
+	var pkgID uuid.UUID
+	if err := p.QueryRow(ctx, `INSERT INTO cbt.exam_package (exam_id, name) VALUES ($1,'default') RETURNING id`, examID).Scan(&pkgID); err != nil {
+		t.Fatalf("package: %v", err)
+	}
+	t.Cleanup(func() { _, _ = p.Exec(ctx, `DELETE FROM cbt.exam_package WHERE id=$1`, pkgID) })
+	for _, q := range []uuid.UUID{qE, qN} {
+		if _, err := p.Exec(ctx, `INSERT INTO cbt.exam_package_question (package_id, question_id, question_order, score) VALUES ($1,$2,0,1)`, pkgID, q); err != nil {
+			t.Fatalf("package_question: %v", err)
+		}
+	}
+	diff, err := r.GetExamDifficulty(ctx, examID)
+	if err != nil {
+		t.Fatalf("GetExamDifficulty: %v", err)
+	}
+	if diff.Easy.Count != 1 {
+		t.Errorf("difficulty easy count = %d, want 1", diff.Easy.Count)
+	}
+	if diff.Medium.Count != 1 {
+		t.Errorf("difficulty medium count = %d, want 1 (NULL metadata grouped via COALESCE)", diff.Medium.Count)
+	}
+	if diff.Hard.Count != 0 {
+		t.Errorf("difficulty hard count = %d, want 0", diff.Hard.Count)
+	}
+}
+
 // assertAnalyticsResidueZero asserts every cbt/question/academic/identity probe
 // row created by this test is gone.
 func assertAnalyticsResidueZero(t *testing.T, p *pgxpool.Pool, examID, student, subject, q1, q2, q3 uuid.UUID) {

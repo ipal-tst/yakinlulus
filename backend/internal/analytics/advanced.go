@@ -53,7 +53,7 @@ func (r *Repository) GetLeaderboardBySubject(ctx context.Context, subjectID uuid
 	rows, err := r.pool.Query(ctx, `
 		SELECT u.id, COALESCE(pf.full_name, u.username),
 			COALESCE(AVG(g.score), 0),
-			COUNT(DISTINCT a.id) AS total_exams
+			COUNT(DISTINCT p.exam_id) AS total_exams
 		FROM cbt.exam_attempt a
 		JOIN cbt.exam_participant p ON p.id = a.participant_id
 		JOIN identity.user u ON u.id = p.student_id
@@ -131,13 +131,14 @@ func (r *Repository) GetExamDifficulty(ctx context.Context, examID uuid.UUID) (*
 	rows, err := r.pool.Query(ctx, `
 		SELECT COALESCE(qm.difficulty_level, 'MEDIUM'),
 			COUNT(DISTINCT pq.question_id) AS count,
-			COALESCE(AVG(CASE WHEN qs.correct_count > 0 THEN 100.0 ELSE 0.0 END), 0) AS avg_score
+			COALESCE(AVG(CASE WHEN gd.status_correct THEN 100.0 ELSE 0.0 END), 0) AS avg_score
 		FROM cbt.exam_package_question pq
 		JOIN cbt.exam_package pkg ON pkg.id = pq.package_id
 		LEFT JOIN question.question_metadata qm ON qm.question_id = pq.question_id
-		LEFT JOIN cbt.question_statistics qs ON qs.question_id = pq.question_id
+		LEFT JOIN cbt.attempt_question aq ON aq.question_id = pq.question_id
+		LEFT JOIN cbt.grading_detail gd ON gd.attempt_question_id = aq.id
 		WHERE pkg.exam_id = $1
-		GROUP BY qm.difficulty_level`, examID)
+		GROUP BY COALESCE(qm.difficulty_level, 'MEDIUM')`, examID)
 	if err != nil {
 		return nil, err
 	}
