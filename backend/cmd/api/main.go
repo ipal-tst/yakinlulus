@@ -22,6 +22,7 @@ import (
 	"yakinlulus.id/backend/internal/auth"
 	"yakinlulus.id/backend/internal/cbt_engine"
 	"yakinlulus.id/backend/internal/cbt_runtime"
+	"yakinlulus.id/backend/internal/cms"
 	"yakinlulus.id/backend/internal/content"
 	"yakinlulus.id/backend/internal/dashboard"
 	"yakinlulus.id/backend/internal/exam_packages"
@@ -278,7 +279,11 @@ func main() {
 	pkgHandler.RegisterRoutes(api)
 	rankHandler.RegisterRoutes(api)
 	profileHandler.RegisterRoutes(api)                              
-	targetSchoolHandler.RegisterRoutes(api)                         
+	targetSchoolHandler.RegisterRoutes(api)
+
+	// CMS module
+	cmsHandler := cms.NewHandler(cms.NewService(cms.NewRepository(pool)), cfg.JWT.Secret)
+	cmsHandler.RegisterRoutes(api)                         
 
 
 	addr := cfg.App.Host + ":" + itoa(cfg.App.Port)
