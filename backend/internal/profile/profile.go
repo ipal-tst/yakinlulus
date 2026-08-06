@@ -36,11 +36,11 @@ type SaveTargetsRequest struct {
 }
 
 type TargetInput struct {
-	Choice          int    `json:"choice"`
-	TargetSchoolID  string `json:"target_school_id"`
-	SchoolName      string `json:"school_name"`
+	Choice          int     `json:"choice"`
+	TargetSchoolID  string  `json:"target_school_id"`
+	SchoolName      string  `json:"school_name"`
 	Major           *string `json:"major,omitempty"`
-	PassingScoreIRT *int   `json:"passing_score_irt,omitempty"`
+	PassingScoreIRT *int    `json:"passing_score_irt,omitempty"`
 }
 
 type EnrichedTarget struct {
@@ -87,13 +87,14 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) GetUserLevelCode(ctx context.Context, userID uuid.UUID) (string, error) {
-	// TODO(batch4): joins legacy `grades`/`education_levels` — migrate with student profile mapping.
 	var code string
 	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(el.code, '') FROM users u
-		 LEFT JOIN grades g ON g.id = u.grade_id
-		 LEFT JOIN education_levels el ON el.id = g.education_level_id
-		 WHERE u.id = $1`, userID).Scan(&code)
+		`SELECT COALESCE(el.code, '')
+		 FROM academic.student_enrollment se
+		 LEFT JOIN academic.grade g ON g.id = se.grade_id
+		 LEFT JOIN academic.education_level el ON el.id = g.education_level_id
+		 WHERE se.student_id = $1 AND se.status = 'ACTIVE'
+		 ORDER BY se.created_at DESC LIMIT 1`, userID).Scan(&code)
 	if err != nil && err != pgx.ErrNoRows {
 		return "", err
 	}
@@ -101,11 +102,10 @@ func (r *Repository) GetUserLevelCode(ctx context.Context, userID uuid.UUID) (st
 }
 
 func (r *Repository) ListTargets(ctx context.Context, userID uuid.UUID) ([]StudentTarget, error) {
-	// TODO(batch4): legacy `student_targets` table — migrate with target_schools.
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, choice, COALESCE(target_type,''), target_school_id, COALESCE(school_name,''),
 		   major, passing_score_irt, created_at, updated_at
-		 FROM student_targets WHERE user_id = $1 ORDER BY choice`, userID)
+		 FROM identity.student_target WHERE user_id = $1 ORDER BY choice`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,6 @@ func (r *Repository) ListTargets(ctx context.Context, userID uuid.UUID) ([]Stude
 }
 
 func (r *Repository) UpsertTargets(ctx context.Context, userID uuid.UUID, targets []TargetInput) ([]StudentTarget, error) {
-	// TODO(batch4): legacy `student_targets` table — migrate with target_schools.
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -142,7 +141,7 @@ func (r *Repository) UpsertTargets(ctx context.Context, userID uuid.UUID, target
 			}
 		}
 		_, err := tx.Exec(ctx,
-			`INSERT INTO student_targets (user_id, choice, target_type, target_school_id, school_name, major, passing_score_irt)
+			`INSERT INTO identity.student_target (user_id, choice, target_type, target_school_id, school_name, major, passing_score_irt)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7)
 			 ON CONFLICT (user_id, choice)
 			 DO UPDATE SET target_type = EXCLUDED.target_type,
@@ -166,10 +165,11 @@ func (r *Repository) UpsertTargets(ctx context.Context, userID uuid.UUID, target
 func (r *Repository) BestCertificatePct(ctx context.Context, userID uuid.UUID) (float64, bool, error) {
 	var pct float64
 	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(MAX(CASE WHEN COALESCE(a.max_score,0) > 0
-		        THEN ROUND(COALESCE(a.total_score,0)/a.max_score*100,1) ELSE 0 END),0)
-		 FROM content_exam_attempts a
-		 WHERE a.user_id = $1 AND a.status = 'SUBMITTED'`, userID).Scan(&pct)
+		`SELECT COALESCE(MAX(COALESCE(g.score, 0)), 0)
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.grading_result g ON g.attempt_id = a.id
+		 WHERE p.student_id = $1 AND a.status IN ('SUBMITTED','GRADING','COMPLETED')`, userID).Scan(&pct)
 	if err != nil {
 		return 0, false, err
 	}
@@ -183,11 +183,19 @@ func (r *Repository) SumBestPerSubject(ctx context.Context, userID uuid.UUID, su
 		return 0, false, nil
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT s.name, MAX(COALESCE(a.total_score,0))
-		 FROM content_exam_attempts a
-		 JOIN contents c ON c.id = a.exam_content_id
-		 JOIN subjects s ON s.id = c.subject_id
-		 WHERE a.user_id = $1 AND a.status = 'SUBMITTED'
+		`SELECT s.name, MAX(sub.subject_pct)::int
+		 FROM (
+		   SELECT aq.attempt_id, qsub.subject_id,
+		          SUM(gd.score) / COUNT(*) * 100 AS subject_pct
+		   FROM cbt.grading_detail gd
+		   JOIN cbt.attempt_question aq ON aq.id = gd.attempt_question_id
+		   JOIN question.question_subject qsub ON qsub.question_id = aq.question_id
+		   GROUP BY aq.attempt_id, qsub.subject_id
+		 ) sub
+		 JOIN cbt.exam_attempt a ON a.id = sub.attempt_id
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN academic.subject s ON s.id = sub.subject_id
+		 WHERE p.student_id = $1 AND a.status IN ('SUBMITTED','GRADING','COMPLETED')
 		   AND LOWER(s.name) = ANY($2)
 		 GROUP BY s.name`, userID, lowerAll(subjects))
 	if err != nil {
@@ -220,24 +228,28 @@ func (r *Repository) ListCertificates(ctx context.Context, userID uuid.UUID) ([]
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 		   a.id,
-		   COALESCE(c.title, 'Tryout'),
-		   a.exam_content_id,
-		   COALESCE(a.total_score, 0),
-		   COALESCE(a.max_score, 0),
-		   CASE WHEN COALESCE(a.max_score, 0) > 0
-		        THEN ROUND(COALESCE(a.total_score, 0) / a.max_score * 100, 1) ELSE 0 END,
-		   COALESCE(a.submitted_at, a.created_at),
-		   (SELECT COUNT(*) FROM content_exam_attempts x
-		     WHERE x.exam_content_id = a.exam_content_id
-		       AND x.status = 'SUBMITTED'
-		       AND COALESCE(x.total_score, 0) > COALESCE(a.total_score, 0)) + 1,
-		   (SELECT COUNT(*) FROM content_exam_attempts x
-		     WHERE x.exam_content_id = a.exam_content_id
-		       AND x.status = 'SUBMITTED')
-		 FROM content_exam_attempts a
-		 LEFT JOIN contents c ON c.id = a.exam_content_id
-		 WHERE a.user_id = $1 AND a.status = 'SUBMITTED'
-		 ORDER BY COALESCE(a.submitted_at, a.created_at) DESC`, userID)
+		   COALESCE(e.title, 'Tryout'),
+		   e.id,
+		   COALESCE(g.score, 0),
+		   100.0,
+		   COALESCE(g.score, 0),
+		   COALESCE(a.finished_at, a.created_at),
+		   (SELECT COUNT(*) FROM cbt.exam_attempt x
+		     JOIN cbt.exam_participant xp ON xp.id = x.participant_id
+		     JOIN cbt.grading_result xg ON xg.attempt_id = x.id
+		     WHERE xp.exam_id = e.id
+		       AND x.status IN ('SUBMITTED','GRADING','COMPLETED')
+		       AND COALESCE(xg.score, 0) > COALESCE(g.score, 0)) + 1,
+		   (SELECT COUNT(*) FROM cbt.exam_attempt x
+		     JOIN cbt.exam_participant xp ON xp.id = x.participant_id
+		     WHERE xp.exam_id = e.id
+		       AND x.status IN ('SUBMITTED','GRADING','COMPLETED'))
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.exam e ON e.id = p.exam_id
+		 LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		 WHERE p.student_id = $1 AND a.status IN ('SUBMITTED','GRADING','COMPLETED')
+		 ORDER BY COALESCE(a.finished_at, a.created_at) DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -607,21 +619,24 @@ func (h *Handler) DownloadCertificate(c *fiber.Ctx) error {
 func (h *Handler) findCert(ctx context.Context, userID, certID uuid.UUID) (*Certificate, error) {
 	cert := &Certificate{}
 	err := h.svc.repo.pool.QueryRow(ctx,
-		`SELECT a.id, COALESCE(c.title, 'Tryout'), a.exam_content_id,
-		   COALESCE(a.total_score, 0), COALESCE(a.max_score, 0),
-		   CASE WHEN COALESCE(a.max_score, 0) > 0
-		        THEN ROUND(COALESCE(a.total_score, 0) / a.max_score * 100, 1) ELSE 0 END,
-		   COALESCE(a.submitted_at, a.created_at),
-		   (SELECT COUNT(*) FROM content_exam_attempts x
-		     WHERE x.exam_content_id = a.exam_content_id
-		       AND x.status = 'SUBMITTED'
-		       AND COALESCE(x.total_score, 0) > COALESCE(a.total_score, 0)) + 1,
-		   (SELECT COUNT(*) FROM content_exam_attempts x
-		     WHERE x.exam_content_id = a.exam_content_id
-		       AND x.status = 'SUBMITTED')
-		 FROM content_exam_attempts a
-		 LEFT JOIN contents c ON c.id = a.exam_content_id
-		 WHERE a.id = $1 AND a.user_id = $2 AND a.status = 'SUBMITTED'`,
+		`SELECT a.id, COALESCE(e.title, 'Tryout'), e.id,
+		   COALESCE(g.score, 0), 100.0, COALESCE(g.score, 0),
+		   COALESCE(a.finished_at, a.created_at),
+		   (SELECT COUNT(*) FROM cbt.exam_attempt x
+		     JOIN cbt.exam_participant xp ON xp.id = x.participant_id
+		     JOIN cbt.grading_result xg ON xg.attempt_id = x.id
+		     WHERE xp.exam_id = e.id
+		       AND x.status IN ('SUBMITTED','GRADING','COMPLETED')
+		       AND COALESCE(xg.score, 0) > COALESCE(g.score, 0)) + 1,
+		   (SELECT COUNT(*) FROM cbt.exam_attempt x
+		     JOIN cbt.exam_participant xp ON xp.id = x.participant_id
+		     WHERE xp.exam_id = e.id
+		       AND x.status IN ('SUBMITTED','GRADING','COMPLETED'))
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.exam e ON e.id = p.exam_id
+		 LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		 WHERE a.id = $1 AND p.student_id = $2 AND a.status IN ('SUBMITTED','GRADING','COMPLETED')`,
 		certID, userID,
 	).Scan(&cert.ID, &cert.Title, &cert.ExamID, &cert.Score, &cert.MaxScore, &cert.Pct, &cert.Date, &cert.Rank, &cert.Total)
 	return cert, err
