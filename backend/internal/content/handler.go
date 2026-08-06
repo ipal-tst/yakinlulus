@@ -157,7 +157,12 @@ func (h *Handler) DeleteContent(c *fiber.Ctx) error {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := middleware.RequireAuth(h.role)
-	staffOnly := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
+	// The generic /contents write routes are a legacy catch-all with no
+	// per-row ownership gate. GURU authoring is covered by the dedicated
+	// modules (question_bank, material, cbt_engine, cms) which enforce
+	// ownership; granting GURU here would let them delete/update any
+	// material/exam via /contents/:id, bypassing those gates.
+	staffOnly := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	contents := router.Group("/contents", auth)
 	contents.Get("/", h.ListContent)
