@@ -273,7 +273,7 @@ func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, 
 func (r *Repository) getStats(ctx context.Context, userID uuid.UUID) (*StatsResp, error) {
 	s := &StatsResp{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*), COALESCE(SUM(max_score),0), COALESCE(SUM(total_score),0),
+		`SELECT COUNT(*), COALESCE(SUM(max_score),0), COALESCE(SUM(correct_count),0),
 		        COALESCE(AVG(CASE WHEN max_score > 0 THEN (total_score / max_score) * 100 ELSE 0 END),0)
 		 FROM content.practice_session WHERE student_id=$1 AND status IN ('GRADED','SUBMITTED')`,
 		userID).Scan(&s.TotalSessions, &s.TotalQuestions, &s.TotalCorrect, &s.AverageScore)
