@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -151,7 +152,11 @@ func (r *Repository) scanSession(ctx context.Context, condition string, args ...
 	if err != nil {
 		return nil, err
 	}
-	s.Status = legacyStatusFromCBT(cbtStatus)
+	if s.IsTerminated {
+		s.Status = "TERMINATED"
+	} else {
+		s.Status = legacyStatusFromCBT(cbtStatus)
+	}
 	return s, nil
 }
 
@@ -169,17 +174,17 @@ func (r *Repository) CreateSession(ctx context.Context, s *ExamSession, examDura
 		return err
 	}
 
-	var attemptNo int
-	if err := r.pool.QueryRow(ctx, `
-		SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM cbt.exam_attempt WHERE participant_id = $1`, pid).Scan(&attemptNo); err != nil {
-		return err
-	}
-
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	var attemptNo int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM cbt.exam_attempt WHERE participant_id = $1`, pid).Scan(&attemptNo); err != nil {
+		return err
+	}
 
 	if _, err = tx.Exec(ctx, `
 		INSERT INTO cbt.exam_attempt (id, participant_id, attempt_no, started_at, status)
@@ -205,7 +210,9 @@ func (r *Repository) FindSessionByExamUser(ctx context.Context, examID, userID u
 
 func (r *Repository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]UserSessionSummary, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT a.id, p.exam_id, a.status, g.score, a.started_at
+		SELECT a.id, p.exam_id, a.status, g.score, a.started_at,
+		       EXISTS (SELECT 1 FROM cbt.auto_submit aus
+		               WHERE aus.attempt_id = a.id AND aus.reason = 'CHEATING')
 		FROM cbt.exam_attempt a
 		JOIN cbt.exam_participant p ON p.id = a.participant_id
 		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
@@ -220,10 +227,15 @@ func (r *Repository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]
 	for rows.Next() {
 		var s UserSessionSummary
 		var cbtStatus string
-		if err := rows.Scan(&s.ID, &s.ExamContentID, &cbtStatus, &s.Score, &s.StartedAt); err != nil {
+		var cheated bool
+		if err := rows.Scan(&s.ID, &s.ExamContentID, &cbtStatus, &s.Score, &s.StartedAt, &cheated); err != nil {
 			return nil, err
 		}
-		s.Status = legacyStatusFromCBT(cbtStatus)
+		if cheated {
+			s.Status = "TERMINATED"
+		} else {
+			s.Status = legacyStatusFromCBT(cbtStatus)
+		}
 		sessions = append(sessions, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -443,9 +455,23 @@ func (r *Repository) AddSessionQuestions(ctx context.Context, sessionID uuid.UUI
 
 	for i, qid := range questionIDs {
 		aqID := uuid.New()
+		// Snapshot the question's current version_no so later grading resolves
+		// correct-option labels against the version the student actually saw.
+		var snapshotNo int
+		if err := tx.QueryRow(ctx, `
+			SELECT qv.version_no
+			FROM question.question q
+			JOIN question.question_version qv ON qv.id = q.current_version_id
+			WHERE q.id = $1`, qid).Scan(&snapshotNo); err != nil {
+			if err == pgx.ErrNoRows {
+				snapshotNo = 1
+			} else {
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO cbt.attempt_question (id, attempt_id, question_id, display_order)
-			VALUES ($1, $2, $3, $4)`, aqID, sessionID, qid, i+1); err != nil {
+			INSERT INTO cbt.attempt_question (id, attempt_id, question_id, display_order, snapshot_version)
+			VALUES ($1, $2, $3, $4, $5)`, aqID, sessionID, qid, i+1, snapshotNo); err != nil {
 			return err
 		}
 
@@ -626,25 +652,34 @@ func (r *Repository) CheckExamStarted(ctx context.Context, examID uuid.UUID) (bo
 	return count > 0, err
 }
 
-// labelForOption resolves an option uuid to its label on the question's
-// current version, so answers can be stored by label.
-func (r *Repository) labelForOption(ctx context.Context, attemptQuestionID uuid.UUID, optID *uuid.UUID) *string {
-	if optID == nil {
-		return nil
-	}
-	var label *string
-	_ = r.pool.QueryRow(ctx, `
-		SELECT op.label
-		FROM cbt.attempt_question aq
-		JOIN question.question q ON q.id = aq.question_id
-		JOIN question.question_option op ON op.question_version_id = q.current_version_id AND op.id = $2
-		WHERE aq.id = $1`, attemptQuestionID, *optID).Scan(&label)
-	return label
+// labelFromOptionID resolves an option uuid to its label, so answers can be
+// stored by label. Reads the option row directly (its label is intrinsic to
+// that option id regardless of version), propagating errors rather than
+// swallowing a real selection.
+func (r *Repository) labelFromOptionID(ctx context.Context, optID uuid.UUID) (string, error) {
+	var label string
+	err := r.pool.QueryRow(ctx, `SELECT label FROM question.question_option WHERE id = $1`, optID).Scan(&label)
+	return label, err
 }
 
-func (r *Repository) SaveAnswer(ctx context.Context, a *ExamAnswer) error {
-	a.ID = uuid.New()
-	label := r.labelForOption(ctx, a.ExamQuestionID, a.SelectedOptionID)
+// selectedLabelsFromIDs resolves a set of option uuids to their labels,
+// preserving the caller's order. Multi-choice answers are stored comma-joined
+// per question in cbt.student_answer.selected_option (kept within its
+// varchar(10) width; covers up to five single-letter options).
+func (r *Repository) selectedLabelsFromIDs(ctx context.Context, optIDs []uuid.UUID) ([]string, error) {
+	labels := make([]string, 0, len(optIDs))
+	for _, id := range optIDs {
+		l, err := r.labelFromOptionID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l)
+	}
+	return labels, nil
+}
+
+func (r *Repository) SaveAnswer(ctx context.Context, attemptQuestionID uuid.UUID, labels []string, isDoubtful bool) error {
+	selected := strings.Join(labels, ",")
 	answeredAt := time.Now()
 
 	if _, err := r.pool.Exec(ctx, `
@@ -653,18 +688,18 @@ func (r *Repository) SaveAnswer(ctx context.Context, a *ExamAnswer) error {
 		ON CONFLICT (attempt_question_id) DO UPDATE SET
 			selected_option = NULLIF(EXCLUDED.selected_option, ''),
 			answered_at = EXCLUDED.answered_at`,
-		a.ExamQuestionID, label, answeredAt); err != nil {
+		attemptQuestionID, selected, answeredAt); err != nil {
 		return err
 	}
 
-	if a.IsDoubtful {
+	if isDoubtful {
 		_, err := r.pool.Exec(ctx, `
 			INSERT INTO cbt.bookmark_question (attempt_question_id)
 			VALUES ($1)
-			ON CONFLICT (attempt_question_id) DO NOTHING`, a.ExamQuestionID)
+			ON CONFLICT (attempt_question_id) DO NOTHING`, attemptQuestionID)
 		return err
 	}
-	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.bookmark_question WHERE attempt_question_id = $1`, a.ExamQuestionID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.bookmark_question WHERE attempt_question_id = $1`, attemptQuestionID)
 	return err
 }
 
@@ -672,10 +707,17 @@ func (r *Repository) GetAnswers(ctx context.Context, sessionID uuid.UUID) ([]Exa
 	rows, err := r.pool.Query(ctx, `
 		SELECT aq.id, aq.attempt_id, aq.question_id, sa.selected_option, sa.answered_at,
 		       EXISTS (SELECT 1 FROM cbt.bookmark_question bq WHERE bq.attempt_question_id = aq.id),
-		       COALESCE(sa.selected_option = (SELECT op.label
-		         FROM question.question q
-		         JOIN question.question_option op ON op.question_version_id = q.current_version_id
-		         WHERE q.id = aq.question_id AND op.is_correct), false)
+		       COALESCE(sa.selected_option IS NOT NULL AND
+		         (SELECT ARRAY_AGG(op.label::text ORDER BY op.display_order)
+		          FROM question.question_option op
+		          JOIN question.question_version v ON v.id = op.question_version_id
+		          WHERE v.question_id = aq.question_id AND v.version_no = aq.snapshot_version AND op.is_correct)
+		           @> string_to_array(sa.selected_option, ',')
+		          AND string_to_array(sa.selected_option, ',') @>
+		         (SELECT ARRAY_AGG(op.label::text ORDER BY op.display_order)
+		          FROM question.question_option op
+		          JOIN question.question_version v ON v.id = op.question_version_id
+		          WHERE v.question_id = aq.question_id AND v.version_no = aq.snapshot_version AND op.is_correct), false)
 		FROM cbt.attempt_question aq
 		LEFT JOIN cbt.student_answer sa ON sa.attempt_question_id = aq.id
 		WHERE aq.attempt_id = $1
@@ -880,7 +922,9 @@ func (r *Repository) FinishSession(ctx context.Context, sessionID uuid.UUID, rem
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `
-		UPDATE cbt.exam_attempt SET status = 'COMPLETED', finished_at = $1, last_sync = $1
+		UPDATE cbt.exam_attempt
+		SET status = CASE WHEN status = 'SUBMITTED' THEN 'SUBMITTED' ELSE 'COMPLETED' END,
+		    finished_at = $1, last_sync = $1
 		WHERE id = $2`, now, sessionID); err != nil {
 		return err
 	}
@@ -990,18 +1034,21 @@ func (r *Repository) GetExamNegativeMarking(ctx context.Context, examID uuid.UUI
 	return 0.25, nil
 }
 
-func (r *Repository) UpdateQuestionAnalytics(ctx context.Context, questionID uuid.UUID, correct bool) error {
+func (r *Repository) UpdateQuestionAnalytics(ctx context.Context, questionID uuid.UUID, correct, blank bool) error {
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO cbt.question_statistics (question_id, shown_count, correct_count, wrong_count, blank_count, accuracy)
-		VALUES ($1, 1, CASE WHEN $2 THEN 1 ELSE 0 END, CASE WHEN $2 THEN 0 ELSE 1 END, 0,
+		VALUES ($1, 1, CASE WHEN $2 THEN 1 ELSE 0 END,
+		        CASE WHEN NOT $2 AND NOT $3 THEN 1 ELSE 0 END,
+		        CASE WHEN $3 THEN 1 ELSE 0 END,
 		        CASE WHEN $2 THEN 100.0 ELSE 0.0 END)
 		ON CONFLICT (question_id) DO UPDATE SET
 			shown_count = cbt.question_statistics.shown_count + 1,
 			correct_count = cbt.question_statistics.correct_count + CASE WHEN $2 THEN 1 ELSE 0 END,
-			wrong_count = cbt.question_statistics.wrong_count + CASE WHEN $2 THEN 0 ELSE 1 END,
+			wrong_count = cbt.question_statistics.wrong_count + CASE WHEN NOT $2 AND NOT $3 THEN 1 ELSE 0 END,
+			blank_count = cbt.question_statistics.blank_count + CASE WHEN $3 THEN 1 ELSE 0 END,
 			accuracy = ROUND((100.0 * (cbt.question_statistics.correct_count + CASE WHEN $2 THEN 1 ELSE 0 END) /
 			                     (cbt.question_statistics.shown_count + 1))::numeric, 2)`,
-		questionID, correct)
+		questionID, correct, blank)
 	return err
 }
 
@@ -1027,10 +1074,17 @@ func (r *Repository) SaveResult(ctx context.Context, res *Result) error {
 
 	rows, err := tx.Query(ctx, `
 		SELECT aq.id, aq.question_id,
-		       COALESCE(sa.selected_option = (SELECT op.label
-		         FROM question.question q
-		         JOIN question.question_option op ON op.question_version_id = q.current_version_id
-		         WHERE q.id = aq.question_id AND op.is_correct), false),
+		       COALESCE(sa.selected_option IS NOT NULL AND
+		         (SELECT ARRAY_AGG(op.label::text ORDER BY op.display_order)
+		          FROM question.question_option op
+		          JOIN question.question_version v ON v.id = op.question_version_id
+		          WHERE v.question_id = aq.question_id AND v.version_no = aq.snapshot_version AND op.is_correct)
+		           @> string_to_array(sa.selected_option, ',')
+		          AND string_to_array(sa.selected_option, ',') @>
+		         (SELECT ARRAY_AGG(op.label::text ORDER BY op.display_order)
+		          FROM question.question_option op
+		          JOIN question.question_version v ON v.id = op.question_version_id
+		          WHERE v.question_id = aq.question_id AND v.version_no = aq.snapshot_version AND op.is_correct), false),
 		       sa.selected_option IS NULL
 		FROM cbt.attempt_question aq
 		LEFT JOIN cbt.student_answer sa ON sa.attempt_question_id = aq.id
@@ -1295,11 +1349,6 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 
 	for _, a := range answers {
 		eqID, _ := uuid.Parse(a.ExamQuestionID)
-		answer := &ExamAnswer{
-			SessionID:      sessionID,
-			ExamQuestionID: eqID,
-			IsDoubtful:     a.IsDoubtful,
-		}
 
 		var selectedOptionIDs []uuid.UUID
 		if len(a.SelectedOptionIDs) > 0 {
@@ -1312,61 +1361,11 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 			selectedOptionIDs = append(selectedOptionIDs, id)
 		}
 
-		if len(selectedOptionIDs) > 0 {
-			answer.SelectedOptionID = &selectedOptionIDs[0] // Keep first for backward compat
+		labels, err := s.repo.selectedLabelsFromIDs(ctx, selectedOptionIDs)
+		if err != nil {
+			return err
 		}
-
-		questionID, err := s.repo.GetQuestionIDByExamQuestion(ctx, eqID)
-		if err == nil {
-			qType, err := s.repo.GetQuestionType(ctx, questionID)
-			if err == nil && len(selectedOptionIDs) > 0 {
-				var isCorrect bool
-				switch qType {
-				case "SINGLE_CHOICE":
-					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
-					if err == nil && len(selectedOptionIDs) > 0 {
-						isCorrect = selectedOptionIDs[0] == *correctOpt
-					}
-				case "MULTIPLE_CHOICE":
-					correctOpts, err := s.repo.GetCorrectOptionsForQuestion(ctx, questionID)
-					if err == nil {
-						if len(selectedOptionIDs) == len(correctOpts) {
-							match := true
-							for _, sel := range selectedOptionIDs {
-								found := false
-								for _, cor := range correctOpts {
-									if sel == cor {
-										found = true
-										break
-									}
-								}
-								if !found {
-									match = false
-									break
-								}
-							}
-							isCorrect = match
-						}
-					}
-				case "TRUE_FALSE":
-					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
-					if err == nil && len(selectedOptionIDs) > 0 {
-						isCorrect = selectedOptionIDs[0] == *correctOpt
-					}
-				default:
-					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
-					if err == nil && len(selectedOptionIDs) > 0 {
-						isCorrect = selectedOptionIDs[0] == *correctOpt
-					}
-				}
-				answer.IsCorrect = &isCorrect
-				if isCorrect {
-					answer.PointsEarned = 1
-				}
-			}
-		}
-
-		if err := s.repo.SaveAnswer(ctx, answer); err != nil {
+		if err := s.repo.SaveAnswer(ctx, eqID, labels, a.IsDoubtful); err != nil {
 			return err
 		}
 	}
@@ -1386,13 +1385,7 @@ func (s *Service) Navigate(ctx context.Context, sessionID uuid.UUID, userID uuid
 	}
 
 	eqID, _ := uuid.Parse(examQuestionID)
-	answer := &ExamAnswer{
-		SessionID:      sessionID,
-		ExamQuestionID: eqID,
-		IsDoubtful:     isDoubtful,
-	}
-
-	if err := s.repo.SaveAnswer(ctx, answer); err != nil {
+	if err := s.repo.SaveAnswer(ctx, eqID, nil, isDoubtful); err != nil {
 		return err
 	}
 	return nil
@@ -1580,9 +1573,9 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 			if err != nil {
 				continue
 			}
-			if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect); err != nil {
-				continue
-			}
+			if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.IsCorrect == nil); err != nil {
+			continue
+		}
 		}
 
 		durationSeconds := int(time.Since(session.StartedAt).Seconds())
@@ -1670,7 +1663,7 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 		if err != nil {
 			continue
 		}
-		if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect); err != nil {
+		if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.IsCorrect == nil); err != nil {
 			continue
 		}
 	}
@@ -2096,3 +2089,4 @@ func itoa(n int) string {
 	}
 	return s
 }
+

@@ -3,6 +3,7 @@ package cbt_runtime
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -138,7 +139,207 @@ func seedExam(t *testing.T, p *pgxpool.Pool, ctx context.Context, owner, subject
 	return base.ID
 }
 
+// seedMultiChoiceQuestion inserts a PUBLISHED MULTIPLE_CHOICE question with
+// two correct options (A and C) and options A..D, EASY difficulty, subject link.
+func seedMultiChoiceQuestion(t *testing.T, p *pgxpool.Pool, ctx context.Context, subjectID uuid.UUID, qcode string) uuid.UUID {
+	t.Helper()
+	q := uuid.New()
+	var pubID uuid.UUID
+	if err := p.QueryRow(ctx, `
+		INSERT INTO question.question_status (code, name) VALUES ('PUBLISHED', 'Published')
+		ON CONFLICT (code) DO NOTHING RETURNING id`).Scan(&pubID); err != nil {
+		p.QueryRow(ctx, `SELECT id FROM question.question_status WHERE code = 'PUBLISHED'`).Scan(&pubID)
+	}
+	if _, err := p.Exec(ctx, `
+		INSERT INTO question.question (id, question_code, question_type, status_id, owner_id, created_by)
+		VALUES ($1, $2, 'MULTIPLE_CHOICE', $3, NULL, NULL)`, q, qcode+"_"+q.String()[:8], pubID); err != nil {
+		t.Fatalf("seed mc question: %v", err)
+	}
+	var vID uuid.UUID
+	if err := p.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, is_current)
+		VALUES ($1, 1, true) RETURNING id`, q).Scan(&vID); err != nil {
+		t.Fatalf("seed mc question version: %v", err)
+	}
+	if _, err := p.Exec(ctx, `UPDATE question.question SET current_version_id = $1 WHERE id = $2`, vID, q); err != nil {
+		t.Fatalf("set mc current version: %v", err)
+	}
+	if _, err := p.Exec(ctx, `INSERT INTO question.question_metadata (question_id, difficulty_level) VALUES ($1, 'EASY')`, q); err != nil {
+		t.Fatalf("seed mc question metadata: %v", err)
+	}
+	if subjectID != uuid.Nil {
+		if _, err := p.Exec(ctx, `INSERT INTO question.question_subject (question_id, subject_id) VALUES ($1, $2)`, q, subjectID); err != nil {
+			t.Fatalf("seed mc question_subject: %v", err)
+		}
+	}
+	for i, l := range []string{"A", "B", "C", "D"} {
+		correct := l == "A" || l == "B"
+		if _, err := p.Exec(ctx, `
+			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
+			VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)`, vID, l, 1.0, correct, i); err != nil {
+			t.Fatalf("seed mc question option: %v", err)
+		}
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM question.question WHERE id = $1`, q)
+	})
+	return q
+}
+
 func ptr[T any](v T) *T { return &v }
+
+// answerOptionByLabel finds the session-option uuid for label in sq.Options.
+func answerOptionByLabel(sq []SessionQuestion, label string) uuid.UUID {
+	for _, q := range sq {
+		for _, o := range q.Options {
+			if o.Label == label {
+				return o.ID
+			}
+		}
+	}
+	return uuid.Nil
+}
+
+func TestCBTRuntimeMultiChoiceAndTerminated(t *testing.T) {
+	p := testPool(t)
+	repo := NewRepository(p)
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	owner := seedUser(t, p, ctx, "mc_owner")
+	student := seedUser(t, p, ctx, "mc_student")
+	subjectID := seedSubject(t, p, ctx)
+	examID := seedExam(t, p, ctx, owner, subjectID)
+	seedMultiChoiceQuestion(t, p, ctx, subjectID, "q_mc")
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM cbt.exam_participant WHERE exam_id = $1`, examID)
+	})
+
+	startSession := func() (uuid.UUID, []SessionQuestion) {
+		sess, err := svc.Start(ctx, examID, student)
+		if err != nil {
+			t.Fatalf("mc Start: %v", err)
+		}
+		sq, err := svc.GetSessionQuestions(ctx, sess.ID, student)
+		if err != nil {
+			t.Fatalf("mc GetSessionQuestions: %v", err)
+		}
+		if len(sq) != 1 {
+			t.Fatalf("mc session questions = %d, want 1", len(sq))
+		}
+		return sess.ID, sq
+	}
+	answerFor := func(sq []SessionQuestion, labels ...string) string {
+		var ids []string
+		for _, l := range labels {
+			id := answerOptionByLabel(sq, l)
+			if id == uuid.Nil {
+				t.Fatalf("option label %q not found in session", l)
+			}
+			ids = append(ids, id.String())
+		}
+		return strings.Join(ids, ",")
+	}
+
+	// --- ALL correct (A,B) -> comma-joined persisted, graded correct ---
+	sid1, sq1 := startSession()
+	aq1 := sq1[0].ExamQuestionID
+	if err := svc.SyncAnswers(ctx, sid1, student, []SyncAnswerReq{
+		{ExamQuestionID: aq1.String(), SelectedOptionIDs: []string{answerOptionByLabel(sq1, "A").String(), answerOptionByLabel(sq1, "B").String()}},
+	}); err != nil {
+		t.Fatalf("sync all-correct: %v", err)
+	}
+	var stored string
+	if err := p.QueryRow(ctx, `SELECT selected_option FROM cbt.student_answer WHERE attempt_question_id = $1`, aq1).Scan(&stored); err != nil {
+		t.Fatalf("read stored: %v", err)
+	}
+	if stored != "A,B" {
+		t.Errorf("stored selected_option = %q, want %q", stored, "A,B")
+	}
+	var snapNo int
+	if err := p.QueryRow(ctx, `SELECT snapshot_version FROM cbt.attempt_question WHERE id = $1`, aq1).Scan(&snapNo); err != nil {
+		t.Fatalf("read snapshot_version: %v", err)
+	}
+	if snapNo != 1 {
+		t.Errorf("snapshot_version = %d, want 1", snapNo)
+	}
+	res1, err := svc.Finish(ctx, sid1, student)
+	if err != nil {
+		t.Fatalf("finish all-correct: %v", err)
+	}
+	if res1.CorrectCount != 1 || res1.WrongCount != 0 {
+		t.Errorf("all-correct finish = %d correct/%d wrong, want 1/0", res1.CorrectCount, res1.WrongCount)
+	}
+
+	// --- Partial (A only) -> wrong (all-correct semantics, no partial credit) ---
+	sid2, sq2 := startSession()
+	aq2 := sq2[0].ExamQuestionID
+	if err := svc.SyncAnswers(ctx, sid2, student, []SyncAnswerReq{
+		{ExamQuestionID: aq2.String(), SelectedOptionIDs: []string{answerOptionByLabel(sq2, "A").String()}},
+	}); err != nil {
+		t.Fatalf("sync partial: %v", err)
+	}
+	res2, err := svc.Finish(ctx, sid2, student)
+	if err != nil {
+		t.Fatalf("finish partial: %v", err)
+	}
+	if res2.CorrectCount != 0 || res2.WrongCount != 1 {
+		t.Errorf("partial finish = %d correct/%d wrong, want 0/1", res2.CorrectCount, res2.WrongCount)
+	}
+
+	// --- Wrong (C,D, neither correct) ---
+	sid3, sq3 := startSession()
+	aq3 := sq3[0].ExamQuestionID
+	if err := svc.SyncAnswers(ctx, sid3, student, []SyncAnswerReq{
+		{ExamQuestionID: aq3.String(), SelectedOptionIDs: strings.Split(answerFor(sq3, "C", "D"), ",")},
+	}); err != nil {
+		t.Fatalf("sync wrong: %v", err)
+	}
+	res3, err := svc.Finish(ctx, sid3, student)
+	if err != nil {
+		t.Fatalf("finish wrong: %v", err)
+	}
+	if res3.CorrectCount != 0 || res3.WrongCount != 1 {
+		t.Errorf("wrong finish = %d correct/%d wrong, want 0/1", res3.CorrectCount, res3.WrongCount)
+	}
+
+	// --- GetAnswers returns correct flags per answer set-equality ---
+	ans, err := repo.GetAnswers(ctx, sid1)
+	if err != nil {
+		t.Fatalf("GetAnswers: %v", err)
+	}
+	if len(ans) != 1 || ans[0].IsCorrect == nil || !*ans[0].IsCorrect {
+		t.Errorf("GetAnswers[0] = %+v, want is_correct=true", ans[0])
+	}
+
+	// --- TERMINATED bijection: TerminateSession -> FindSession ---
+	sid4, _ := startSession()
+	if err := repo.TerminateSession(ctx, sid4); err != nil {
+		t.Fatalf("TerminateSession: %v", err)
+	}
+	ts, err := repo.FindSession(ctx, sid4)
+	if err != nil {
+		t.Fatalf("FindSession terminated: %v", err)
+	}
+	if ts.Status != "TERMINATED" || !ts.IsTerminated {
+		t.Errorf("terminated session = status %q is_terminated %v, want TERMINATED/true", ts.Status, ts.IsTerminated)
+	}
+
+	// --- ReportViolation->auto-terminate also bijects back to TERMINATED ---
+	sid5, _ := startSession()
+	for i := 0; i < 5; i++ {
+		if _, err := svc.ReportViolation(ctx, sid5, student, "TAB_SWITCH", "x"); err != nil {
+			t.Fatalf("ReportViolation %d: %v", i, err)
+		}
+	}
+	ts2, err := repo.FindSession(ctx, sid5)
+	if err != nil {
+		t.Fatalf("FindSession viol-t: %v", err)
+	}
+	if ts2.Status != "TERMINATED" || !ts2.IsTerminated {
+		t.Errorf("violation-terminated session = status %q is_terminated %v, want TERMINATED/true", ts2.Status, ts2.IsTerminated)
+	}
+}
 
 func TestCBTRuntimeMigrationLifecycle(t *testing.T) {
 	p := testPool(t)
