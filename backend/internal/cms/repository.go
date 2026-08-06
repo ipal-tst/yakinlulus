@@ -279,10 +279,14 @@ func (r *Repository) PublishPage(ctx context.Context, pageID uuid.UUID, userID u
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `UPDATE cms.cms_page
+	tag0, err := tx.Exec(ctx, `UPDATE cms.cms_page
 		SET status='PUBLISHED', published_at=NOW(), editor_id=$2, updated_at=NOW()
-		WHERE id=$1 AND deleted_at IS NULL`, pageID, userID); err != nil {
+		WHERE id=$1 AND deleted_at IS NULL`, pageID, userID)
+	if err != nil {
 		return err
+	}
+	if tag0.RowsAffected() == 0 {
+		return pgx.ErrNoRows
 	}
 
 	tag, err := tx.Exec(ctx, `UPDATE cms.cms_page_publish
@@ -302,9 +306,15 @@ func (r *Repository) PublishPage(ctx context.Context, pageID uuid.UUID, userID u
 }
 
 func (r *Repository) SetPageReview(ctx context.Context, pageID uuid.UUID, userID uuid.UUID, status string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE cms.cms_page SET status=$2, editor_id=$3, updated_at=NOW()
+	tag, err := r.pool.Exec(ctx, `UPDATE cms.cms_page SET status=$2, editor_id=$3, updated_at=NOW()
 		WHERE id=$1 AND deleted_at IS NULL`, pageID, status, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repository) SoftDeletePage(ctx context.Context, id uuid.UUID) error {
