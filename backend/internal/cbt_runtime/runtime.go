@@ -2,7 +2,7 @@ package cbt_runtime
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -76,6 +76,85 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// cbtStatusFromLegacy maps a legacy ExamSession status to the
+// cbt.exam_attempt.status CHECK value.
+func cbtStatusFromLegacy(s string) string {
+	switch s {
+	case "PAUSED":
+		return "PAUSED"
+	case "FINISHED":
+		return "COMPLETED"
+	case "TERMINATED":
+		return "SUBMITTED"
+	default:
+		return "STARTED"
+	}
+}
+
+// legacyStatusFromCBT inverts cbtStatusFromLegacy for reads.
+func legacyStatusFromCBT(s string) string {
+	switch s {
+	case "PAUSED":
+		return "PAUSED"
+	case "COMPLETED", "GRADING":
+		return "FINISHED"
+	case "SUBMITTED":
+		return "TERMINATED"
+	default:
+		return "ACTIVE"
+	}
+}
+
+// findOrCreateParticipant resolves (exam_id, student_id) to a
+// cbt.exam_participant row, creating it (status REGISTER) when absent without
+// resetting an existing row's state.
+func (r *Repository) findOrCreateParticipant(ctx context.Context, examID, studentID uuid.UUID) (uuid.UUID, error) {
+	var pid uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO cbt.exam_participant (exam_id, student_id, status)
+		VALUES ($1, $2, 'REGISTER')
+		ON CONFLICT (exam_id, student_id) DO NOTHING
+		RETURNING id`, examID, studentID).Scan(&pid)
+	if err == pgx.ErrNoRows {
+		if err := r.pool.QueryRow(ctx, `
+			SELECT id FROM cbt.exam_participant WHERE exam_id = $1 AND student_id = $2`, examID, studentID).Scan(&pid); err != nil {
+			return uuid.Nil, err
+		}
+		return pid, nil
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return pid, nil
+}
+
+// scanSession reads an ExamSession from cbt.exam_attempt + participant + timer
+// + grading + cheating + auto_submit. condition (with $N placeholders) is
+// appended to the WHERE clause; args are bound in order.
+func (r *Repository) scanSession(ctx context.Context, condition string, args ...interface{}) (*ExamSession, error) {
+	s := &ExamSession{}
+	var cbtStatus string
+	err := r.pool.QueryRow(ctx, `
+		SELECT a.id, p.exam_id, p.student_id, a.status, a.started_at, a.finished_at,
+		       t.remaining_second,
+		       (SELECT COUNT(*) FROM cbt.cheating_log cl WHERE cl.attempt_id = a.id),
+		       a.status = 'SUBMITTED'
+		        OR EXISTS (SELECT 1 FROM cbt.auto_submit aus
+		                   WHERE aus.attempt_id = a.id AND aus.reason = 'CHEATING'),
+		       g.score
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.exam_timer t ON t.attempt_id = a.id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		WHERE `+condition, args...).Scan(&s.ID, &s.ExamID, &s.UserID, &cbtStatus, &s.StartedAt, &s.FinishedAt,
+		&s.RemainingSeconds, &s.ViolationScore, &s.IsTerminated, &s.FinalScore)
+	if err != nil {
+		return nil, err
+	}
+	s.Status = legacyStatusFromCBT(cbtStatus)
+	return s, nil
+}
+
 func (r *Repository) CreateSession(ctx context.Context, s *ExamSession, examDurationMinutes int) error {
 	s.ID = uuid.New()
 	s.Status = "ACTIVE"
@@ -84,45 +163,54 @@ func (r *Repository) CreateSession(ctx context.Context, s *ExamSession, examDura
 	s.RemainingSeconds = &rem
 	s.ViolationScore = 0
 	s.IsTerminated = false
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO exam_sessions (id, exam_id, user_id, status, started_at, remaining_seconds, violation_score, is_terminated)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		s.ID, s.ExamID, s.UserID, s.Status, s.StartedAt, *s.RemainingSeconds, s.ViolationScore, s.IsTerminated)
-	return err
+
+	pid, err := r.findOrCreateParticipant(ctx, s.ExamID, s.UserID)
+	if err != nil {
+		return err
+	}
+
+	var attemptNo int
+	if err := r.pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM cbt.exam_attempt WHERE participant_id = $1`, pid).Scan(&attemptNo); err != nil {
+		return err
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_attempt (id, participant_id, attempt_no, started_at, status)
+		VALUES ($1, $2, $3, $4, $5)`,
+		s.ID, pid, attemptNo, s.StartedAt, cbtStatusFromLegacy(s.Status)); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO cbt.exam_timer (attempt_id, remaining_second)
+		VALUES ($1, $2)`, s.ID, *s.RemainingSeconds); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) FindSession(ctx context.Context, sessionID uuid.UUID) (*ExamSession, error) {
-	s := &ExamSession{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, exam_id, user_id, status, started_at, finished_at, remaining_seconds, violation_score, is_terminated, final_score
-		 FROM exam_sessions WHERE id = $1`, sessionID,
-	).Scan(&s.ID, &s.ExamID, &s.UserID, &s.Status, &s.StartedAt, &s.FinishedAt,
-		&s.RemainingSeconds, &s.ViolationScore, &s.IsTerminated, &s.FinalScore)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
+	return r.scanSession(ctx, `a.id = $1`, sessionID)
 }
 
 func (r *Repository) FindSessionByExamUser(ctx context.Context, examID, userID uuid.UUID) (*ExamSession, error) {
-	s := &ExamSession{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, exam_id, user_id, status, started_at, finished_at, remaining_seconds, violation_score, is_terminated, final_score
-		 FROM exam_sessions WHERE exam_id = $1 AND user_id = $2 AND status = 'ACTIVE'`, examID, userID,
-	).Scan(&s.ID, &s.ExamID, &s.UserID, &s.Status, &s.StartedAt, &s.FinishedAt,
-		&s.RemainingSeconds, &s.ViolationScore, &s.IsTerminated, &s.FinalScore)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
+	return r.scanSession(ctx, `p.exam_id = $1 AND p.student_id = $2 AND a.status = 'STARTED'`, examID, userID)
 }
 
 func (r *Repository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]UserSessionSummary, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, exam_id, status, final_score AS score, started_at
-		FROM exam_sessions WHERE user_id = $1
-		ORDER BY started_at DESC
-	`, userID)
+		SELECT a.id, p.exam_id, a.status, g.score, a.started_at
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		WHERE p.student_id = $1
+		ORDER BY a.started_at DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +219,15 @@ func (r *Repository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]
 	var sessions []UserSessionSummary
 	for rows.Next() {
 		var s UserSessionSummary
-		if err := rows.Scan(&s.ID, &s.ExamContentID, &s.Status, &s.Score, &s.StartedAt); err != nil {
+		var cbtStatus string
+		if err := rows.Scan(&s.ID, &s.ExamContentID, &cbtStatus, &s.Score, &s.StartedAt); err != nil {
 			return nil, err
 		}
+		s.Status = legacyStatusFromCBT(cbtStatus)
 		sessions = append(sessions, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return sessions, nil
 }
@@ -148,12 +241,15 @@ type UserSessionSummary struct {
 }
 
 func (r *Repository) GetExamDuration(ctx context.Context, examID uuid.UUID) (int, error) {
-	var dur int
-	err := r.pool.QueryRow(ctx, `SELECT duration_minutes FROM content_exams WHERE content_id = $1`, examID).Scan(&dur)
-	if err == pgx.ErrNoRows {
+	var dur *int
+	err := r.pool.QueryRow(ctx, `SELECT duration_minute FROM cbt.exam_metadata WHERE exam_id = $1`, examID).Scan(&dur)
+	if err == pgx.ErrNoRows || dur == nil {
 		return 120, nil // default duration
 	}
-	return dur, err
+	if err != nil {
+		return 120, err
+	}
+	return *dur, nil
 }
 
 func (r *Repository) GetExamQuestions(ctx context.Context, examID uuid.UUID) ([]struct {
@@ -161,9 +257,12 @@ func (r *Repository) GetExamQuestions(ctx context.Context, examID uuid.UUID) ([]
 	QuestionID uuid.UUID
 	Order      int
 }, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT eq.id, eq.question_id, eq.display_order FROM exam_questions eq
-		 WHERE eq.exam_id = $1 ORDER BY eq.display_order`, examID)
+	rows, err := r.pool.Query(ctx, `
+		SELECT epq.id, epq.question_id, epq.question_order
+		FROM cbt.exam_package_question epq
+		JOIN cbt.exam_package ep ON ep.id = epq.package_id
+		WHERE ep.exam_id = $1
+		ORDER BY epq.question_order`, examID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,29 +284,96 @@ func (r *Repository) GetExamQuestions(ctx context.Context, examID uuid.UUID) ([]
 		}
 		result = append(result, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
-// GetQuestionPool fetches the question pool config for an exam
+// GetQuestionPool fetches the question pool config for an exam, aggregated
+// from cbt.exam_question_pool difficulty-distribution rows. Returns nil,nil
+// when the exam has no pool config (Start falls back to package questions).
 func (r *Repository) GetQuestionPool(ctx context.Context, examID uuid.UUID) (*QuestionPool, error) {
-	qp := &QuestionPool{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, exam_id, subject_id, chapter_ids, easy_pct, medium_pct, hard_pct, total_pool_size, questions_per_student, shuffle_questions, shuffle_options, created_at, updated_at
-		 FROM exam_question_pools WHERE exam_id = $1`, examID,
-	).Scan(&qp.ID, &qp.ExamID, &qp.SubjectID, &qp.ChapterIDs, &qp.EasyPct, &qp.MediumPct, &qp.HardPct, &qp.TotalPoolSize, &qp.QuestionsPerStudent, &qp.ShuffleQuestions, &qp.ShuffleOptions, &qp.CreatedAt, &qp.UpdatedAt)
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, chapter_id, subject_id, difficulty, total_question
+		FROM cbt.exam_question_pool WHERE exam_id = $1`, examID)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
+	type pr struct {
+		id         uuid.UUID
+		chapter    *uuid.UUID
+		subject    uuid.UUID
+		difficulty string
+		total      int
+	}
+	var prs []pr
+	for rows.Next() {
+		var p pr
+		if err := rows.Scan(&p.id, &p.chapter, &p.subject, &p.difficulty, &p.total); err != nil {
+			return nil, err
+		}
+		prs = append(prs, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(prs) == 0 {
+		return nil, nil
+	}
+
+	qp := &QuestionPool{ExamID: examID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	qp.ID = prs[0].id
+	qp.SubjectID = prs[0].subject
+	var easy, medium, hard int
+	seen := map[uuid.UUID]bool{}
+	for _, p := range prs {
+		switch p.difficulty {
+		case "EASY":
+			easy += p.total
+		case "MEDIUM":
+			medium += p.total
+		case "HARD":
+			hard += p.total
+		default:
+			medium += p.total
+		}
+		if p.chapter != nil && *p.chapter != uuid.Nil && !seen[*p.chapter] {
+			seen[*p.chapter] = true
+			qp.ChapterIDs = append(qp.ChapterIDs, *p.chapter)
+		}
+	}
+	total := easy + medium + hard
+	qp.TotalPoolSize = total
+	qp.QuestionsPerStudent = total
+	if total > 0 {
+		qp.EasyPct = easy * 100 / total
+		qp.MediumPct = medium * 100 / total
+		qp.HardPct = 100 - qp.EasyPct - qp.MediumPct
+	}
+	var shuffleQ, shuffleO *bool
+	_ = r.pool.QueryRow(ctx, `
+		SELECT random_question, random_option FROM cbt.exam_randomization WHERE exam_id = $1`, examID).Scan(&shuffleQ, &shuffleO)
+	qp.ShuffleQuestions = shuffleQ != nil && *shuffleQ
+	qp.ShuffleOptions = shuffleO != nil && *shuffleO
 	return qp, nil
 }
 
-// SelectQuestionsForSession picks random questions from the pool matching difficulty distribution
+// SelectQuestionsForSession picks random published questions matching the
+// pool's subject (+ chapter) and difficulty distribution.
 func (r *Repository) SelectQuestionsForSession(ctx context.Context, pool *QuestionPool) ([]uuid.UUID, error) {
-	chapterFilter := ""
 	args := []interface{}{pool.SubjectID}
 	argN := 2
+	from := `
+		FROM question.question q
+		JOIN question.question_metadata md ON md.question_id = q.id
+		WHERE q.deleted_at IS NULL
+		  AND q.status_id = (SELECT id FROM question.question_status WHERE code = 'PUBLISHED')
+		  AND EXISTS (SELECT 1 FROM question.question_subject qs WHERE qs.question_id = q.id AND qs.subject_id = $1)`
 	if len(pool.ChapterIDs) > 0 {
-		chapterFilter = " AND chapter_id = ANY($" + itoa(argN) + ")"
+		from += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM question.question_chapter qc WHERE qc.question_id = q.id AND qc.chapter_id = ANY($%d))`, argN)
 		args = append(args, pool.ChapterIDs)
 		argN++
 	}
@@ -216,85 +382,58 @@ func (r *Repository) SelectQuestionsForSession(ctx context.Context, pool *Questi
 	mediumCount := pool.TotalPoolSize * pool.MediumPct / 100
 	hardCount := pool.TotalPoolSize - easyCount - mediumCount
 
-	query := `SELECT id FROM questions WHERE subject_id = $1 AND status = 'PUBLISHED' AND difficulty = 'EASY'` + chapterFilter + ` ORDER BY RANDOM() LIMIT $` + itoa(argN)
-	args = append(args, easyCount)
-	argN++
-
-	var easyIDs []uuid.UUID
-	rows, err := r.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
+	buckets := []struct {
+		diff  string
+		count int
+	}{
+		{"EASY", easyCount}, {"MEDIUM", mediumCount}, {"HARD", hardCount},
 	}
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
+	collect := func(bucket struct {
+		diff  string
+		count int
+	}) ([]uuid.UUID, error) {
+		if bucket.count <= 0 {
+			return nil, nil
+		}
+		rows, err := r.pool.Query(ctx, fmt.Sprintf(`SELECT q.id %s AND md.difficulty_level = $%d ORDER BY RANDOM() LIMIT $%d`, from, argN, argN+1),
+			append(append([]interface{}{}, args...), bucket.diff, bucket.count)...)
+		if err != nil {
 			return nil, err
 		}
-		easyIDs = append(easyIDs, id)
+		defer rows.Close()
+		var ids []uuid.UUID
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
 	}
-	rows.Close()
 
-	query = `SELECT id FROM questions WHERE subject_id = $1 AND status = 'PUBLISHED' AND difficulty = 'MEDIUM'` + chapterFilter + ` ORDER BY RANDOM() LIMIT $` + itoa(argN)
-	args = append(args, mediumCount)
-	argN++
-
-	var mediumIDs []uuid.UUID
-	rows, err = r.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
+	var allIDs []uuid.UUID
+	for _, b := range buckets {
+		ids, err := collect(b)
+		if err != nil {
 			return nil, err
 		}
-		mediumIDs = append(mediumIDs, id)
+		allIDs = append(allIDs, ids...)
 	}
-	rows.Close()
-
-	query = `SELECT id FROM questions WHERE subject_id = $1 AND status = 'PUBLISHED' AND difficulty = 'HARD'` + chapterFilter + ` ORDER BY RANDOM() LIMIT $` + itoa(argN)
-	args = append(args, hardCount)
-
-	var hardIDs []uuid.UUID
-	rows, err = r.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		hardIDs = append(hardIDs, id)
-	}
-	rows.Close()
-
-	allIDs := make([]uuid.UUID, 0, len(easyIDs)+len(mediumIDs)+len(hardIDs))
-	allIDs = append(allIDs, easyIDs...)
-	allIDs = append(allIDs, mediumIDs...)
-	allIDs = append(allIDs, hardIDs...)
-
 	if len(allIDs) == 0 {
 		return nil, nil
 	}
-
-	// Shuffle all selected questions
 	rand.Shuffle(len(allIDs), func(i, j int) {
 		allIDs[i], allIDs[j] = allIDs[j], allIDs[i]
 	})
-
-	// Take only questions_per_student
-	count := pool.QuestionsPerStudent
-	if count > len(allIDs) {
-		count = len(allIDs)
+	if pool.QuestionsPerStudent > 0 && pool.QuestionsPerStudent < len(allIDs) {
+		allIDs = allIDs[:pool.QuestionsPerStudent]
 	}
-	return allIDs[:count], nil
+	return allIDs, nil
 }
 
-// AddSessionQuestions creates exam_session_questions with shuffled options for a session
+// AddSessionQuestions creates cbt.attempt_question (+ attempt_option labels)
+// rows for an attempt.
 func (r *Repository) AddSessionQuestions(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -303,58 +442,68 @@ func (r *Repository) AddSessionQuestions(ctx context.Context, sessionID uuid.UUI
 	defer tx.Rollback(ctx)
 
 	for i, qid := range questionIDs {
-		var eqID uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT id FROM exam_questions WHERE exam_id = (SELECT exam_id FROM exam_sessions WHERE id=$1) AND question_id=$2`, sessionID, qid).Scan(&eqID)
-		if err != nil {
-			eqID = uuid.New()
-			_, err = tx.Exec(ctx, `INSERT INTO exam_questions (id, exam_id, question_id, display_order) VALUES ($1, (SELECT exam_id FROM exam_sessions WHERE id=$2), $3, $4) ON CONFLICT DO NOTHING`, eqID, sessionID, qid, i+1)
-			if err != nil {
-				return err
-			}
+		aqID := uuid.New()
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.attempt_question (id, attempt_id, question_id, display_order)
+			VALUES ($1, $2, $3, $4)`, aqID, sessionID, qid, i+1); err != nil {
+			return err
 		}
 
-		displayOrder := i + 1
-
-		var optionOrder []byte
+		order := "op.display_order"
 		if shuffleOptions {
-			optRows, err := tx.Query(ctx, `SELECT id FROM question_options WHERE question_id=$1 ORDER BY RANDOM()`, qid)
-			if err != nil {
-				return err
-			}
-			var optIDs []uuid.UUID
-			for optRows.Next() {
-				var oid uuid.UUID
-				if err := optRows.Scan(&oid); err != nil {
-					optRows.Close()
-					return err
-				}
-				optIDs = append(optIDs, oid)
-			}
-			optRows.Close()
-			optionOrderBytes, _ := json.Marshal(optIDs)
-			optionOrder = optionOrderBytes
+			order = "RANDOM()"
 		}
-
-		_, err = tx.Exec(ctx,
-			`INSERT INTO exam_session_questions (id, session_id, exam_question_id, display_order, assigned_option_order) VALUES ($1,$2,$3,$4,$5)`,
-			uuid.New(), sessionID, eqID, displayOrder, optionOrder)
+		optRows, err := tx.Query(ctx, fmt.Sprintf(`
+			SELECT op.label
+			FROM question.question q
+			JOIN question.question_option op ON op.question_version_id = q.current_version_id
+			WHERE q.id = $1
+			ORDER BY %s`, order), qid)
 		if err != nil {
 			return err
+		}
+		var labels []string
+		for optRows.Next() {
+			var l string
+			if err := optRows.Scan(&l); err != nil {
+				optRows.Close()
+				return err
+			}
+			labels = append(labels, l)
+		}
+		optRows.Close()
+
+		for j, l := range labels {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO cbt.attempt_option (attempt_question_id, option_label, display_order)
+				VALUES ($1, $2, $3)`, aqID, l, j+1); err != nil {
+				return err
+			}
 		}
 	}
 	return tx.Commit(ctx)
 }
 
-// GetSessionQuestions fetches the session-specific questions with their order and option shuffle
+// GetSessionQuestions returns the attempt's questions with assigned
+// (shuffled) option ids resolved from attempt_option labels.
 func (r *Repository) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID) ([]struct {
 	ExamQuestionID      uuid.UUID
 	DisplayOrder        int
 	AssignedOptionOrder []uuid.UUID
 }, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT esq.exam_question_id, esq.display_order, esq.assigned_option_order
-		 FROM exam_session_questions esq
-		 WHERE esq.session_id = $1 ORDER BY esq.display_order`, sessionID)
+	rows, err := r.pool.Query(ctx, `
+		SELECT aq.id, aq.display_order,
+		       COALESCE((
+		         SELECT array_agg(op.id ORDER BY ao2.display_order)
+		         FROM cbt.attempt_option ao2
+		         JOIN question.question q2 ON q2.id = aq.question_id
+		         JOIN question.question_option op ON op.question_version_id = q2.current_version_id
+		                                              AND op.label = ao2.option_label
+		         WHERE ao2.attempt_question_id = aq.id
+		       ), '{}')
+		FROM cbt.attempt_question aq
+		WHERE aq.attempt_id = $1
+		ORDER BY aq.display_order`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -376,25 +525,20 @@ func (r *Repository) GetSessionQuestions(ctx context.Context, sessionID uuid.UUI
 		}
 		result = append(result, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
-// GetSessionQuestionsFull fetches the full question content for a session,
-// pulling the exam's questions from content_exam_questions (joined to
-// contents/content_questions/subjects) in display order. Option order is
-// honored via assigned_option_order when present, otherwise DB display_order.
+// GetSessionQuestionsFull builds the full session question payload from
+// cbt.attempt_question joined to question.question content (current version).
 func (r *Repository) GetSessionQuestionsFull(ctx context.Context, sessionID uuid.UUID) ([]SessionQuestion, error) {
-	var examID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT exam_id FROM exam_sessions WHERE id = $1`, sessionID).Scan(&examID)
-	if err != nil {
-		return nil, err
-	}
-
 	rows, err := r.pool.Query(ctx, `
-		SELECT ceq.id, ceq.question_content_id, ceq.display_order
-		FROM content_exam_questions ceq
-		WHERE ceq.exam_content_id = $1
-		ORDER BY ceq.display_order, ceq.created_at`, examID)
+		SELECT aq.id, aq.question_id, aq.display_order
+		FROM cbt.attempt_question aq
+		WHERE aq.attempt_id = $1
+		ORDER BY aq.display_order`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -413,6 +557,9 @@ func (r *Repository) GetSessionQuestionsFull(ctx context.Context, sessionID uuid
 		}
 		qrows = append(qrows, q)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	var result []SessionQuestion
 	for _, q := range qrows {
@@ -421,24 +568,30 @@ func (r *Repository) GetSessionQuestionsFull(ctx context.Context, sessionID uuid
 			QuestionContentID: q.contentID,
 			DisplayOrder:      q.displayOrder,
 		}
-		err := r.pool.QueryRow(ctx, `
-			SELECT COALESCE(c.body, ''), COALESCE(cq.question_type, 'SINGLE_CHOICE'),
-			       COALESCE(cq.difficulty, 'MEDIUM'), COALESCE(s.name, ''),
-			       COALESCE(stim.body, '')
-			FROM contents c
-			JOIN content_questions cq ON cq.content_id = c.id
-			LEFT JOIN subjects s ON s.id = c.subject_id
-			LEFT JOIN contents stim ON stim.id = cq.stimulus_id
-			WHERE c.id = $1`, q.contentID,
-		).Scan(&sq.Stem, &sq.QuestionType, &sq.Difficulty, &sq.SubjectName, &sq.Stimulus)
-		if err != nil {
-			continue
-		}
+		var qtype, diff string
+		_ = r.pool.QueryRow(ctx, `
+			SELECT COALESCE(q.question_type, 'SINGLE_CHOICE'),
+			       COALESCE(md.difficulty_level, 'MEDIUM'),
+			       COALESCE((SELECT s.name
+			                 FROM question.question_subject qs
+			                 JOIN academic.subject s ON s.id = qs.subject_id
+			                 WHERE qs.question_id = q.id LIMIT 1), '')
+			FROM question.question q
+			LEFT JOIN question.question_metadata md ON md.question_id = q.id
+			WHERE q.id = $1`, q.contentID).Scan(&qtype, &diff, &sq.SubjectName)
+		sq.QuestionType = qtype
+		sq.Difficulty = diff
+		sq.Stimulus = ""
+		sq.Stem = r.loadStem(ctx, q.contentID)
 
 		optRows, err := r.pool.Query(ctx, `
-			SELECT id, label, option_text
-			FROM content_question_options
-			WHERE content_id = $1 ORDER BY display_order`, q.contentID)
+			SELECT op.id, op.label,
+			       COALESCE((SELECT string_agg(ob.content, '' ORDER BY ob.block_order)
+			                  FROM question.option_block ob WHERE ob.option_id = op.id), '')
+			FROM question.question q
+			JOIN question.question_option op ON op.question_version_id = q.current_version_id
+			WHERE q.id = $1
+			ORDER BY op.display_order`, q.contentID)
 		if err == nil {
 			for optRows.Next() {
 				var o SessionQuestionOption
@@ -448,34 +601,85 @@ func (r *Repository) GetSessionQuestionsFull(ctx context.Context, sessionID uuid
 			}
 			optRows.Close()
 		}
-
 		result = append(result, sq)
 	}
 	return result, nil
 }
 
+func (r *Repository) loadStem(ctx context.Context, questionID uuid.UUID) string {
+	var stem string
+	_ = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(string_agg(b.content, '' ORDER BY b.block_order), '')
+		FROM question.question q
+		JOIN question.question_block b ON b.question_version_id = q.current_version_id
+		WHERE q.id = $1 AND b.block_type = 'PARAGRAPH'`, questionID).Scan(&stem)
+	return stem
+}
+
 func (r *Repository) CheckExamStarted(ctx context.Context, examID uuid.UUID) (bool, error) {
 	var count int
-	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM exam_sessions WHERE exam_id = $1 AND status = 'ACTIVE'`, examID).Scan(&count)
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		WHERE p.exam_id = $1 AND a.status = 'STARTED'`, examID).Scan(&count)
 	return count > 0, err
+}
+
+// labelForOption resolves an option uuid to its label on the question's
+// current version, so answers can be stored by label.
+func (r *Repository) labelForOption(ctx context.Context, attemptQuestionID uuid.UUID, optID *uuid.UUID) *string {
+	if optID == nil {
+		return nil
+	}
+	var label *string
+	_ = r.pool.QueryRow(ctx, `
+		SELECT op.label
+		FROM cbt.attempt_question aq
+		JOIN question.question q ON q.id = aq.question_id
+		JOIN question.question_option op ON op.question_version_id = q.current_version_id AND op.id = $2
+		WHERE aq.id = $1`, attemptQuestionID, *optID).Scan(&label)
+	return label
 }
 
 func (r *Repository) SaveAnswer(ctx context.Context, a *ExamAnswer) error {
 	a.ID = uuid.New()
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO exam_answers (id, session_id, exam_question_id, selected_option_id, is_doubtful, is_correct, points_earned)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)
-		 ON CONFLICT (session_id, exam_question_id) DO UPDATE
-		 SET selected_option_id = $4, is_doubtful = $5, is_correct = $6, points_earned = $7`,
-		a.ID, a.SessionID, a.ExamQuestionID, a.SelectedOptionID, a.IsDoubtful, a.IsCorrect, a.PointsEarned)
+	label := r.labelForOption(ctx, a.ExamQuestionID, a.SelectedOptionID)
+	answeredAt := time.Now()
+
+	if _, err := r.pool.Exec(ctx, `
+		INSERT INTO cbt.student_answer (attempt_question_id, selected_option, answered_at)
+		VALUES ($1, NULLIF($2, ''), $3)
+		ON CONFLICT (attempt_question_id) DO UPDATE SET
+			selected_option = NULLIF(EXCLUDED.selected_option, ''),
+			answered_at = EXCLUDED.answered_at`,
+		a.ExamQuestionID, label, answeredAt); err != nil {
+		return err
+	}
+
+	if a.IsDoubtful {
+		_, err := r.pool.Exec(ctx, `
+			INSERT INTO cbt.bookmark_question (attempt_question_id)
+			VALUES ($1)
+			ON CONFLICT (attempt_question_id) DO NOTHING`, a.ExamQuestionID)
+		return err
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.bookmark_question WHERE attempt_question_id = $1`, a.ExamQuestionID)
 	return err
 }
 
 func (r *Repository) GetAnswers(ctx context.Context, sessionID uuid.UUID) ([]ExamAnswer, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT ea.id, ea.session_id, ea.exam_question_id, ea.selected_option_id, ea.is_doubtful, ea.is_correct, ea.points_earned
-		 FROM exam_answers ea WHERE ea.session_id = $1 ORDER BY ea.created_at`, sessionID)
+	rows, err := r.pool.Query(ctx, `
+		SELECT aq.id, aq.attempt_id, aq.question_id, sa.selected_option, sa.answered_at,
+		       EXISTS (SELECT 1 FROM cbt.bookmark_question bq WHERE bq.attempt_question_id = aq.id),
+		       COALESCE(sa.selected_option = (SELECT op.label
+		         FROM question.question q
+		         JOIN question.question_option op ON op.question_version_id = q.current_version_id
+		         WHERE q.id = aq.question_id AND op.is_correct), false)
+		FROM cbt.attempt_question aq
+		LEFT JOIN cbt.student_answer sa ON sa.attempt_question_id = aq.id
+		WHERE aq.attempt_id = $1
+		ORDER BY aq.display_order`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -484,36 +688,64 @@ func (r *Repository) GetAnswers(ctx context.Context, sessionID uuid.UUID) ([]Exa
 	var answers []ExamAnswer
 	for rows.Next() {
 		var a ExamAnswer
-		if err := rows.Scan(&a.ID, &a.SessionID, &a.ExamQuestionID, &a.SelectedOptionID,
-			&a.IsDoubtful, &a.IsCorrect, &a.PointsEarned); err != nil {
+		var label *string
+		var doubt, correct bool
+		var answeredAt time.Time
+		if err := rows.Scan(&a.ID, &a.SessionID, &a.ExamQuestionID, &label, &answeredAt, &doubt, &correct); err != nil {
 			return nil, err
 		}
+		a.IsDoubtful = doubt
+		if correct {
+			c := true
+			a.IsCorrect = &c
+			a.PointsEarned = 1
+		}
+		if label != nil && *label != "" {
+			var optID uuid.UUID
+			_ = r.pool.QueryRow(ctx, `
+				SELECT op.id FROM question.question q
+				JOIN question.question_option op ON op.question_version_id = q.current_version_id
+				WHERE q.id = (SELECT aq.question_id FROM cbt.attempt_question aq WHERE aq.id = $1)
+				  AND op.label = $2`, a.ExamQuestionID, *label).Scan(&optID)
+			a.SelectedOptionID = &optID
+		}
 		answers = append(answers, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return answers, nil
 }
 
+// GetSessionReview builds a SessionReview from cbt.grading_result + question
+// content (current version).
 func (r *Repository) GetSessionReview(ctx context.Context, sessionID uuid.UUID) (*SessionReview, error) {
 	review := &SessionReview{SessionID: sessionID}
 	err := r.pool.QueryRow(ctx, `
-		SELECT r.exam_id, COALESCE(c.title, ''), r.user_id, r.total_questions, r.correct_count, r.wrong_count, r.unanswered_count,
-		       r.score, COALESCE(r.passing_grade, 0), COALESCE(r.is_passed, false),
-		       r.duration_seconds, r.created_at
-		FROM results r
-		LEFT JOIN contents c ON c.id = r.exam_id
-		WHERE r.session_id = $1`, sessionID,
-	).Scan(&review.ExamID, &review.ExamTitle, &review.UserID, &review.TotalQuestions, &review.CorrectCount, &review.WrongCount,
-		&review.UnansweredCount, &review.Score, &review.PassingGrade, &review.IsPassed, &review.DurationSeconds, &review.CreatedAt)
+		SELECT p.exam_id, COALESCE(e.title, ''), p.student_id,
+		       (SELECT COUNT(*) FROM cbt.attempt_question aq WHERE aq.attempt_id = a.id),
+		       COALESCE(g.correct, 0), COALESCE(g.wrong, 0), COALESCE(g.blank, 0),
+		       COALESCE(g.score, 0), COALESCE(md.passing_score, 0), COALESCE(g.passed, false),
+		       COALESCE(EXTRACT(EPOCH FROM (a.finished_at - a.started_at))::int, 0),
+		       COALESCE(g.created_at, a.created_at)
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		JOIN cbt.exam e ON e.id = p.exam_id
+		LEFT JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		WHERE a.id = $1`, sessionID,
+	).Scan(&review.ExamID, &review.ExamTitle, &review.UserID, &review.TotalQuestions,
+		&review.CorrectCount, &review.WrongCount, &review.UnansweredCount, &review.Score,
+		&review.PassingGrade, &review.IsPassed, &review.DurationSeconds, &review.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 
 	qRows, err := r.pool.Query(ctx, `
-		SELECT esq.exam_question_id, ceq.question_content_id, esq.display_order
-		FROM exam_session_questions esq
-		JOIN content_exam_questions ceq ON ceq.id = esq.exam_question_id
-		WHERE esq.session_id = $1
-		ORDER BY esq.display_order`, sessionID)
+		SELECT aq.id, aq.question_id, aq.display_order
+		FROM cbt.attempt_question aq
+		WHERE aq.attempt_id = $1
+		ORDER BY aq.display_order`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -532,13 +764,14 @@ func (r *Repository) GetSessionReview(ctx context.Context, sessionID uuid.UUID) 
 		}
 		qids = append(qids, q)
 	}
+	if err := qRows.Err(); err != nil {
+		return nil, err
+	}
 
+	answers, _ := r.GetAnswers(ctx, sessionID)
 	answersMap := make(map[uuid.UUID]ExamAnswer)
-	answers, err := r.GetAnswers(ctx, sessionID)
-	if err == nil {
-		for _, a := range answers {
-			answersMap[a.ExamQuestionID] = a
-		}
+	for _, a := range answers {
+		answersMap[a.ExamQuestionID] = a
 	}
 
 	for _, q := range qids {
@@ -547,18 +780,28 @@ func (r *Repository) GetSessionReview(ctx context.Context, sessionID uuid.UUID) 
 			QuestionContentID: q.contentID,
 			DisplayOrder:      q.displayOrder,
 		}
-
-		r.pool.QueryRow(ctx, `
-			SELECT COALESCE(c.body, ''), COALESCE(cq.question_type, ''), COALESCE(cq.difficulty, ''), COALESCE(cq.explanation, '')
-			FROM contents c
-			JOIN content_questions cq ON cq.content_id = c.id
-			WHERE c.id = $1`, q.contentID,
-		).Scan(&rq.Stem, &rq.QuestionType, &rq.Difficulty, &rq.Explanation)
+		var qtype, diff, expl string
+		_ = r.pool.QueryRow(ctx, `
+			SELECT COALESCE(q.question_type, ''), COALESCE(md.difficulty_level, ''),
+			       COALESCE((SELECT ex.content FROM question.explanation ex
+			                  JOIN question.question_version v ON v.id = ex.question_version_id
+			                  WHERE v.question_id = q.id LIMIT 1), '')
+			FROM question.question q
+			LEFT JOIN question.question_metadata md ON md.question_id = q.id
+			WHERE q.id = $1`, q.contentID).Scan(&qtype, &diff, &expl)
+		rq.QuestionType = qtype
+		rq.Difficulty = diff
+		rq.Explanation = expl
 
 		optRows, err := r.pool.Query(ctx, `
-			SELECT id, label, option_text, is_correct
-			FROM content_question_options
-			WHERE content_id = $1 ORDER BY display_order`, q.contentID)
+			SELECT op.id, op.label,
+			       COALESCE((SELECT string_agg(ob.content, '' ORDER BY ob.block_order)
+			                  FROM question.option_block ob WHERE ob.option_id = op.id), ''),
+			       op.is_correct
+			FROM question.question q
+			JOIN question.question_option op ON op.question_version_id = q.current_version_id
+			WHERE q.id = $1
+			ORDER BY op.display_order`, q.contentID)
 		if err == nil {
 			for optRows.Next() {
 				var opt ReviewQuestionOption
@@ -574,17 +817,19 @@ func (r *Repository) GetSessionReview(ctx context.Context, sessionID uuid.UUID) 
 			rq.IsCorrect = ans.IsCorrect
 			rq.IsDoubtful = ans.IsDoubtful
 		}
-
 		review.Questions = append(review.Questions, rq)
 	}
-
 	return review, nil
 }
 
 func (r *Repository) GetCorrectOptionForQuestion(ctx context.Context, questionID uuid.UUID) (*uuid.UUID, error) {
 	var optionID uuid.UUID
-	err := r.pool.QueryRow(ctx,
-		`SELECT id FROM question_options WHERE question_id = $1 AND is_correct = true LIMIT 1`, questionID).Scan(&optionID)
+	err := r.pool.QueryRow(ctx, `
+		SELECT op.id
+		FROM question.question q
+		JOIN question.question_option op ON op.question_version_id = q.current_version_id
+		WHERE q.id = $1 AND op.is_correct
+		ORDER BY op.display_order LIMIT 1`, questionID).Scan(&optionID)
 	if err != nil {
 		return nil, err
 	}
@@ -592,7 +837,11 @@ func (r *Repository) GetCorrectOptionForQuestion(ctx context.Context, questionID
 }
 
 func (r *Repository) GetCorrectOptionsForQuestion(ctx context.Context, questionID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id FROM question_options WHERE question_id = $1 AND is_correct = true`, questionID)
+	rows, err := r.pool.Query(ctx, `
+		SELECT op.id
+		FROM question.question q
+		JOIN question.question_option op ON op.question_version_id = q.current_version_id
+		WHERE q.id = $1 AND op.is_correct`, questionID)
 	if err != nil {
 		return nil, err
 	}
@@ -605,12 +854,12 @@ func (r *Repository) GetCorrectOptionsForQuestion(ctx context.Context, questionI
 		}
 		optionIDs = append(optionIDs, id)
 	}
-	return optionIDs, nil
+	return optionIDs, rows.Err()
 }
 
 func (r *Repository) GetQuestionType(ctx context.Context, questionID uuid.UUID) (string, error) {
 	var qType string
-	err := r.pool.QueryRow(ctx, `SELECT question_type FROM questions WHERE id = $1`, questionID).Scan(&qType)
+	err := r.pool.QueryRow(ctx, `SELECT question_type FROM question.question WHERE id = $1`, questionID).Scan(&qType)
 	if err != nil {
 		return "", err
 	}
@@ -619,152 +868,259 @@ func (r *Repository) GetQuestionType(ctx context.Context, questionID uuid.UUID) 
 
 func (r *Repository) GetQuestionIDByExamQuestion(ctx context.Context, examQuestionID uuid.UUID) (uuid.UUID, error) {
 	var qID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT question_id FROM exam_questions WHERE id = $1`, examQuestionID).Scan(&qID)
+	err := r.pool.QueryRow(ctx, `SELECT question_id FROM cbt.attempt_question WHERE id = $1`, examQuestionID).Scan(&qID)
 	return qID, err
 }
 
 func (r *Repository) FinishSession(ctx context.Context, sessionID uuid.UUID, remainingSeconds *int) error {
 	now := time.Now()
-	_, err := r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET status = 'FINISHED', finished_at = $1, remaining_seconds = $2 WHERE id = $3`,
-		now, remainingSeconds, sessionID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+		UPDATE cbt.exam_attempt SET status = 'COMPLETED', finished_at = $1, last_sync = $1
+		WHERE id = $2`, now, sessionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO cbt.exam_timer (attempt_id, remaining_second)
+		VALUES ($1, $2)
+		ON CONFLICT (attempt_id) DO UPDATE SET remaining_second = EXCLUDED.remaining_second, last_update = NOW()`,
+		sessionID, remainingSeconds); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) PauseSession(ctx context.Context, sessionID uuid.UUID, remainingSeconds int) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET status = 'PAUSED', remaining_seconds = $1 WHERE id = $2`,
-		remainingSeconds, sessionID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+		UPDATE cbt.exam_attempt SET status = 'PAUSED', last_sync = NOW() WHERE id = $1`, sessionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO cbt.exam_timer (attempt_id, remaining_second)
+		VALUES ($1, $2)
+		ON CONFLICT (attempt_id) DO UPDATE SET remaining_second = EXCLUDED.remaining_second, last_update = NOW()`,
+		sessionID, remainingSeconds); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) ResumeSession(ctx context.Context, sessionID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET status = 'ACTIVE' WHERE id = $1`, sessionID)
+	_, err := r.pool.Exec(ctx, `
+		UPDATE cbt.exam_attempt SET status = 'STARTED', last_sync = NOW() WHERE id = $1`, sessionID)
 	return err
+}
+
+// violationEvent maps a legacy violation type to a cbt.cheating_log CHECK value.
+func violationEvent(v *Violation) string {
+	switch v.ViolationType {
+	case "TAB_CHANGE":
+		return "TAB_CHANGE"
+	case "COPY_ATTEMPT", "COPY":
+		return "COPY"
+	case "FULLSCREEN_EXIT", "KEYBOARD_SHORTCUT", "SUSPICIOUS_ACTIVITY":
+		return "WINDOW_BLUR"
+	case "DEVTOOLS_OPEN", "SCREENSHOT":
+		return "SCREENSHOT"
+	default:
+		return "WINDOW_BLUR"
+	}
 }
 
 func (r *Repository) SaveViolation(ctx context.Context, v *Violation) error {
 	v.ID = uuid.New()
 	v.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO violations (id, session_id, violation_type, details, created_at) VALUES ($1,$2,$3,$4,$5)`,
-		v.ID, v.SessionID, v.ViolationType, v.Details, v.CreatedAt)
-	if err != nil {
-		return err
-	}
-
-	// Increment violation score
-	_, err = r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET violation_score = violation_score + 1 WHERE id = $1`, v.SessionID)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO cbt.cheating_log (id, attempt_id, event, detail, created_at)
+		VALUES ($1, $2, $3, to_jsonb($4::text), $5)`,
+		v.ID, v.SessionID, violationEvent(v), v.Details, v.CreatedAt)
 	return err
 }
 
 func (r *Repository) GetViolationScore(ctx context.Context, sessionID uuid.UUID) (int, error) {
 	var score int
-	err := r.pool.QueryRow(ctx, `SELECT violation_score FROM exam_sessions WHERE id = $1`, sessionID).Scan(&score)
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.cheating_log WHERE attempt_id = $1`, sessionID).Scan(&score)
 	return score, err
 }
 
 func (r *Repository) TerminateSession(ctx context.Context, sessionID uuid.UUID) error {
 	now := time.Now()
-	_, err := r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET status = 'TERMINATED', is_terminated = true, finished_at = $1 WHERE id = $2`,
-		now, sessionID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+		UPDATE cbt.exam_attempt SET status = 'SUBMITTED', finished_at = $1 WHERE id = $2`, now, sessionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO cbt.auto_submit (attempt_id, reason)
+		VALUES ($1, 'CHEATING')
+		ON CONFLICT (attempt_id) DO NOTHING`, sessionID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) GetExamPassingScore(ctx context.Context, examID uuid.UUID) (float64, error) {
-	var ps float64
-	err := r.pool.QueryRow(ctx, `SELECT passing_score FROM content_exams WHERE content_id = $1`, examID).Scan(&ps)
-	if err != nil {
+	var ps *float64
+	err := r.pool.QueryRow(ctx, `SELECT passing_score FROM cbt.exam_metadata WHERE exam_id = $1`, examID).Scan(&ps)
+	if err != nil || ps == nil {
 		return 70.0, nil // default passing score
 	}
-	return ps, nil
+	return *ps, nil
 }
 
 func (r *Repository) GetExamNegativeMarking(ctx context.Context, examID uuid.UUID) (float64, error) {
-	var nm float64
-	err := r.pool.QueryRow(ctx, `SELECT COALESCE(negative_marking, 0) FROM content_exams WHERE content_id = $1`, examID).Scan(&nm)
-	if err != nil {
+	var nm bool
+	err := r.pool.QueryRow(ctx, `SELECT negative_marking FROM cbt.exam_metadata WHERE exam_id = $1`, examID).Scan(&nm)
+	if err != nil || !nm {
 		return 0.0, nil // default negative marking
 	}
-	return nm, nil
+	return 0.25, nil
 }
 
 func (r *Repository) UpdateQuestionAnalytics(ctx context.Context, questionID uuid.UUID, correct bool) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO question_analytics (question_id, total_attempts, correct_count, wrong_count)
-		 VALUES ($1, 1, CASE WHEN $2 THEN 1 ELSE 0 END, CASE WHEN $2 THEN 0 ELSE 1 END)
-		 ON CONFLICT (question_id) DO UPDATE
-		 SET total_attempts = question_analytics.total_attempts + 1,
-		     correct_count = question_analytics.correct_count + CASE WHEN $2 THEN 1 ELSE 0 END,
-		     wrong_count = question_analytics.wrong_count + CASE WHEN $2 THEN 0 ELSE 1 END,
-		     updated_at = NOW()`,
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO cbt.question_statistics (question_id, shown_count, correct_count, wrong_count, blank_count, accuracy)
+		VALUES ($1, 1, CASE WHEN $2 THEN 1 ELSE 0 END, CASE WHEN $2 THEN 0 ELSE 1 END, 0,
+		        CASE WHEN $2 THEN 100.0 ELSE 0.0 END)
+		ON CONFLICT (question_id) DO UPDATE SET
+			shown_count = cbt.question_statistics.shown_count + 1,
+			correct_count = cbt.question_statistics.correct_count + CASE WHEN $2 THEN 1 ELSE 0 END,
+			wrong_count = cbt.question_statistics.wrong_count + CASE WHEN $2 THEN 0 ELSE 1 END,
+			accuracy = ROUND((100.0 * (cbt.question_statistics.correct_count + CASE WHEN $2 THEN 1 ELSE 0 END) /
+			                     (cbt.question_statistics.shown_count + 1))::numeric, 2)`,
 		questionID, correct)
 	return err
 }
 
+// SaveResult maps the Result DTO into cbt.grading_result + grading_detail.
 func (r *Repository) SaveResult(ctx context.Context, res *Result) error {
 	res.ID = uuid.New()
 	res.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO results (id, session_id, exam_id, user_id, total_questions, answered_count, correct_count,
-		 wrong_count, unanswered_count, score, passing_grade, is_passed, duration_seconds, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-		 ON CONFLICT (session_id) DO UPDATE
-		 SET total_questions=$5, answered_count=$6, correct_count=$7, wrong_count=$8,
-		 unanswered_count=$9, score=$10, passing_grade=$11, is_passed=$12, duration_seconds=$13`,
-		res.ID, res.SessionID, res.ExamID, res.UserID, res.TotalQuestions, res.AnsweredCount,
-		res.CorrectCount, res.WrongCount, res.UnansweredCount, res.Score, res.PassingGrade,
-		res.IsPassed, res.DurationSeconds, res.CreatedAt)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO cbt.grading_result (attempt_id, score, correct, wrong, blank, passed)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (attempt_id) DO UPDATE SET
+			score = EXCLUDED.score, correct = EXCLUDED.correct, wrong = EXCLUDED.wrong,
+			blank = EXCLUDED.blank, passed = EXCLUDED.passed`,
+		res.SessionID, res.Score, res.CorrectCount, res.WrongCount, res.UnansweredCount, res.IsPassed); err != nil {
+		return err
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT aq.id, aq.question_id,
+		       COALESCE(sa.selected_option = (SELECT op.label
+		         FROM question.question q
+		         JOIN question.question_option op ON op.question_version_id = q.current_version_id
+		         WHERE q.id = aq.question_id AND op.is_correct), false),
+		       sa.selected_option IS NULL
+		FROM cbt.attempt_question aq
+		LEFT JOIN cbt.student_answer sa ON sa.attempt_question_id = aq.id
+		WHERE aq.attempt_id = $1`, res.SessionID)
+	if err != nil {
+		return err
+	}
+	type detail struct {
+		aqID, qID uuid.UUID
+		correct   bool
+		blank     bool
+	}
+	var details []detail
+	for rows.Next() {
+		var d detail
+		if err := rows.Scan(&d.aqID, &d.qID, &d.correct, &d.blank); err != nil {
+			rows.Close()
+			return err
+		}
+		details = append(details, d)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, d := range details {
+		score := 0.0
+		if d.correct && !d.blank {
+			score = 1
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.grading_detail (attempt_question_id, question_id, status_correct, score, is_blank)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (attempt_question_id) DO UPDATE SET
+				status_correct = EXCLUDED.status_correct, score = EXCLUDED.score, is_blank = EXCLUDED.is_blank`,
+			d.aqID, d.qID, d.correct, score, d.blank); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) GetResult(ctx context.Context, sessionID uuid.UUID) (*Result, error) {
-	res := &Result{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, session_id, exam_id, user_id, total_questions, answered_count, correct_count,
-		 wrong_count, unanswered_count, score, passing_grade, is_passed, duration_seconds, created_at
-		 FROM results WHERE session_id = $1`, sessionID,
-	).Scan(&res.ID, &res.SessionID, &res.ExamID, &res.UserID, &res.TotalQuestions, &res.AnsweredCount,
-		&res.CorrectCount, &res.WrongCount, &res.UnansweredCount, &res.Score, &res.PassingGrade,
-		&res.IsPassed, &res.DurationSeconds, &res.CreatedAt)
+	rs := &Result{SessionID: sessionID}
+	err := r.pool.QueryRow(ctx, `
+		SELECT p.exam_id, p.student_id,
+		       COALESCE(g.correct + g.wrong + g.blank, 0),
+		       COALESCE(g.correct + g.wrong, 0),
+		       COALESCE(g.correct, 0), COALESCE(g.wrong, 0), COALESCE(g.blank, 0),
+		       COALESCE(g.score, 0), COALESCE(md.passing_score, 0), COALESCE(g.passed, false),
+		       COALESCE(EXTRACT(EPOCH FROM (a.finished_at - a.started_at))::int, 0),
+		       COALESCE(g.created_at, a.created_at)
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		WHERE a.id = $1`, sessionID).Scan(&rs.ExamID, &rs.UserID, &rs.TotalQuestions,
+		&rs.AnsweredCount, &rs.CorrectCount, &rs.WrongCount, &rs.UnansweredCount, &rs.Score,
+		&rs.PassingGrade, &rs.IsPassed, &rs.DurationSeconds, &rs.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return res, nil
+	rs.ID = sessionID
+	return rs, nil
 }
 
 func (r *Repository) UpdateSessionFinalScore(ctx context.Context, sessionID uuid.UUID, score float64) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE exam_sessions SET final_score = $1 WHERE id = $2`, score, sessionID)
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO cbt.grading_result (attempt_id, score)
+		VALUES ($1, $2)
+		ON CONFLICT (attempt_id) DO UPDATE SET score = EXCLUDED.score`, sessionID, score)
 	return err
 }
 
 func (r *Repository) GetQuestionsPerStudent(ctx context.Context, examID uuid.UUID) (int, error) {
-	var bpStr *string
-	err := r.pool.QueryRow(ctx, `SELECT blueprint::text FROM content_exams WHERE content_id = $1`, examID).Scan(&bpStr)
-	if err != nil {
-		return 0, err
-	}
-	if bpStr == nil || *bpStr == "" {
-		return 0, nil
-	}
-	var bp struct {
-		QuestionsPerStudent int `json:"questions_per_student"`
-	}
-	if err := json.Unmarshal([]byte(*bpStr), &bp); err != nil {
-		return 0, err
-	}
-	return bp.QuestionsPerStudent, nil
+	var total int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(total_question), 0) FROM cbt.exam_question_pool WHERE exam_id = $1`, examID).Scan(&total)
+	return total, err
 }
 
 func (r *Repository) PickRandomExamQuestions(ctx context.Context, examID uuid.UUID, count int) ([]uuid.UUID, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT ceq.id FROM content_exam_questions ceq
-		 WHERE ceq.exam_content_id = $1
-		 ORDER BY RANDOM() LIMIT $2`, examID, count)
+	rows, err := r.pool.Query(ctx, `
+		SELECT epq.question_id
+		FROM cbt.exam_package_question epq
+		JOIN cbt.exam_package ep ON ep.id = epq.package_id
+		WHERE ep.exam_id = $1
+		ORDER BY RANDOM() LIMIT $2`, examID, count)
 	if err != nil {
 		return nil, err
 	}
@@ -777,7 +1133,7 @@ func (r *Repository) PickRandomExamQuestions(ctx context.Context, examID uuid.UU
 		}
 		ids = append(ids, id)
 	}
-	return ids, nil
+	return ids, rows.Err()
 }
 
 func (r *Repository) FindExpiredActiveSessions(ctx context.Context) ([]struct {
@@ -788,11 +1144,14 @@ func (r *Repository) FindExpiredActiveSessions(ctx context.Context) ([]struct {
 	ExamDuration     int
 	StartTime        time.Time
 }, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT es.id, es.exam_id, es.user_id, es.remaining_seconds, e.duration_minutes, es.started_at
-		 FROM exam_sessions es JOIN exams e ON e.id = es.exam_id
-		 WHERE es.status = 'ACTIVE'
-		 AND (es.started_at + (e.duration_minutes * interval '1 minute')) < NOW()`)
+	rows, err := r.pool.Query(ctx, `
+		SELECT a.id, p.exam_id, p.student_id, t.remaining_second, COALESCE(md.duration_minute, 1), a.started_at
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.exam_timer t ON t.attempt_id = a.id
+		LEFT JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		WHERE a.status = 'STARTED'
+		  AND (a.started_at + (COALESCE(md.duration_minute, 1) * interval '1 minute')) < NOW()`)
 	if err != nil {
 		return nil, err
 	}
@@ -818,6 +1177,9 @@ func (r *Repository) FindExpiredActiveSessions(ctx context.Context) ([]struct {
 			return nil, err
 		}
 		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -852,9 +1214,13 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) Start(ctx context.Context, examID, userID uuid.UUID) (*ExamSession, error) {
-	// Check exam exists and is PUBLISHED
+	// Check exam exists and is PUBLISHED (cbt.exam + cbt.exam_status).
 	var status string
-	err := s.repo.pool.QueryRow(ctx, `SELECT status FROM contents WHERE id = $1 AND content_type = 'EXAM'`, examID).Scan(&status)
+	err := s.repo.pool.QueryRow(ctx, `
+		SELECT st.code
+		FROM cbt.exam e
+		LEFT JOIN cbt.exam_status st ON st.id = e.status_id
+		WHERE e.id = $1 AND e.deleted_at IS NULL`, examID).Scan(&status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fiber.NewError(404, "Exam not found")
@@ -888,7 +1254,6 @@ func (s *Service) Start(ctx context.Context, examID, userID uuid.UUID) (*ExamSes
 	// Check if exam has a question pool - if so, generate session questions
 	pool, err := s.repo.GetQuestionPool(ctx, examID)
 	if err == nil && pool != nil {
-		// Select questions for this session based on pool config
 		questionIDs, err := s.repo.SelectQuestionsForSession(ctx, pool)
 		if err != nil {
 			return nil, err
@@ -902,7 +1267,7 @@ func (s *Service) Start(ctx context.Context, examID, userID uuid.UUID) (*ExamSes
 		return session, nil
 	}
 
-	// Fallback: pick random questions from admin-selected pool (questions_per_student in blueprint)
+	// Fallback: pick random questions from package pool (questions_per_student)
 	qps, bpErr := s.repo.GetQuestionsPerStudent(ctx, examID)
 	if bpErr == nil && qps > 0 {
 		questionIDs, qErr := s.repo.PickRandomExamQuestions(ctx, examID, qps)
@@ -936,7 +1301,6 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 			IsDoubtful:     a.IsDoubtful,
 		}
 
-		// Handle selected options - support both single and multiple
 		var selectedOptionIDs []uuid.UUID
 		if len(a.SelectedOptionIDs) > 0 {
 			for _, sid := range a.SelectedOptionIDs {
@@ -952,7 +1316,6 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 			answer.SelectedOptionID = &selectedOptionIDs[0] // Keep first for backward compat
 		}
 
-		// Grade: find correct option for the question based on question type
 		questionID, err := s.repo.GetQuestionIDByExamQuestion(ctx, eqID)
 		if err == nil {
 			qType, err := s.repo.GetQuestionType(ctx, questionID)
@@ -960,16 +1323,13 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 				var isCorrect bool
 				switch qType {
 				case "SINGLE_CHOICE":
-					// Single choice: only one correct answer
 					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
 					if err == nil && len(selectedOptionIDs) > 0 {
 						isCorrect = selectedOptionIDs[0] == *correctOpt
 					}
 				case "MULTIPLE_CHOICE":
-					// Multiple choice: need to select ALL correct options (exact match)
 					correctOpts, err := s.repo.GetCorrectOptionsForQuestion(ctx, questionID)
 					if err == nil {
-						// Check if selected options exactly match correct options
 						if len(selectedOptionIDs) == len(correctOpts) {
 							match := true
 							for _, sel := range selectedOptionIDs {
@@ -989,13 +1349,11 @@ func (s *Service) SyncAnswers(ctx context.Context, sessionID uuid.UUID, userID u
 						}
 					}
 				case "TRUE_FALSE":
-					// True/False: single correct answer (Benar/Salah)
 					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
 					if err == nil && len(selectedOptionIDs) > 0 {
 						isCorrect = selectedOptionIDs[0] == *correctOpt
 					}
 				default:
-					// Fallback to single choice logic
 					correctOpt, err := s.repo.GetCorrectOptionForQuestion(ctx, questionID)
 					if err == nil && len(selectedOptionIDs) > 0 {
 						isCorrect = selectedOptionIDs[0] == *correctOpt
@@ -1083,7 +1441,6 @@ func (s *Service) GetSessionQuestions(ctx context.Context, sessionID uuid.UUID, 
 	if session.UserID != userID {
 		return nil, fiber.NewError(403, "Not your session")
 	}
-
 	return s.repo.GetSessionQuestionsFull(ctx, sessionID)
 }
 
@@ -1098,7 +1455,6 @@ func (s *Service) Pause(ctx context.Context, sessionID uuid.UUID, userID uuid.UU
 	if session.Status != "ACTIVE" {
 		return fiber.NewError(400, "Session is not active")
 	}
-
 	return s.repo.PauseSession(ctx, sessionID, remainingSeconds)
 }
 
@@ -1134,18 +1490,15 @@ func (s *Service) ReportViolation(ctx context.Context, sessionID uuid.UUID, user
 		return nil, err
 	}
 
-	// Re-read violation score
 	score, err := s.repo.GetViolationScore(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Auto-terminate at 5 violations
 	if score >= 5 {
 		if err := s.repo.TerminateSession(ctx, sessionID); err != nil {
 			return nil, err
 		}
-		// Auto-score on termination
 		if _, err := s.Finish(ctx, sessionID, userID); err != nil {
 			// don't fail on scoring error
 		}
@@ -1202,13 +1555,11 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 		wrongCount := answeredCount - correctCount
 		unansweredCount := totalQuestions - answeredCount
 
-		// Get negative_marking for this exam
 		negMarking, err := s.repo.GetExamNegativeMarking(ctx, session.ExamID)
 		if err != nil {
 			return nil, err
 		}
 
-		// Score with negative marking: correct=+1pt, wrong=-negMarking pt, unanswered=0
 		var score float64
 		if totalQuestions > 0 {
 			score = (float64(correctCount) - float64(wrongCount)*negMarking) / float64(totalQuestions) * 100
@@ -1224,25 +1575,21 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 
 		isPassed := score >= passingGrade
 
-		// Update question_analytics for each answered question
 		for _, a := range answers {
 			qid, err := s.repo.GetQuestionIDByExamQuestion(ctx, a.ExamQuestionID)
 			if err != nil {
 				continue
 			}
 			if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect); err != nil {
-				// non-fatal
 				continue
 			}
 		}
 
-		// Calculate duration
 		durationSeconds := int(time.Since(session.StartedAt).Seconds())
 		if session.FinishedAt != nil {
 			durationSeconds = int(session.FinishedAt.Sub(session.StartedAt).Seconds())
 		}
 
-		// Determine remaining seconds
 		var remainingSec *int
 		if session.RemainingSeconds != nil {
 			elapsed := int(time.Since(session.StartedAt).Seconds())
@@ -1253,12 +1600,10 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 			remainingSec = &rem
 		}
 
-		// Finish session
 		if err := s.repo.FinishSession(ctx, sessionID, remainingSec); err != nil {
 			return nil, err
 		}
 
-		// Save result
 		result := &Result{
 			SessionID:       sessionID,
 			ExamID:          session.ExamID,
@@ -1278,7 +1623,6 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 			return nil, err
 		}
 
-		// Update session final_score
 		if err := s.repo.UpdateSessionFinalScore(ctx, sessionID, score); err != nil {
 			return nil, err
 		}
@@ -1301,13 +1645,11 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 	wrongCount := answeredCount - correctCount
 	unansweredCount := totalQuestions - answeredCount
 
-	// Get negative_marking for this exam
 	negMarking, err := s.repo.GetExamNegativeMarking(ctx, session.ExamID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Score with negative marking: correct=+1pt, wrong=-negMarking pt, unanswered=0
 	var score float64
 	if totalQuestions > 0 {
 		score = (float64(correctCount) - float64(wrongCount)*negMarking) / float64(totalQuestions) * 100
@@ -1323,25 +1665,21 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 
 	isPassed := score >= passingGrade
 
-	// Update question_analytics for each answered question
 	for _, a := range answers {
 		qid, err := s.repo.GetQuestionIDByExamQuestion(ctx, a.ExamQuestionID)
 		if err != nil {
 			continue
 		}
 		if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect); err != nil {
-			// non-fatal
 			continue
 		}
 	}
 
-	// Calculate duration
 	durationSeconds := int(time.Since(session.StartedAt).Seconds())
 	if session.FinishedAt != nil {
 		durationSeconds = int(session.FinishedAt.Sub(session.StartedAt).Seconds())
 	}
 
-	// Determine remaining seconds
 	var remainingSec *int
 	if session.RemainingSeconds != nil {
 		elapsed := int(time.Since(session.StartedAt).Seconds())
@@ -1352,12 +1690,10 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 		remainingSec = &rem
 	}
 
-	// Finish session
 	if err := s.repo.FinishSession(ctx, sessionID, remainingSec); err != nil {
 		return nil, err
 	}
 
-	// Save result
 	result := &Result{
 		SessionID:       sessionID,
 		ExamID:          session.ExamID,
@@ -1377,7 +1713,6 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 		return nil, err
 	}
 
-	// Update session final_score
 	if err := s.repo.UpdateSessionFinalScore(ctx, sessionID, score); err != nil {
 		return nil, err
 	}
@@ -1408,14 +1743,14 @@ type SessionQuestionOption struct {
 }
 
 type SessionQuestion struct {
-	ExamQuestionID    uuid.UUID              `json:"exam_question_id"`
-	QuestionContentID uuid.UUID              `json:"question_content_id"`
-	DisplayOrder      int                    `json:"display_order"`
-	SubjectName       string                 `json:"subjectName"`
-	Stimulus          string                 `json:"stimulus"`
-	Stem              string                 `json:"stem"`
-	QuestionType      string                 `json:"questionType"`
-	Difficulty        string                 `json:"difficulty"`
+	ExamQuestionID    uuid.UUID               `json:"exam_question_id"`
+	QuestionContentID uuid.UUID               `json:"question_content_id"`
+	DisplayOrder      int                     `json:"display_order"`
+	SubjectName       string                  `json:"subjectName"`
+	Stimulus          string                  `json:"stimulus"`
+	Stem              string                  `json:"stem"`
+	QuestionType      string                  `json:"questionType"`
+	Difficulty        string                  `json:"difficulty"`
 	Options           []SessionQuestionOption `json:"options"`
 }
 
@@ -1675,11 +2010,6 @@ func (h *Handler) ReportViolation(c *fiber.Ctx) error {
 		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to report violation"))
 	}
-
-	// TODO: Broadcast violation_alert via WebSocket hub.
-	//   import and call wsHub.SendToRole("ADMIN", msg) or wsHub.Broadcast <- msgBytes
-	//   This will push real-time violation to all connected proctors.
-
 	return c.JSON(shared.Success(session))
 }
 
