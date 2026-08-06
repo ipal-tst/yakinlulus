@@ -113,17 +113,23 @@ type optionRow struct {
 }
 
 func (r *Repository) pickRandomQuestions(ctx context.Context, subjectID, gradeID *uuid.UUID, limit int) ([]questionRow, error) {
-	query := `SELECT c.id, COALESCE(c.title, '') FROM contents c WHERE c.content_type='QUESTION' AND c.status IN ('PUBLISHED','APPROVED')`
+	query := `
+		SELECT q.id, COALESCE(b.content, '')::text
+		FROM question.question q
+		JOIN question.question_status st ON st.id = q.status_id
+		JOIN question.question_version v ON v.id = q.current_version_id
+		LEFT JOIN question.question_block b ON b.question_version_id = v.id AND b.block_type = 'PARAGRAPH' AND b.block_order = 0
+		WHERE q.deleted_at IS NULL AND st.code IN ('PUBLISHED','APPROVED')`
 	args := []interface{}{}
 	argN := 1
 
 	if subjectID != nil {
-		query += fmt.Sprintf(" AND c.subject_id = $%d", argN)
+		query += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM question.question_subject qs WHERE qs.question_id = q.id AND qs.subject_id = $%d)", argN)
 		args = append(args, *subjectID)
 		argN++
 	}
 	if gradeID != nil {
-		query += fmt.Sprintf(" AND c.grade_id = $%d", argN)
+		query += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM question.question_grade qg WHERE qg.question_id = q.id AND qg.grade_id = $%d)", argN)
 		args = append(args, *gradeID)
 		argN++
 	}
@@ -149,7 +155,12 @@ func (r *Repository) pickRandomQuestions(ctx context.Context, subjectID, gradeID
 
 func (r *Repository) getOptions(ctx context.Context, questionID uuid.UUID) ([]optionRow, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, label, option_text FROM content_question_options WHERE content_id=$1 ORDER BY display_order`, questionID)
+		`SELECT op.id, op.label, COALESCE(ob.content, '')::text
+		 FROM question.question_option op
+		 JOIN question.question q ON q.current_version_id = op.question_version_id
+		 LEFT JOIN question.option_block ob ON ob.option_id = op.id AND ob.block_order = 0
+		 WHERE q.id = $1 AND q.deleted_at IS NULL
+		 ORDER BY op.display_order`, questionID)
 	if err != nil {
 		return nil, err
 	}
@@ -165,12 +176,12 @@ func (r *Repository) getOptions(ctx context.Context, questionID uuid.UUID) ([]op
 	return opts, nil
 }
 
-func (r *Repository) createSession(ctx context.Context, userID uuid.UUID, subjectID *uuid.UUID, questionCount int) (uuid.UUID, error) {
+func (r *Repository) createSession(ctx context.Context, userID uuid.UUID, subjectID, gradeID *uuid.UUID, questionCount int) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO content_practice_sessions (user_id, subject_id, status, started_at, created_at, max_score)
-		 VALUES ($1, $2, 'IN_PROGRESS', NOW(), NOW(), $3) RETURNING id`,
-		userID, subjectID, questionCount).Scan(&id)
+		`INSERT INTO content.practice_session (student_id, subject_id, grade_id, status, max_score, started_at, created_at)
+		 VALUES ($1, $2, $3, 'IN_PROGRESS', $4, NOW(), NOW()) RETURNING id`,
+		userID, subjectID, gradeID, questionCount).Scan(&id)
 	return id, err
 }
 
@@ -178,11 +189,12 @@ func (r *Repository) getSessionByID(ctx context.Context, sessionID uuid.UUID) (*
 	s := &SessionDetail{Answers: []AnswerDetail{}}
 	var maxScore float64
 	err := r.pool.QueryRow(ctx,
-		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), ps.subject_id, ps.status, ps.started_at, ps.graded_at, COALESCE(ps.total_score,0), COALESCE(ps.max_score,0)
-		 FROM content_practice_sessions ps
-		 LEFT JOIN subjects sub ON sub.id = ps.subject_id
+		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), ps.subject_id, ps.status, ps.started_at, ps.finished_at,
+		        COALESCE(ps.total_score,0), COALESCE(ps.max_score,0), ps.answered_count, ps.correct_count
+		 FROM content.practice_session ps
+		 LEFT JOIN academic.subject sub ON sub.id = ps.subject_id
 		 WHERE ps.id=$1`, sessionID).Scan(
-		&s.ID, &s.Title, &s.SubjectID, &s.Status, &s.CreatedAt, &s.CompletedAt, &s.Score, &maxScore)
+		&s.ID, &s.Title, &s.SubjectID, &s.Status, &s.CreatedAt, &s.CompletedAt, &s.Score, &maxScore, &s.AnsweredCount, &s.CorrectCount)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +206,11 @@ func (r *Repository) getSessionByID(ctx context.Context, sessionID uuid.UUID) (*
 func (r *Repository) getCorrectOption(ctx context.Context, questionID uuid.UUID) (*optionRow, error) {
 	o := &optionRow{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, label, option_text FROM content_question_options WHERE content_id=$1 AND is_correct=true LIMIT 1`,
+		`SELECT op.id, op.label, COALESCE(ob.content, '')::text
+		 FROM question.question_option op
+		 JOIN question.question q ON q.current_version_id = op.question_version_id
+		 LEFT JOIN question.option_block ob ON ob.option_id = op.id AND ob.block_order = 0
+		 WHERE q.id = $1 AND q.deleted_at IS NULL AND op.is_correct = true LIMIT 1`,
 		questionID).Scan(&o.ID, &o.Label, &o.Content)
 	if err != nil {
 		return nil, err
@@ -204,7 +220,10 @@ func (r *Repository) getCorrectOption(ctx context.Context, questionID uuid.UUID)
 
 func (r *Repository) getQuestionExplanation(ctx context.Context, questionID uuid.UUID) (string, error) {
 	var explanation string
-	err := r.pool.QueryRow(ctx, `SELECT COALESCE(explanation,'') FROM content_questions WHERE content_id=$1`, questionID).Scan(&explanation)
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(e.content,'') FROM question.explanation e
+		 JOIN question.question q ON q.current_version_id = e.question_version_id
+		 WHERE q.id = $1 AND q.deleted_at IS NULL`, questionID).Scan(&explanation)
 	return explanation, err
 }
 
@@ -214,21 +233,25 @@ func (r *Repository) updateSessionCounters(ctx context.Context, sessionID uuid.U
 		correctInc = 1
 	}
 	_, err := r.pool.Exec(ctx,
-		`UPDATE content_practice_sessions
-		 SET total_score = LEAST(COALESCE(max_score,0), COALESCE(total_score,0) + $2)
+		`UPDATE content.practice_session
+		 SET total_score = LEAST(COALESCE(max_score,0), COALESCE(total_score,0) + $2),
+		     answered_count = answered_count + 1,
+		     correct_count = correct_count + $2,
+		     updated_at = NOW()
 		 WHERE id=$1 AND status='IN_PROGRESS'`, sessionID, correctInc)
 	return err
 }
 
 func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, offset int) ([]SessionListItem, int, error) {
 	var total int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_practice_sessions WHERE user_id=$1`, userID).Scan(&total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content.practice_session WHERE student_id=$1`, userID).Scan(&total)
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), COALESCE(ps.total_score,0), COALESCE(ps.max_score,0), ps.status, ps.started_at
-		 FROM content_practice_sessions ps
-		 LEFT JOIN subjects sub ON sub.id = ps.subject_id
-		 WHERE ps.user_id=$1
+		`SELECT ps.id, COALESCE(sub.name, 'Latihan Mandiri'), COALESCE(ps.total_score,0), COALESCE(ps.max_score,0),
+		        ps.answered_count, ps.correct_count, ps.status, ps.started_at
+		 FROM content.practice_session ps
+		 LEFT JOIN academic.subject sub ON sub.id = ps.subject_id
+		 WHERE ps.student_id=$1
 		 ORDER BY ps.created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -238,7 +261,7 @@ func (r *Repository) listSessions(ctx context.Context, userID uuid.UUID, limit, 
 	for rows.Next() {
 		var item SessionListItem
 		var maxScore float64
-		if err := rows.Scan(&item.ID, &item.Title, &item.Score, &maxScore, &item.Status, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Score, &maxScore, &item.AnsweredCount, &item.CorrectCount, &item.Status, &item.CreatedAt); err != nil {
 			continue
 		}
 		item.TotalQuestions = int(maxScore)
@@ -252,7 +275,7 @@ func (r *Repository) getStats(ctx context.Context, userID uuid.UUID) (*StatsResp
 	err := r.pool.QueryRow(ctx,
 		`SELECT COUNT(*), COALESCE(SUM(max_score),0), COALESCE(SUM(total_score),0),
 		        COALESCE(AVG(CASE WHEN max_score > 0 THEN (total_score / max_score) * 100 ELSE 0 END),0)
-		 FROM content_practice_sessions WHERE user_id=$1 AND status IN ('GRADED','SUBMITTED')`,
+		 FROM content.practice_session WHERE student_id=$1 AND status IN ('GRADED','SUBMITTED')`,
 		userID).Scan(&s.TotalSessions, &s.TotalQuestions, &s.TotalCorrect, &s.AverageScore)
 	if err != nil {
 		return nil, err
@@ -290,7 +313,7 @@ func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID,
 		return nil, fiber.NewError(fiber.StatusNotFound, "No questions available")
 	}
 
-	sessionID, err := s.repo.createSession(ctx, userID, subjectID, len(qs))
+	sessionID, err := s.repo.createSession(ctx, userID, subjectID, gradeID, len(qs))
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +337,7 @@ func (s *Service) StartSession(ctx context.Context, userID uuid.UUID, subjectID,
 func (s *Service) AnswerQuestion(ctx context.Context, sessionID, userID uuid.UUID, questionID uuid.UUID, selectedOptionID uuid.UUID) (*AnswerResp, error) {
 	// Verify session belongs to user
 	var dbUserID uuid.UUID
-	err := s.repo.pool.QueryRow(ctx, `SELECT user_id FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(&dbUserID)
+	err := s.repo.pool.QueryRow(ctx, `SELECT student_id FROM content.practice_session WHERE id=$1`, sessionID).Scan(&dbUserID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
 	}
@@ -348,7 +371,7 @@ func (s *Service) GetSession(ctx context.Context, sessionID, userID uuid.UUID) (
 		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
 	}
 	var dbUserID uuid.UUID
-	if err := s.repo.pool.QueryRow(ctx, `SELECT user_id FROM content_practice_sessions WHERE id=$1`, sessionID).Scan(&dbUserID); err != nil {
+	if err := s.repo.pool.QueryRow(ctx, `SELECT student_id FROM content.practice_session WHERE id=$1`, sessionID).Scan(&dbUserID); err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "Session not found")
 	}
 	if dbUserID != userID {
@@ -399,7 +422,7 @@ func (h *Handler) StartSession(c *fiber.Ctx) error {
 			gradeID = &id
 		}
 	}
-	if gradeID == nil && c.Locals("role") == "STUDENT" {
+	if gradeID == nil && c.Locals("role") == "SISWA" {
 		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
 			if gid, err := h.svc.content.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
 				gradeID = gid
