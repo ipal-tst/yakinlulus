@@ -3025,6 +3025,188 @@ paths:
                 $ref: "#/components/schemas/Success"
 
   # ──────────────────────────────────────────
+  # Exam-Practice Module (cbt_engine, 5 endpoints)
+  # ──────────────────────────────────────────
+  /exam-practice/material/{materialId}:
+    post:
+      operationId: startMaterialPractice
+      summary: Start an exam-practice session from a material
+      description: Practice questions linked to a material; role gate SISWA (or GURU/STAFF).
+      tags: [Exam Practice]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                questions_count: { type: integer, default: 10 }
+      responses:
+        "201":
+          description: Practice session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-practice/subject:
+    post:
+      operationId: startSubjectPractice
+      summary: Start an exam-practice session by subject and grade
+      tags: [Exam Practice]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_id: { type: string }
+                grade_id: { type: string }
+                questions_count: { type: integer, default: 20 }
+      responses:
+        "201":
+          description: Practice session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-practice/tags:
+    post:
+      operationId: startTagBasedPractice
+      summary: Start an exam-practice session filtered by tags
+      tags: [Exam Practice]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag_filter:
+                  type: object
+                questions_count: { type: integer, default: 20 }
+              required: [tag_filter]
+      responses:
+        "201":
+          description: Practice session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-practice/{sessionId}/submit:
+    post:
+      operationId: submitPracticeSession
+      summary: Submit and grade an exam-practice session
+      tags: [Exam Practice]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      question_content_id: { type: string }
+                      selected_option_ids:
+                        type: array
+                        items: { type: string }
+              required: [answers]
+      responses:
+        "200":
+          description: Graded session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "409":
+          description: Session already submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  /exam-practice/{sessionId}:
+    get:
+      operationId: getPracticeSession
+      summary: Get an exam-practice session with results
+      tags: [Exam Practice]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+
+  # ──────────────────────────────────────────
   # AI Tutor Module (5 endpoints)
   # ──────────────────────────────────────────
   /ai/tutor/chat:
