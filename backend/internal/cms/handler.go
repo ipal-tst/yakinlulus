@@ -99,6 +99,41 @@ func userID(c *fiber.Ctx) uuid.UUID {
 	return uuid.Nil
 }
 
+// allowedToMutate reports whether a caller may edit/delete a row owned by
+// `owner`. SUPER_ADMIN/STAFF bypass; every other role (GURU) must be the
+// owner. A nil owner (no author recorded) stays backward-compatible.
+func allowedToMutate(role string, caller *uuid.UUID, owner *uuid.UUID) bool {
+	if middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF") {
+		return true
+	}
+	if owner == nil {
+		return true
+	}
+	return caller != nil && *caller == *owner
+}
+
+// authorizeOwner enforces per-row ownership for GURU writes on rows that carry
+// an author/owner id. It returns a fiber response (403 not-owned / 401
+// unauthenticated) or nil to allow the request to proceed.
+func (h *Handler) authorizeOwner(c *fiber.Ctx, owner *uuid.UUID) error {
+	role := ""
+	if r, ok := c.Locals("role").(string); ok {
+		role = r
+	}
+	uid := userID(c)
+	var caller *uuid.UUID
+	if uid != uuid.Nil {
+		caller = &uid
+	}
+	if allowedToMutate(role, caller, owner) {
+		return nil
+	}
+	if uid == uuid.Nil {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	return c.Status(403).JSON(shared.Error(shared.ErrForbidden, "You may only edit or delete your own content"))
+}
+
 func parseParamID(c *fiber.Ctx) (uuid.UUID, error) {
 	return uuid.Parse(c.Params("id"))
 }
@@ -170,6 +205,16 @@ func (h *Handler) UpdatePage(c *fiber.Ctx) error {
 	if err := validateSlugTitle(req.Slug, req.Title); err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
 	}
+	pg, err := h.svc.GetPageByID(c.Context(), id)
+	if err != nil {
+		if errNoRows(err) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Page not found"))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get page"))
+	}
+	if resp := h.authorizeOwner(c, pg.AuthorID); resp != nil {
+		return resp
+	}
 	p, err := h.svc.UpdatePage(c.Context(), id, req, userID(c))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -187,6 +232,16 @@ func (h *Handler) DeletePage(c *fiber.Ctx) error {
 	id, err := parseParamID(c)
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid page ID"))
+	}
+	pg, err := h.svc.GetPageByID(c.Context(), id)
+	if err != nil {
+		if errNoRows(err) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Page not found"))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get page"))
+	}
+	if resp := h.authorizeOwner(c, pg.AuthorID); resp != nil {
+		return resp
 	}
 	if err := h.svc.DeletePage(c.Context(), id); err != nil {
 		if errNoRows(err) {
@@ -354,6 +409,16 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 	if err := validateSlugTitle(req.Slug, req.Title); err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
 	}
+	existing, err := h.svc.GetPostByID(c.Context(), id)
+	if err != nil {
+		if errNoRows(err) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Post not found"))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get post"))
+	}
+	if resp := h.authorizeOwner(c, existing.AuthorID); resp != nil {
+		return resp
+	}
 	p, err := h.svc.UpdatePost(c.Context(), id, req, userID(c))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -371,6 +436,16 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 	id, err := parseParamID(c)
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid post ID"))
+	}
+	existing, err := h.svc.GetPostByID(c.Context(), id)
+	if err != nil {
+		if errNoRows(err) {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Post not found"))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get post"))
+	}
+	if resp := h.authorizeOwner(c, existing.AuthorID); resp != nil {
+		return resp
 	}
 	if err := h.svc.DeletePost(c.Context(), id); err != nil {
 		if errNoRows(err) {

@@ -163,8 +163,8 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := middleware.RequireAuth(h.auth)
-	write := middleware.RequireRole("ADMIN", "STAFF", "TEACHER")
-	read := middleware.RequireRole("ADMIN", "STAFF", "TEACHER", "STUDENT")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
+	read := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU", "SISWA")
 
 	r := router.Group("/materials", auth)
 	r.Get("/progress", read, h.ListProgress)
@@ -308,7 +308,29 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid material ID"))
 	}
 
+	// GURU may only delete content they own; SUPER_ADMIN/STAFF delete any.
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(401).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	role, _ := c.Locals("role").(string)
+	if !middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF") {
+		m, err := h.svc.FindByID(c.Context(), id)
+		if err == pgx.ErrNoRows {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Material not found"))
+		}
+		if err != nil {
+			return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get material"))
+		}
+		if m == nil || !canDelete(role, userID, m.Content.CreatedBy) {
+			return c.Status(403).JSON(shared.Error(shared.ErrForbidden, "You may only delete your own material"))
+		}
+	}
+
 	if err := h.svc.Delete(c.Context(), id); err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Material not found"))
+		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete material"))
 	}
 
@@ -441,6 +463,15 @@ func (h *Handler) ListProgress(c *fiber.Ctx) error {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// canDelete reports whether the caller (role+id) may delete content owned by
+// `owner`. SUPER_ADMIN/STAFF bypass; GURU must be the owner.
+func canDelete(role string, caller, owner uuid.UUID) bool {
+	if middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF") {
+		return true
+	}
+	return caller == owner
 }
 
 func intPtr(v int) *int {

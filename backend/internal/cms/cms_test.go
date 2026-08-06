@@ -186,6 +186,81 @@ func TestCMSRepositoryLifecycle(t *testing.T) {
 	assertZeroResidue(t, p, ctx, pageID, post.ID, cat.ID, tag.ID, settingKey, faq.ID)
 }
 
+func TestCMSPagePostOwnership(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	// Seed identity.user rows so page/post author_id FKs resolve.
+	author, other := uuid.New(), uuid.New()
+	for _, u := range []uuid.UUID{author, other} {
+		if _, err := p.Exec(ctx, `
+			INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+			VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+			ON CONFLICT (id) DO NOTHING`, u, "own_probe_"+u.String()[:8]); err != nil {
+			t.Fatalf("seed user: %v", err)
+		}
+	}
+	t.Cleanup(func() {
+		for _, u := range []uuid.UUID{author, other} {
+			_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id=$1`, u)
+		}
+	})
+
+	// Page authored by A: B (GURU) edit/delete denied; A allowed; staff any.
+	slug := "own-page-" + author.String()[:8]
+	pg, err := r.CreatePage(ctx, &Page{Slug: slug, Title: "Ownership", PageType: "CUSTOM", Status: "DRAFT", AuthorID: &author}, nil)
+	if err != nil {
+		t.Fatalf("CreatePage: %v", err)
+	}
+	fetched, err := r.GetPageByID(ctx, pg.ID, false)
+	if err != nil {
+		t.Fatalf("GetPageByID: %v", err)
+	}
+	if fetched.AuthorID == nil || *fetched.AuthorID != author {
+		t.Fatalf("expected author %s got %v", author, fetched.AuthorID)
+	}
+	if allowedToMutate("GURU", &other, fetched.AuthorID) {
+		t.Fatal("GURU B must NOT edit/delete A's page")
+	}
+	if !allowedToMutate("GURU", &author, fetched.AuthorID) {
+		t.Fatal("GURU A must edit/delete own page")
+	}
+	if !allowedToMutate("SUPER_ADMIN", &other, fetched.AuthorID) {
+		t.Fatal("SUPER_ADMIN must edit/delete any page")
+	}
+	if !allowedToMutate("STAFF", &other, fetched.AuthorID) {
+		t.Fatal("STAFF must edit/delete any page")
+	}
+
+	// Post authored by A: same matrix.
+	post, err := r.CreatePost(ctx, &Post{Slug: "own-post-" + author.String()[:8], Title: "Ownership Post", AuthorID: &author, Status: "DRAFT"}, nil)
+	if err != nil {
+		t.Fatalf("CreatePost: %v", err)
+	}
+	pf, err := r.GetPostByID(ctx, post.ID)
+	if err != nil {
+		t.Fatalf("GetPostByID: %v", err)
+	}
+	if pf.AuthorID == nil || *pf.AuthorID != author {
+		t.Fatalf("expected author %s got %v", author, pf.AuthorID)
+	}
+	if allowedToMutate("GURU", &other, pf.AuthorID) {
+		t.Fatal("GURU B must NOT edit/delete A's post")
+	}
+	if !allowedToMutate("GURU", &author, pf.AuthorID) {
+		t.Fatal("GURU A must edit/delete own post")
+	}
+	if !allowedToMutate("SUPER_ADMIN", &other, pf.AuthorID) {
+		t.Fatal("SUPER_ADMIN must edit/delete any post")
+	}
+
+	// Zero residue.
+	_, _ = p.Exec(ctx, `DELETE FROM cms.cms_page WHERE id=$1`, pg.ID)
+	_, _ = p.Exec(ctx, `DELETE FROM cms.cms_post WHERE id=$1`, post.ID)
+	assertZeroResidue(t, p, ctx, pg.ID, post.ID, uuid.Nil, uuid.Nil, "", uuid.Nil)
+}
+
 func assertZeroResidue(t *testing.T, p *pgxpool.Pool, ctx context.Context, pageID, postID, catID, tagID uuid.UUID, settingKey string, faqID uuid.UUID) {
 	t.Helper()
 	queries := []struct {

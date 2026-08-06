@@ -366,6 +366,22 @@ func (h *Handler) DeleteExam(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid exam ID"))
 	}
 
+	// GURU may only delete exams they own; SUPER_ADMIN/STAFF delete any.
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Not authenticated"))
+	}
+	role, _ := c.Locals("role").(string)
+	if !middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF") {
+		exam, err := h.svc.GetExam(c.Context(), id)
+		if err != nil {
+			return c.Status(http.StatusNotFound).JSON(shared.Error(shared.ErrNotFound, "Exam not found"))
+		}
+		if exam == nil || !canMutateExam(role, userID, exam.Content.CreatedBy) {
+			return c.Status(http.StatusForbidden).JSON(shared.Error(shared.ErrForbidden, "You may only delete your own exam"))
+		}
+	}
+
 	if err := h.svc.DeleteExam(c.Context(), id); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(shared.Error(shared.ErrInternal, "Failed to delete exam"))
 	}
@@ -884,6 +900,15 @@ func (h *Handler) GetPracticeSession(c *fiber.Ctx) error {
 }
 
 // --- Helper functions ---
+
+// canMutateExam reports whether the caller may delete an exam owned by
+// `owner`. SUPER_ADMIN/STAFF bypass; GURU must be the owner.
+func canMutateExam(role string, caller, owner uuid.UUID) bool {
+	if middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF") {
+		return true
+	}
+	return caller == owner
+}
 
 func parseUUID(s string) *uuid.UUID {
 	if s == "" {

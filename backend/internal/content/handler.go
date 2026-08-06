@@ -157,7 +157,7 @@ func (h *Handler) DeleteContent(c *fiber.Ctx) error {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := middleware.RequireAuth(h.role)
-	staffOnly := middleware.RequireRole("ADMIN", "TEACHER", "STAFF")
+	staffOnly := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
 
 	contents := router.Group("/contents", auth)
 	contents.Get("/", h.ListContent)
