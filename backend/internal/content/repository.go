@@ -39,35 +39,16 @@ func (r *repository) CreateContent(ctx context.Context, c *Content) error {
 		c.Metadata = map[string]interface{}{}
 	}
 
-	// MATERIAL masters live in content.material (new schema); EXAM masters live
-	// in cbt.exam. Question rows stay on the legacy `contents` insert until the
-	// question migration lands.
+	// MATERIAL masters live in content.material; EXAM masters live in cbt.exam;
+	// QUESTION (and other non-material/non-exam) content masters live in
+	// question.question. All three live in the new schema.
 	if c.ContentType == ContentTypeMaterial {
 		return r.createMaterialContent(ctx, c)
 	}
 	if c.ContentType == ContentTypeExam {
 		return r.createExamContent(ctx, c)
 	}
-
-	if c.SubjectID == uuid.Nil {
-		_ = r.pool.QueryRow(ctx, "SELECT id FROM subjects LIMIT 1").Scan(&c.SubjectID)
-	}
-
-	if c.GradeID == uuid.Nil {
-		var gID *uuid.UUID
-		_ = r.pool.QueryRow(ctx, "SELECT grade_id FROM subjects WHERE id = $1 AND grade_id IS NOT NULL", c.SubjectID).Scan(&gID)
-		if gID != nil && *gID != uuid.Nil {
-			c.GradeID = *gID
-		} else {
-			_ = r.pool.QueryRow(ctx, "SELECT id FROM grades ORDER BY created_at ASC LIMIT 1").Scan(&c.GradeID)
-		}
-	}
-
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO contents (id, content_type, grade_id, subject_id, chapter_id, topic_id, lo_id, title, body, status, created_by, metadata, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-	`, c.ID, c.ContentType, c.GradeID, c.SubjectID, c.ChapterID, c.TopicID, c.LOID, c.Title, c.Body, c.Status, c.CreatedBy, c.Metadata, c.CreatedAt, c.UpdatedAt)
-	return err
+	return r.createQuestionContent(ctx, c)
 }
 
 // ========== MATERIAL SCHEMA HELPERS (content.material) ==========
@@ -375,13 +356,64 @@ func (r *repository) GetContent(ctx context.Context, id uuid.UUID) (*Content, er
 		return c, nil
 	}
 
+	// MATERIAL masters live in content.material.
+	var isMaterial bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isMaterial); err == nil && isMaterial {
+		c := &Content{}
+		var meta map[string]interface{}
+		err := r.pool.QueryRow(ctx, `
+			SELECT m.id, 'MATERIAL',
+			       COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+			       COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+			       ch.chapter_id, tp.topic_id, NULL::uuid, m.title,
+			       COALESCE(blk.content, COALESCE(m.summary, ''))::text, COALESCE(st.code, 'DRAFT')::text, COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+			       NULL::jsonb, m.published_at, m.created_at, m.updated_at
+			FROM content.material m
+			LEFT JOIN content.material_status st ON st.id = m.status_id
+			LEFT JOIN content.material_version mv ON mv.id = m.current_version_id
+			LEFT JOIN content.material_block blk ON blk.material_version_id = mv.id AND blk.block_order = 0
+			LEFT JOIN LATERAL (SELECT subject_id FROM content.material_subject WHERE material_id = m.id LIMIT 1) subj ON true
+			LEFT JOIN LATERAL (SELECT grade_id FROM content.material_grade WHERE material_id = m.id LIMIT 1) gr ON true
+			LEFT JOIN LATERAL (SELECT chapter_id FROM content.material_chapter WHERE material_id = m.id LIMIT 1) ch ON true
+			LEFT JOIN LATERAL (SELECT topic_id FROM content.material_topic WHERE material_id = m.id LIMIT 1) tp ON true
+			WHERE m.id = $1`, id).Scan(
+			&c.ID, &c.ContentType, &c.GradeID, &c.SubjectID, &c.ChapterID, &c.TopicID, &c.LOID,
+			&c.Title, &c.Body, &c.Status, &c.CreatedBy, &meta, &c.PublishedAt, &c.CreatedAt, &c.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if len(meta) > 0 {
+			c.Metadata = meta
+		}
+		return c, nil
+	}
+
+	// Remaining (QUESTION and other) content masters live in question.question.
 	c := &Content{}
+	var meta map[string]interface{}
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, content_type, grade_id, subject_id, chapter_id, topic_id, lo_id, title, body, status, created_by, metadata, published_at, created_at, updated_at
-		FROM contents WHERE id = $1
-	`, id).Scan(&c.ID, &c.ContentType, &c.GradeID, &c.SubjectID, &c.ChapterID, &c.TopicID, &c.LOID, &c.Title, &c.Body, &c.Status, &c.CreatedBy, &c.Metadata, &c.PublishedAt, &c.CreatedAt, &c.UpdatedAt)
+		SELECT q.id, 'QUESTION',
+		       COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+		       COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+		       ch.chapter_id, tp.topic_id, NULL::uuid, q.question_code,
+		       COALESCE(blk.content, '')::text, COALESCE(st.code, 'DRAFT')::text, COALESCE(q.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+		       NULL::jsonb, NULL::timestamptz, q.created_at, q.updated_at
+		FROM question.question q
+		LEFT JOIN question.question_status st ON st.id = q.status_id
+		LEFT JOIN question.question_version v ON v.id = q.current_version_id
+		LEFT JOIN question.question_block blk ON blk.question_version_id = v.id AND blk.block_order = 0
+		LEFT JOIN LATERAL (SELECT subject_id FROM question.question_subject WHERE question_id = q.id LIMIT 1) subj ON true
+		LEFT JOIN LATERAL (SELECT grade_id FROM question.question_grade WHERE question_id = q.id LIMIT 1) gr ON true
+		LEFT JOIN LATERAL (SELECT chapter_id FROM question.question_chapter WHERE question_id = q.id LIMIT 1) ch ON true
+		LEFT JOIN LATERAL (SELECT topic_id FROM question.question_topic WHERE question_id = q.id LIMIT 1) tp ON true
+		WHERE q.id = $1 AND q.deleted_at IS NULL`, id).Scan(
+		&c.ID, &c.ContentType, &c.GradeID, &c.SubjectID, &c.ChapterID, &c.TopicID, &c.LOID,
+		&c.Title, &c.Body, &c.Status, &c.CreatedBy, &meta, &c.PublishedAt, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if len(meta) > 0 {
+		c.Metadata = meta
 	}
 	return c, nil
 }
@@ -445,8 +477,8 @@ func (r *repository) UpdateContent(ctx context.Context, id uuid.UUID, req Update
 		return nil
 	}
 
-	// Route updates for content.material masters to the new-schema path; the
-	// legacy `contents` UPDATE below keeps serving question/exam rows.
+	// Route updates by master type. The legacy `contents` UPDATE no longer
+	// exists; question/exam/material masters all live in the new schema.
 	var isMaterial bool
 	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isMaterial); err == nil && isMaterial {
 		return r.updateMaterialContent(ctx, id, req)
@@ -458,17 +490,86 @@ func (r *repository) UpdateContent(ctx context.Context, id uuid.UUID, req Update
 		return r.updateExamContent(ctx, id, req)
 	}
 
-	sets = append(sets, "updated_at = NOW()")
-	args = append(args, id)
+	// QUESTION masters update against question.question.
+	var isQuestion bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM question.question WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&isQuestion); err == nil && isQuestion {
+		return r.updateQuestionContent(ctx, id, req)
+	}
 
-	query := fmt.Sprintf("UPDATE contents SET %s WHERE id = $%d", strings.Join(sets, ", "), argN)
-	_, err := r.pool.Exec(ctx, query, args...)
-	return err
+	return pgx.ErrNoRows
+}
+
+// updateQuestionContent updates question.question field-level columns (such as
+// status) and rebuilds the academic junctions on an academic-field edit. The
+// body block lives on the current version's question_block, so a body edit made
+// through the generic UpdateContent path is applied there without bumping a
+// version (the typed UpdateQuestion bumps versions).
+func (r *repository) updateQuestionContent(ctx context.Context, id uuid.UUID, req UpdateContentReq) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureQuestionStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+	var statusID *uuid.UUID
+	if req.Status != nil {
+		sid := statuses[string(*req.Status)]
+		if sid != uuid.Nil {
+			statusID = &sid
+		}
+	}
+
+	sets := []string{"updated_at = NOW()"}
+	args := []interface{}{id}
+	if statusID != nil {
+		sets = append(sets, fmt.Sprintf("status_id = $%d", len(args)))
+		args = append(args, *statusID)
+	}
+	if len(sets) > 1 {
+		if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE question.question SET %s WHERE id = $1 AND deleted_at IS NULL", strings.Join(sets, ", ")), args...); err != nil {
+			return err
+		}
+	}
+
+	if req.Body != nil {
+		// Apply a body edit to the current version's PARAGRAPH block so a
+		// generic UpdateContent(body) round-trips without a version bump.
+		if _, err := tx.Exec(ctx, `
+			UPDATE question.question_block blk SET content = $2
+			FROM question.question q
+			WHERE q.id = $1 AND q.deleted_at IS NULL
+			  AND q.current_version_id = blk.question_version_id
+			  AND blk.block_order = 0`, id, *req.Body); err != nil {
+			return err
+		}
+	}
+
+	if req.SubjectID != nil || req.ChapterID != nil || req.TopicID != nil {
+		var curGrade uuid.UUID
+		_ = tx.QueryRow(ctx, `
+			SELECT COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')
+			FROM (SELECT grade_id FROM question.question_grade WHERE question_id = $1 LIMIT 1) gr`, id).Scan(&curGrade)
+		if err := r.clearQuestionJunctions(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.insertQuestionJunctions(ctx, tx, id, &Content{
+			SubjectID: ptrUUIDOrNil(req.SubjectID),
+			GradeID:   curGrade,
+			ChapterID: req.ChapterID,
+			TopicID: req.TopicID,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) DeleteContent(ctx context.Context, id uuid.UUID) error {
-	// Route deletes for content.material masters to the new-schema soft-delete;
-	// the legacy `contents` DELETE below keeps serving question/exam rows.
+	// Route deletes by master type.
 	var isMaterial bool
 	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM content.material WHERE id = $1)`, id).Scan(&isMaterial); err == nil && isMaterial {
 		return r.DeleteMaterial(ctx, id)
@@ -479,8 +580,13 @@ func (r *repository) DeleteContent(ctx context.Context, id uuid.UUID) error {
 	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cbt.exam WHERE id = $1)`, id).Scan(&isExam); err == nil && isExam {
 		return r.softDeleteExam(ctx, id)
 	}
-	_, err := r.pool.Exec(ctx, `DELETE FROM contents WHERE id = $1`, id)
-	return err
+
+	// QUESTION masters soft-delete against question.question.
+	var isQuestion bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM question.question WHERE id = $1)`, id).Scan(&isQuestion); err == nil && isQuestion {
+		return r.DeleteQuestion(ctx, id)
+	}
+	return pgx.ErrNoRows
 }
 
 func (r *repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
@@ -498,46 +604,125 @@ func (r *repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uui
 	return gradeID, nil
 }
 
+// listContentBranch returns a CTE subquery name + the unified projection for a
+// given master type so ListContent can filter across material/exam/question
+// masters with one ORDER BY/LIMIT. Each branch yields the 15-column Content shape
+// with stable aliases (id, content_type, grade_id, subject_id, chapter_id,
+// topic_id, lo_id, title, body, status, created_by, metadata, published_at,
+// created_at, updated_at).
+func listContentBranch(kind string) string {
+	switch kind {
+	case "MATERIAL":
+		return `
+			SELECT m.id AS id, 'MATERIAL'::text AS content_type,
+			       COALESCE(js.subject_id, '00000000-0000-0000-0000-000000000000')::uuid AS subject_id,
+			       COALESCE(jg.grade_id, '00000000-0000-0000-0000-000000000000')::uuid AS grade_id,
+			       jc.chapter_id AS chapter_id, jt.topic_id AS topic_id,
+			       NULL::uuid AS lo_id,
+			       m.title AS title,
+			       COALESCE(mblk.content, COALESCE(m.summary, ''))::text AS body,
+			       COALESCE(mst.code, 'DRAFT')::text AS status,
+			       COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid AS created_by,
+			       NULL::jsonb AS metadata, m.published_at AS published_at, m.created_at AS created_at, m.updated_at AS updated_at
+			FROM content.material m
+			LEFT JOIN content.material_status mst ON mst.id = m.status_id
+			LEFT JOIN content.material_version mv ON mv.id = m.current_version_id
+			LEFT JOIN content.material_block mblk ON mblk.material_version_id = mv.id AND mblk.block_order = 0
+			LEFT JOIN LATERAL (SELECT subject_id FROM content.material_subject WHERE material_id = m.id LIMIT 1) js ON true
+			LEFT JOIN LATERAL (SELECT grade_id FROM content.material_grade WHERE material_id = m.id LIMIT 1) jg ON true
+			LEFT JOIN LATERAL (SELECT chapter_id FROM content.material_chapter WHERE material_id = m.id LIMIT 1) jc ON true
+			LEFT JOIN LATERAL (SELECT topic_id FROM content.material_topic WHERE material_id = m.id LIMIT 1) jt ON true
+			WHERE m.deleted_at IS NULL`
+	case "EXAM":
+		return `
+			SELECT m.id AS id, 'EXAM'::text AS content_type,
+			       COALESCE(js.subject_id, '00000000-0000-0000-0000-000000000000')::uuid AS subject_id,
+			       COALESCE(jg.grade_id, '00000000-0000-0000-0000-000000000000')::uuid AS grade_id,
+			       jc.chapter_id AS chapter_id, jt.topic_id AS topic_id,
+			       NULL::uuid AS lo_id,
+			       m.title AS title, COALESCE(m.description, '')::text AS body,
+			       COALESCE(est.code, 'DRAFT')::text AS status,
+			       COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid AS created_by,
+			       NULL::jsonb AS metadata, NULL::timestamptz AS published_at, m.created_at AS created_at, m.updated_at AS updated_at
+			FROM cbt.exam m
+			LEFT JOIN cbt.exam_status est ON est.id = m.status_id
+			LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = m.id LIMIT 1) js ON true
+			LEFT JOIN LATERAL (SELECT grade_id FROM cbt.exam_grade WHERE exam_id = m.id LIMIT 1) jg ON true
+			LEFT JOIN LATERAL (SELECT chapter_id FROM cbt.exam_chapter WHERE exam_id = m.id LIMIT 1) jc ON true
+			LEFT JOIN LATERAL (SELECT topic_id FROM cbt.exam_topic WHERE exam_id = m.id LIMIT 1) jt ON true
+			WHERE m.deleted_at IS NULL`
+	default: // QUESTION
+		return `
+			SELECT q.id AS id, 'QUESTION'::text AS content_type,
+			       COALESCE(qs.subject_id, '00000000-0000-0000-0000-000000000000')::uuid AS subject_id,
+			       COALESCE(qg.grade_id, '00000000-0000-0000-0000-000000000000')::uuid AS grade_id,
+			       qc.chapter_id AS chapter_id, qt.topic_id AS topic_id,
+			       NULL::uuid AS lo_id,
+			       q.question_code AS title, COALESCE(qblk.content, '')::text AS body,
+			       COALESCE(qst.code, 'DRAFT')::text AS status,
+			       COALESCE(q.owner_id, '00000000-0000-0000-0000-000000000000')::uuid AS created_by,
+			       NULL::jsonb AS metadata, NULL::timestamptz AS published_at, q.created_at AS created_at, q.updated_at AS updated_at
+			FROM question.question q
+			LEFT JOIN question.question_status qst ON qst.id = q.status_id
+			LEFT JOIN question.question_version qv ON qv.id = q.current_version_id
+			LEFT JOIN question.question_block qblk ON qblk.question_version_id = qv.id AND qblk.block_order = 0
+			LEFT JOIN LATERAL (SELECT subject_id FROM question.question_subject WHERE question_id = q.id LIMIT 1) qs ON true
+			LEFT JOIN LATERAL (SELECT grade_id FROM question.question_grade WHERE question_id = q.id LIMIT 1) qg ON true
+			LEFT JOIN LATERAL (SELECT chapter_id FROM question.question_chapter WHERE question_id = q.id LIMIT 1) qc ON true
+			LEFT JOIN LATERAL (SELECT topic_id FROM question.question_topic WHERE question_id = q.id LIMIT 1) qt ON true
+			WHERE q.deleted_at IS NULL`
+	}
+}
+
 func (r *repository) ListContent(ctx context.Context, filter ContentFilter) ([]Content, int, error) {
-	where := "WHERE 1=1"
+	branches := []string{
+		listContentBranch("MATERIAL"),
+		listContentBranch("EXAM"),
+		listContentBranch("QUESTION"),
+	}
+	if filter.ContentType != nil {
+		switch *filter.ContentType {
+		case ContentTypeMaterial:
+			branches = branches[:1]
+		case ContentTypeExam:
+			branches = branches[1:2]
+		case ContentTypeQuestion:
+			branches = branches[2:]
+		}
+	}
+	from := "FROM ((" + strings.Join(branches, ") UNION ALL (") + ")) u"
+
+	where := " WHERE 1=1"
 	args := []interface{}{}
 	argN := 1
-
-	if filter.ContentType != nil {
-		where += fmt.Sprintf(" AND content_type = $%d", argN)
-		args = append(args, *filter.ContentType)
-		argN++
-	}
 	if filter.GradeID != nil {
-		where += fmt.Sprintf(" AND grade_id = $%d", argN)
+		where += fmt.Sprintf(" AND u.grade_id = $%d", argN)
 		args = append(args, *filter.GradeID)
 		argN++
 	}
 	if filter.SubjectID != nil {
-		where += fmt.Sprintf(" AND subject_id = $%d", argN)
+		where += fmt.Sprintf(" AND u.subject_id = $%d", argN)
 		args = append(args, *filter.SubjectID)
 		argN++
 	}
 	if filter.Status != nil {
-		where += fmt.Sprintf(" AND status = $%d", argN)
+		where += fmt.Sprintf(" AND u.status = $%d", argN)
 		args = append(args, *filter.Status)
 		argN++
 	}
 	if filter.CreatedBy != nil {
-		where += fmt.Sprintf(" AND created_by = $%d", argN)
+		where += fmt.Sprintf(" AND u.created_by = $%d", argN)
 		args = append(args, *filter.CreatedBy)
 		argN++
 	}
 	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (title ILIKE $%d OR body ILIKE $%d)", argN, argN)
+		where += fmt.Sprintf(" AND (u.title ILIKE $%d OR u.body ILIKE $%d)", argN, argN)
 		args = append(args, "%"+filter.Search+"%")
 		argN++
 	}
 
 	var total int
-	countQuery := "SELECT COUNT(*) FROM contents " + where
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) "+from+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -548,9 +733,8 @@ func (r *repository) ListContent(ctx context.Context, filter ContentFilter) ([]C
 	offset := filter.Offset
 
 	query := fmt.Sprintf(`
-		SELECT id, content_type, grade_id, subject_id, chapter_id, topic_id, lo_id, title, body, status, created_by, metadata, published_at, created_at, updated_at
-		FROM contents %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d
-	`, where, argN, argN+1)
+		SELECT u.id, u.content_type, u.grade_id, u.subject_id, u.chapter_id, u.topic_id, u.lo_id, u.title, u.body, u.status, u.created_by, u.metadata, u.published_at, u.created_at, u.updated_at
+		%s%s ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d`, from, where, argN, argN+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -567,7 +751,7 @@ func (r *repository) ListContent(ctx context.Context, filter ContentFilter) ([]C
 		}
 		contents = append(contents, c)
 	}
-	return contents, total, nil
+	return contents, total, rows.Err()
 }
 
 func (r *repository) GetContentByGrade(ctx context.Context, gradeID uuid.UUID, contentType ContentType, limit, offset int) ([]Content, int, error) {
@@ -580,161 +764,542 @@ func (r *repository) GetContentByGrade(ctx context.Context, gradeID uuid.UUID, c
 	return r.ListContent(ctx, filter)
 }
 
-// ========== QUESTIONS ==========
+// ========== QUESTION SCHEMA HELPERS (question.*) ==========
 
-func (r *repository) CreateQuestion(ctx context.Context, q *Question, opts []QuestionOption) error {
+// ensureQuestionStatuses idempotently seeds the question_status lookup rows and
+// returns a code->id map. Safe to call on every write.
+func (r *repository) ensureQuestionStatuses(ctx context.Context, tx pgx.Tx) (map[string]uuid.UUID, error) {
+	rows := [][2]string{
+		{"DRAFT", "Draft"},
+		{"REVIEW", "In Review"},
+		{"APPROVED", "Approved"},
+		{"PUBLISHED", "Published"},
+		{"ARCHIVED", "Archived"},
+	}
+	for _, s := range rows {
+		if _, err := tx.Exec(ctx, `INSERT INTO question.question_status (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`, s[0], s[1]); err != nil {
+			return nil, err
+		}
+	}
+	statuses := map[string]uuid.UUID{}
+	rws, err := tx.Query(ctx, `SELECT code, id FROM question.question_status WHERE code = ANY($1)`, []string{"DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"})
+	if err != nil {
+		return nil, err
+	}
+	defer rws.Close()
+	for rws.Next() {
+		var code string
+		var id uuid.UUID
+		if err := rws.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		statuses[code] = id
+	}
+	return statuses, rws.Err()
+}
+
+// linkQuestionJunction inserts an N:M row only when the referenced academic row
+// exists, so an empty academic catalog degrades gracefully.
+func (r *repository) linkQuestionJunction(ctx context.Context, tx pgx.Tx, junction, refTable, refCol string, questionID, refID uuid.UUID) error {
+	if refID == uuid.Nil {
+		return nil
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+refTable+` WHERE id = $1)`, refID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO question.`+junction+` (question_id, `+refCol+`) VALUES ($1, $2)`, questionID, refID)
+	return err
+}
+
+func (r *repository) insertQuestionJunctions(ctx context.Context, tx pgx.Tx, questionID uuid.UUID, c *Content) error {
+	link := func(junction, refTable, refCol string, refID uuid.UUID) error {
+		return r.linkQuestionJunction(ctx, tx, junction, refTable, refCol, questionID, refID)
+	}
+	if err := link("question_subject", "academic.subject", "subject_id", c.SubjectID); err != nil {
+		return err
+	}
+	if err := link("question_grade", "academic.grade", "grade_id", c.GradeID); err != nil {
+		return err
+	}
+	if c.ChapterID != nil {
+		if err := link("question_chapter", "academic.chapter", "chapter_id", *c.ChapterID); err != nil {
+			return err
+		}
+	}
+	if c.TopicID != nil {
+		if err := link("question_topic", "academic.topic", "topic_id", *c.TopicID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) clearQuestionJunctions(ctx context.Context, tx pgx.Tx, questionID uuid.UUID) error {
+	for _, t := range []string{"question_subject", "question_grade", "question_chapter", "question_topic"} {
+		if _, err := tx.Exec(ctx, `DELETE FROM question.`+t+` WHERE question_id = $1`, questionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createQuestionContent creates the question.question master plus its first
+// version, body block, metadata and academic junctions in one transaction.
+// Question content rows have no contents-row counterpart; the question master
+// IS the content row (ContentType QUESTION dispatches here from CreateContent).
+func (r *repository) createQuestionContent(ctx context.Context, c *Content) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	// Note: grade_id, subject_id, created_by should be passed via CreateContentReq in real usage
-	// This method assumes caller has already created the base content
+	statuses, err := r.ensureQuestionStatuses(ctx, tx)
+	if err != nil {
+		return err
+	}
+	statusID := statuses[string(c.Status)]
+	if statusID == uuid.Nil {
+		statusID = statuses[string(StatusDraft)]
+	}
 
-	_, err = tx.Exec(ctx, `
-		INSERT INTO content_questions (content_id, question_type, difficulty, bloom_level, thinking_level, language, source, subtopic_id, stimulus_id, score, negative_score, estimated_time, explanation)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-	`, q.ContentID, q.QuestionType, q.Difficulty, q.BloomLevel, q.ThinkingLevel, q.Language, q.Source, q.SubTopicID, q.StimulusID, q.Score, q.NegativeScore, q.EstimatedTime, q.Explanation)
+	qType := QuestionTypeSingleChoice
+	if t, ok := c.Metadata["question_type"].(string); ok && t != "" {
+		qType = QuestionType(t)
+	}
+
+	code := "Q" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question (id, question_code, question_type, status_id, owner_id, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		c.ID, code, qType, statusID, c.CreatedBy, c.CreatedBy, c.CreatedBy); err != nil {
+		return err
+	}
+
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, 1, 'Initial version', $2, true) RETURNING id`, c.ID, c.CreatedBy).Scan(&versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE question.question SET current_version_id = $1 WHERE id = $2`, versionID, c.ID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, c.Body); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_metadata (question_id, language)
+		VALUES ($1, 'id') ON CONFLICT (question_id) DO NOTHING`, c.ID); err != nil {
+		return err
+	}
+
+	if err := r.insertQuestionJunctions(ctx, tx, c.ID, c); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// questionColumns projects a question.question master plus its current version,
+// metadata, academic junctions and status into the QuestionFull shape. The
+// body block content feeds both the Content.Title (question_code) and
+// Content.Body fields (there is no separate contents row for questions).
+const questionColumns = `
+	q.id,
+	'QUESTION'::text,
+	COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	ch.chapter_id,
+	tp.topic_id,
+	NULL::uuid,
+	q.question_code,
+	COALESCE(blk.content, '')::text,
+	COALESCE(st.code, 'DRAFT')::text,
+	COALESCE(q.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+	NULL::jsonb,
+	NULL::timestamptz,
+	q.created_at,
+	q.updated_at,
+	q.question_type::text,
+	COALESCE(md.difficulty_level, 'MEDIUM')::text,
+	md.blooms_level::text,
+	md.cognitive_level::text,
+	COALESCE(md.language, 'id')::text,
+	COALESCE(md.source_name, 'MANUAL')::text,
+	NULL::uuid,
+	NULL::uuid,
+	COALESCE((SELECT MAX(op.score) FROM question.question_option op WHERE op.question_version_id = v.id AND op.is_correct AND op.score > 0), 1.0)::float8,
+	0.0::float8,
+	COALESCE(md.estimated_time, 0),
+	COALESCE(e.content, '')::text`
+
+const questionFrom = `
+	FROM question.question q
+	LEFT JOIN question.question_status st ON st.id = q.status_id
+	LEFT JOIN question.question_version v ON v.id = q.current_version_id
+	LEFT JOIN question.question_block blk ON blk.question_version_id = v.id AND blk.block_order = 0
+	LEFT JOIN question.question_metadata md ON md.question_id = q.id
+	LEFT JOIN question.explanation e ON e.question_version_id = v.id
+	LEFT JOIN LATERAL (SELECT subject_id FROM question.question_subject WHERE question_id = q.id LIMIT 1) subj ON true
+	LEFT JOIN LATERAL (SELECT grade_id FROM question.question_grade WHERE question_id = q.id LIMIT 1) gr ON true
+	LEFT JOIN LATERAL (SELECT chapter_id FROM question.question_chapter WHERE question_id = q.id LIMIT 1) ch ON true
+	LEFT JOIN LATERAL (SELECT topic_id FROM question.question_topic WHERE question_id = q.id LIMIT 1) tp ON true`
+
+func scanQuestionFull(row pgx.Row) (*QuestionFull, error) {
+	q := &QuestionFull{}
+	var meta map[string]interface{}
+	var qType, difficulty, bloom, thinking, language, source string
+	if err := row.Scan(
+		&q.Content.ID, &q.Content.ContentType, &q.Content.GradeID, &q.Content.SubjectID, &q.Content.ChapterID, &q.Content.TopicID, &q.Content.LOID, &q.Content.Title, &q.Content.Body, &q.Content.Status, &q.Content.CreatedBy, &meta, &q.Content.PublishedAt, &q.Content.CreatedAt, &q.Content.UpdatedAt,
+		&qType, &difficulty, &bloom, &thinking, &language, &source, &q.Question.SubTopicID, &q.Question.StimulusID, &q.Question.Score, &q.Question.NegativeScore, &q.Question.EstimatedTime, &q.Question.Explanation,
+	); err != nil {
+		return nil, err
+	}
+	q.Question.QuestionType = QuestionType(qType)
+	q.Question.Difficulty = Difficulty(difficulty)
+	if bloom != "" {
+		b := BloomLevel(bloom)
+		q.Question.BloomLevel = &b
+	}
+	if thinking != "" {
+		t := ThinkingLevel(thinking)
+		q.Question.ThinkingLevel = &t
+	}
+	q.Question.Language = language
+	q.Question.Source = QuestionSource(source)
+	if len(meta) > 0 {
+		q.Content.Metadata = meta
+	}
+	return q, nil
+}
+
+// loadQuestionOptions loads the current-version options of a question.
+func (r *repository) loadQuestionOptions(ctx context.Context, questionID uuid.UUID) ([]QuestionOption, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT op.id, q.id, op.label, COALESCE(ob.content, '')::text, op.is_correct, op.display_order
+		FROM question.question_option op
+		JOIN question.question q ON q.current_version_id = op.question_version_id
+		LEFT JOIN question.option_block ob ON ob.option_id = op.id AND ob.block_order = 0
+		WHERE q.id = $1 AND q.deleted_at IS NULL
+		ORDER BY op.display_order`, questionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var opts []QuestionOption
+	for rows.Next() {
+		var o QuestionOption
+		if err := rows.Scan(&o.ID, &o.ContentID, &o.Label, &o.OptionText, &o.IsCorrect, &o.DisplayOrder); err != nil {
+			return nil, err
+		}
+		opts = append(opts, o)
+	}
+	return opts, rows.Err()
+}
+
+// insertQuestionOptions writes the given options into a version, applying the
+// score to the correct option. Create/Update/ReplaceOptions all funnel through
+// here so scoring stays consistent.
+func insertQuestionOptions(ctx context.Context, tx pgx.Tx, versionID uuid.UUID, opts []QuestionOption, score float64) error {
+	for i, opt := range opts {
+		opt.DisplayOrder = i
+		opt.ID = uuid.New()
+		optScore := 0.0
+		if opt.IsCorrect {
+			optScore = score
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_option (id, question_version_id, label, score, is_correct, display_order)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			opt.ID, versionID, opt.Label, optScore, opt.IsCorrect, opt.DisplayOrder); err != nil {
+			return err
+		}
+		if opt.OptionText != "" {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO question.option_block (option_id, block_order, block_type, content)
+				VALUES ($1, 0, 'PARAGRAPH', $2)`, opt.ID, opt.OptionText); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// upsertQuestionMetadata mirrors question_bank.insertMetadata: difficulty and
+// bloom values are normalized to the question_metadata CHECK domains.
+func (r *repository) upsertQuestionMetadata(ctx context.Context, tx pgx.Tx, q *Question) error {
+	var diff any
+	if q.Difficulty != "" {
+		diff = normalizeQuestionDifficulty(string(q.Difficulty))
+	}
+	var blooms any
+	if q.BloomLevel != nil {
+		if b := normalizeQuestionBloom(string(*q.BloomLevel)); b != "" {
+			blooms = b
+		}
+	}
+	var lang any
+	if q.Language != "" {
+		lang = q.Language
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO question.question_metadata
+			(question_id, estimated_time, difficulty_level, blooms_level, cognitive_level, language, source_name)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (question_id) DO UPDATE SET
+			estimated_time = COALESCE(EXCLUDED.estimated_time, question_metadata.estimated_time),
+			difficulty_level = COALESCE(EXCLUDED.difficulty_level, question_metadata.difficulty_level),
+			blooms_level = COALESCE(EXCLUDED.blooms_level, question_metadata.blooms_level),
+			cognitive_level = COALESCE(EXCLUDED.cognitive_level, question_metadata.cognitive_level),
+			language = COALESCE(EXCLUDED.language, question_metadata.language),
+			source_name = COALESCE(EXCLUDED.source_name, question_metadata.source_name)`,
+		q.ContentID, q.EstimatedTime, diff, blooms, q.ThinkingLevel, lang, q.Source)
+	return err
+}
+
+func normalizeQuestionDifficulty(d string) string {
+	switch strings.ToUpper(d) {
+	case "EASY", "MEDIUM", "HARD", "VERY_HARD":
+		return strings.ToUpper(d)
+	}
+	return "MEDIUM"
+}
+
+func normalizeQuestionBloom(b string) string {
+	switch strings.ToUpper(b) {
+	case "REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE":
+		return strings.ToUpper(b)
+	}
+	return ""
+}
+
+func (r *repository) CreateQuestion(ctx context.Context, q *Question, opts []QuestionOption) error {
+	if q.ContentID == uuid.Nil {
+		q.ContentID = uuid.New()
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	statuses, err := r.ensureQuestionStatuses(ctx, tx)
 	if err != nil {
 		return err
 	}
 
-	for i, opt := range opts {
-		opt.ID = uuid.New()
-		opt.ContentID = q.ContentID
-		opt.DisplayOrder = i
-		opt.CreatedAt = time.Now()
-		_, err = tx.Exec(ctx, `
-			INSERT INTO content_question_options (id, content_id, label, option_text, is_correct, explanation, display_order, created_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		`, opt.ID, opt.ContentID, opt.Label, opt.OptionText, opt.IsCorrect, opt.Explanation, opt.DisplayOrder, opt.CreatedAt)
-		if err != nil {
+	qType := q.QuestionType
+	if qType == "" {
+		qType = QuestionTypeSingleChoice
+	}
+	score := q.Score
+	if score <= 0 {
+		score = 1.0
+	}
+
+	code := "Q" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question (id, question_code, question_type, status_id)
+		VALUES ($1, $2, $3, $4)`,
+		q.ContentID, code, qType, statuses[string(StatusDraft)]); err != nil {
+		return err
+	}
+
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, 1, 'Initial version', NULL, true) RETURNING id`, q.ContentID).Scan(&versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE question.question SET current_version_id = $1 WHERE id = $2`, versionID, q.ContentID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, q.Explanation); err != nil {
+		return err
+	}
+	if q.Explanation != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.explanation (question_version_id, content) VALUES ($1, $2)`, versionID, q.Explanation); err != nil {
 			return err
 		}
+	}
+	if err := insertQuestionOptions(ctx, tx, versionID, opts, score); err != nil {
+		return err
+	}
+	if err := r.upsertQuestionMetadata(ctx, tx, q); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)
 }
 
 func (r *repository) GetQuestion(ctx context.Context, contentID uuid.UUID) (*QuestionFull, error) {
-	q := &QuestionFull{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       q.question_type, q.difficulty, q.bloom_level, q.thinking_level, q.language, q.source, q.subtopic_id, q.stimulus_id, q.score, q.negative_score, q.estimated_time, q.explanation
-		FROM contents c
-		JOIN content_questions q ON c.id = q.content_id
-		WHERE c.id = $1
-	`, contentID).Scan(
-		&q.Content.ID, &q.Content.ContentType, &q.Content.GradeID, &q.Content.SubjectID, &q.Content.ChapterID, &q.Content.TopicID, &q.Content.LOID, &q.Content.Title, &q.Content.Body, &q.Content.Status, &q.Content.CreatedBy, &q.Content.Metadata, &q.Content.PublishedAt, &q.Content.CreatedAt, &q.Content.UpdatedAt,
-		&q.Question.QuestionType, &q.Question.Difficulty, &q.Question.BloomLevel, &q.Question.ThinkingLevel, &q.Question.Language, &q.Question.Source, &q.Question.SubTopicID, &q.Question.StimulusID, &q.Question.Score, &q.Question.NegativeScore, &q.Question.EstimatedTime, &q.Question.Explanation,
-	)
+	q, err := scanQuestionFull(r.pool.QueryRow(ctx, `SELECT `+questionColumns+questionFrom+` WHERE q.id = $1 AND q.deleted_at IS NULL`, contentID))
 	if err != nil {
 		return nil, err
 	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, content_id, label, option_text, is_correct, explanation, display_order, created_at
-		FROM content_question_options WHERE content_id = $1 ORDER BY display_order
-	`, contentID)
+	opts, err := r.loadQuestionOptions(ctx, contentID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var opt QuestionOption
-		if err := rows.Scan(&opt.ID, &opt.ContentID, &opt.Label, &opt.OptionText, &opt.IsCorrect, &opt.Explanation, &opt.DisplayOrder, &opt.CreatedAt); err != nil {
-			return nil, err
-		}
-		q.Options = append(q.Options, opt)
-	}
+	q.Options = opts
 	return q, nil
 }
 
 func (r *repository) UpdateQuestion(ctx context.Context, contentID uuid.UUID, q *Question) error {
-	_, err := r.pool.Exec(ctx, `
-		UPDATE content_questions SET
-			question_type = $1, difficulty = $2, bloom_level = $3, thinking_level = $4,
-			language = $5, source = $6, subtopic_id = $7, stimulus_id = $8,
-			score = $9, negative_score = $10, estimated_time = $11, explanation = $12
-		WHERE content_id = $13
-	`, q.QuestionType, q.Difficulty, q.BloomLevel, q.ThinkingLevel, q.Language, q.Source,
-		q.SubTopicID, q.StimulusID, q.Score, q.NegativeScore, q.EstimatedTime, q.Explanation, contentID)
+	q.ContentID = contentID
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	return r.UpdateContent(ctx, contentID, UpdateContentReq{
-		Title: &q.Explanation,
-		Body:  &q.Explanation,
-	})
+	defer tx.Rollback(ctx)
+
+	var curVer *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT current_version_id FROM question.question WHERE id = $1 AND deleted_at IS NULL`, contentID).Scan(&curVer); err != nil {
+		return err
+	}
+	if curVer == nil {
+		return pgx.ErrNoRows
+	}
+
+	var nextNo int
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(version_no), 0) + 1 FROM question.question_version WHERE question_id = $1`, contentID).Scan(&nextNo); err != nil {
+		return err
+	}
+
+	// Carry the question score through the version bump: the correct option's
+	// stored score IS the question score. Explicit positive q.Score wins;
+	// otherwise reuse the current correct-option score.
+	score := q.Score
+	if score <= 0 {
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE((SELECT MAX(op.score) FROM question.question_option op
+				WHERE op.question_version_id = $1 AND op.is_correct AND op.score > 0), 1.0)::float8`, *curVer).Scan(&score); err != nil {
+			return err
+		}
+	}
+
+	// Carry the body block through the version bump: the block content is the
+	// question body, so a re-save keeps the current body unless the caller set
+	// a new one (CreateQuestion stored body in the version's block).
+	var body string
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(blk.content, '')
+		FROM question.question_version v
+		LEFT JOIN question.question_block blk ON blk.question_version_id = v.id AND blk.block_order = 0
+		WHERE v.id = $1`, *curVer).Scan(&body); err != nil {
+		return err
+	}
+
+	var newVer uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO question.question_version (question_id, version_no, change_summary, created_by, is_current)
+		VALUES ($1, $2, 'content updated', NULL, true) RETURNING id`, contentID, nextNo).Scan(&newVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE question.question_version SET is_current = false WHERE id = $1`, *curVer); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE question.question SET current_version_id = $1, updated_at = NOW() WHERE id = $2`, newVer, contentID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+		VALUES ($1, 0, 'PARAGRAPH', $2)`, newVer, body); err != nil {
+		return err
+	}
+	if q.Explanation != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.explanation (question_version_id, content) VALUES ($1, $2)`, newVer, q.Explanation); err != nil {
+			return err
+		}
+	}
+	if err := r.upsertQuestionMetadata(ctx, tx, q); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) DeleteQuestion(ctx context.Context, contentID uuid.UUID) error {
-	// CASCADE deletes content_question_options and content_questions
-	return r.DeleteContent(ctx, contentID)
+	tag, err := r.pool.Exec(ctx, `UPDATE question.question SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, contentID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *repository) ListQuestions(ctx context.Context, filter QuestionFilter) ([]QuestionFull, int, error) {
-	where := "WHERE c.content_type = 'QUESTION'"
+	where := " WHERE q.deleted_at IS NULL"
 	args := []interface{}{}
 	argN := 1
 
 	if filter.GradeID != nil {
-		where += fmt.Sprintf(" AND c.grade_id = $%d", argN)
+		where += fmt.Sprintf(" AND gr.grade_id = $%d", argN)
 		args = append(args, *filter.GradeID)
 		argN++
 	}
 	if filter.SubjectID != nil {
-		where += fmt.Sprintf(" AND c.subject_id = $%d", argN)
+		where += fmt.Sprintf(" AND subj.subject_id = $%d", argN)
 		args = append(args, *filter.SubjectID)
 		argN++
 	}
 	if filter.Status != nil {
-		where += fmt.Sprintf(" AND c.status = $%d", argN)
-		args = append(args, *filter.Status)
+		where += fmt.Sprintf(" AND st.code = $%d", argN)
+		args = append(args, string(*filter.Status))
 		argN++
 	}
 	if filter.CreatedBy != nil {
-		where += fmt.Sprintf(" AND c.created_by = $%d", argN)
+		where += fmt.Sprintf(" AND q.owner_id = $%d", argN)
 		args = append(args, *filter.CreatedBy)
 		argN++
 	}
 	if filter.Search != "" {
-		where += fmt.Sprintf(" AND (c.title ILIKE $%d OR c.body ILIKE $%d OR q.explanation ILIKE $%d)", argN, argN, argN)
+		where += fmt.Sprintf(" AND (q.question_code ILIKE $%d OR COALESCE(blk.content, '') ILIKE $%d)", argN, argN)
 		args = append(args, "%"+filter.Search+"%")
 		argN++
 	}
 	if filter.Difficulty != nil {
-		where += fmt.Sprintf(" AND q.difficulty = $%d", argN)
-		args = append(args, *filter.Difficulty)
+		where += fmt.Sprintf(" AND md.difficulty_level = $%d", argN)
+		args = append(args, normalizeQuestionDifficulty(string(*filter.Difficulty)))
 		argN++
 	}
 	if filter.BloomLevel != nil {
-		where += fmt.Sprintf(" AND q.bloom_level = $%d", argN)
-		args = append(args, *filter.BloomLevel)
+		where += fmt.Sprintf(" AND md.blooms_level = $%d", argN)
+		args = append(args, normalizeQuestionBloom(string(*filter.BloomLevel)))
 		argN++
 	}
 	if filter.ThinkingLevel != nil {
-		where += fmt.Sprintf(" AND q.thinking_level = $%d", argN)
-		args = append(args, *filter.ThinkingLevel)
+		where += fmt.Sprintf(" AND md.cognitive_level = $%d", argN)
+		args = append(args, string(*filter.ThinkingLevel))
 		argN++
 	}
 	if filter.QuestionType != nil {
 		where += fmt.Sprintf(" AND q.question_type = $%d", argN)
-		args = append(args, *filter.QuestionType)
+		args = append(args, string(*filter.QuestionType))
 		argN++
 	}
 	if filter.TopicID != nil {
-		where += fmt.Sprintf(" AND q.topic_id = $%d", argN)
+		where += fmt.Sprintf(" AND tp.topic_id = $%d", argN)
 		args = append(args, *filter.TopicID)
 		argN++
 	}
 
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM contents c JOIN content_questions q ON c.id = q.content_id %s", where)
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) "+questionFrom+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -744,13 +1309,8 @@ func (r *repository) ListQuestions(ctx context.Context, filter QuestionFilter) (
 	}
 	offset := filter.Offset
 
-	query := fmt.Sprintf(`
-		SELECT c.id, c.content_type, c.grade_id, c.subject_id, c.chapter_id, c.topic_id, c.lo_id, c.title, c.body, c.status, c.created_by, c.metadata, c.published_at, c.created_at, c.updated_at,
-		       q.question_type, q.difficulty, q.bloom_level, q.thinking_level, q.language, q.source, q.subtopic_id, q.stimulus_id, q.score, q.negative_score, q.estimated_time, q.explanation
-		FROM contents c
-		JOIN content_questions q ON c.id = q.content_id
-		%s ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d
-	`, where, argN, argN+1)
+	query := fmt.Sprintf("SELECT "+questionColumns+questionFrom+where+
+		" ORDER BY q.created_at DESC LIMIT $%d OFFSET $%d", argN, argN+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -761,33 +1321,18 @@ func (r *repository) ListQuestions(ctx context.Context, filter QuestionFilter) (
 
 	var questions []QuestionFull
 	for rows.Next() {
-		var q QuestionFull
-		if err := rows.Scan(
-			&q.Content.ID, &q.Content.ContentType, &q.Content.GradeID, &q.Content.SubjectID, &q.Content.ChapterID, &q.Content.TopicID, &q.Content.LOID, &q.Content.Title, &q.Content.Body, &q.Content.Status, &q.Content.CreatedBy, &q.Content.Metadata, &q.Content.PublishedAt, &q.Content.CreatedAt, &q.Content.UpdatedAt,
-			&q.Question.QuestionType, &q.Question.Difficulty, &q.Question.BloomLevel, &q.Question.ThinkingLevel, &q.Question.Language, &q.Question.Source, &q.Question.SubTopicID, &q.Question.StimulusID, &q.Question.Score, &q.Question.NegativeScore, &q.Question.EstimatedTime, &q.Question.Explanation,
-		); err != nil {
-			return nil, 0, err
-		}
-		// Load options
-		optRows, err := r.pool.Query(ctx, `
-			SELECT id, content_id, label, option_text, is_correct, explanation, display_order, created_at
-			FROM content_question_options WHERE content_id = $1 ORDER BY display_order
-		`, q.Content.ID)
+		q, err := scanQuestionFull(rows)
 		if err != nil {
 			return nil, 0, err
 		}
-		for optRows.Next() {
-			var opt QuestionOption
-			if err := optRows.Scan(&opt.ID, &opt.ContentID, &opt.Label, &opt.OptionText, &opt.IsCorrect, &opt.Explanation, &opt.DisplayOrder, &opt.CreatedAt); err != nil {
-				optRows.Close()
-				return nil, 0, err
-			}
-			q.Options = append(q.Options, opt)
+		opts, err := r.loadQuestionOptions(ctx, q.Content.ID)
+		if err != nil {
+			return nil, 0, err
 		}
-		optRows.Close()
-		questions = append(questions, q)
+		q.Options = opts
+		questions = append(questions, *q)
 	}
-	return questions, total, nil
+	return questions, total, rows.Err()
 }
 
 func (r *repository) ReplaceOptions(ctx context.Context, contentID uuid.UUID, opts []QuestionOption) error {
@@ -797,25 +1342,34 @@ func (r *repository) ReplaceOptions(ctx context.Context, contentID uuid.UUID, op
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id = $1`, contentID)
-	if err != nil {
+	var versionID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT current_version_id FROM question.question WHERE id = $1 AND deleted_at IS NULL`, contentID).Scan(&versionID); err != nil {
 		return err
 	}
 
-	for i, opt := range opts {
-		opt.ID = uuid.New()
-		opt.ContentID = contentID
-		opt.DisplayOrder = i
-		opt.CreatedAt = time.Now()
-		_, err = tx.Exec(ctx, `
-			INSERT INTO content_question_options (id, content_id, label, option_text, is_correct, explanation, display_order, created_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		`, opt.ID, opt.ContentID, opt.Label, opt.OptionText, opt.IsCorrect, opt.Explanation, opt.DisplayOrder, opt.CreatedAt)
-		if err != nil {
-			return err
-		}
+	// Preserve the question score: the correct option's stored score IS the
+	// question score. Read it before wiping options so a replace never resets
+	// the score to 1.0.
+	var score float64
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE((SELECT MAX(op.score) FROM question.question_option op
+			WHERE op.question_version_id = $1 AND op.is_correct AND op.score > 0), 1.0)::float8`, versionID).Scan(&score); err != nil {
+		return err
 	}
 
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM question.option_block WHERE option_id IN
+		(SELECT id FROM question.question_option WHERE question_version_id = $1)`, versionID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM question.question_option WHERE question_version_id = $1`, versionID); err != nil {
+		return err
+	}
+
+	if err := insertQuestionOptions(ctx, tx, versionID, opts, score); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -2229,43 +2783,162 @@ func (r *repository) BatchCreateExamAnswers(ctx context.Context, answers []ExamA
 
 // ========== QUESTION POOLS ==========
 
-// TODO(2.4b-followup): CreateQuestionPool/GetQuestionPool/UpdateQuestionPool/
-// DeleteQuestionPool still target the dropped legacy content_question_pools
-// table (superseded by cbt.exam_question_pool; the engine treats a missing
-// pool as nil and falls back to static exam questions). Keep compile-only.
+// QuestionPool is backed by cbt.exam_question_pool difficulty-distribution
+// rows. The legacy content_question_pools table no longer exists; percentages
+// are computed from the stored per-difficulty totals on read.
+
+// poolBuckets converts the pool's percentage split into concrete per-difficulty
+// counts for persistence.
+func poolBuckets(pool *QuestionPool) []struct {
+	diff  string
+	count int
+} {
+	easy := pool.TotalPoolSize * pool.EasyPct / 100
+	medium := pool.TotalPoolSize * pool.MediumPct / 100
+	hard := pool.TotalPoolSize - easy - medium
+	return []struct {
+		diff  string
+		count int
+	}{
+		{"EASY", easy},
+		{"MEDIUM", medium},
+		{"HARD", hard},
+	}
+}
+
 func (r *repository) CreateQuestionPool(ctx context.Context, qp *QuestionPool) error {
 	qp.ID = uuid.New()
 	qp.CreatedAt = time.Now()
 	qp.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_question_pools (id, exam_content_id, subject_id, chapter_ids, easy_pct, medium_pct, hard_pct, total_pool_size, questions_per_student, shuffle_questions, shuffle_options, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-	`, qp.ID, qp.ExamContentID, qp.SubjectID, qp.ChapterIDs, qp.EasyPct, qp.MediumPct, qp.HardPct, qp.TotalPoolSize, qp.QuestionsPerStudent, qp.ShuffleQuestions, qp.ShuffleOptions, qp.CreatedAt, qp.UpdatedAt)
-	return err
+	if qp.ExamContentID == nil {
+		return fmt.Errorf("question pool requires exam_content_id")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Reset the exam's rows for this subject then insert one pool row per
+	// difficulty bucket.
+	if _, err := tx.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id = $2`, *qp.ExamContentID, qp.SubjectID); err != nil {
+		return err
+	}
+	for _, b := range poolBuckets(qp) {
+		if b.count <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.exam_question_pool (id, exam_id, subject_id, difficulty, total_question)
+			VALUES ($1, $2, $3, $4, $5)`, uuid.New(), *qp.ExamContentID, qp.SubjectID, b.diff, b.count); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *repository) GetQuestionPool(ctx context.Context, examContentID uuid.UUID) (*QuestionPool, error) {
-	qp := &QuestionPool{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, exam_content_id, subject_id, chapter_ids, easy_pct, medium_pct, hard_pct, total_pool_size, questions_per_student, shuffle_questions, shuffle_options, created_at, updated_at
-		FROM content_question_pools WHERE exam_content_id = $1
-	`, examContentID).Scan(&qp.ID, &qp.ExamContentID, &qp.SubjectID, &qp.ChapterIDs, &qp.EasyPct, &qp.MediumPct, &qp.HardPct, &qp.TotalPoolSize, &qp.QuestionsPerStudent, &qp.ShuffleQuestions, &qp.ShuffleOptions, &qp.CreatedAt, &qp.UpdatedAt)
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, subject_id, chapter_id, difficulty, total_question
+		FROM cbt.exam_question_pool WHERE exam_id = $1`, examContentID)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
+	type pr struct {
+		id         uuid.UUID
+		subject    uuid.UUID
+		chapter    *uuid.UUID
+		difficulty string
+		total      int
+	}
+	var prs []pr
+	for rows.Next() {
+		var p pr
+		if err := rows.Scan(&p.id, &p.subject, &p.chapter, &p.difficulty, &p.total); err != nil {
+			return nil, err
+		}
+		prs = append(prs, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(prs) == 0 {
+		return nil, pgx.ErrNoRows
+	}
+
+	qp := &QuestionPool{
+		ID:            prs[0].id,
+		ExamContentID: &examContentID,
+		SubjectID:     prs[0].subject,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	var easy, medium, hard int
+	seen := map[uuid.UUID]bool{}
+	for _, p := range prs {
+		switch p.difficulty {
+		case "EASY":
+			easy += p.total
+		case "MEDIUM":
+			medium += p.total
+		case "HARD":
+			hard += p.total
+		default:
+			medium += p.total
+		}
+		if p.chapter != nil && *p.chapter != uuid.Nil && !seen[*p.chapter] {
+			seen[*p.chapter] = true
+			qp.ChapterIDs = append(qp.ChapterIDs, *p.chapter)
+		}
+	}
+	total := easy + medium + hard
+	qp.TotalPoolSize = total
+	qp.QuestionsPerStudent = total
+	if total > 0 {
+		qp.EasyPct = easy * 100 / total
+		qp.MediumPct = medium * 100 / total
+		qp.HardPct = 100 - qp.EasyPct - qp.MediumPct
+	}
+
+	var shuffleQ, shuffleO *bool
+	_ = r.pool.QueryRow(ctx, `
+		SELECT random_question, random_option FROM cbt.exam_randomization WHERE exam_id = $1`, examContentID).Scan(&shuffleQ, &shuffleO)
+	qp.ShuffleQuestions = shuffleQ != nil && *shuffleQ
+	qp.ShuffleOptions = shuffleO != nil && *shuffleO
 	return qp, nil
 }
 
 func (r *repository) UpdateQuestionPool(ctx context.Context, qp *QuestionPool) error {
+	if qp.ExamContentID == nil {
+		return fmt.Errorf("question pool requires exam_content_id")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE exam_id = $1 AND subject_id = $2`, *qp.ExamContentID, qp.SubjectID); err != nil {
+		return err
+	}
+	for _, b := range poolBuckets(qp) {
+		if b.count <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.exam_question_pool (id, exam_id, subject_id, difficulty, total_question)
+			VALUES ($1, $2, $3, $4, $5)`, uuid.New(), *qp.ExamContentID, qp.SubjectID, b.diff, b.count); err != nil {
+			return err
+		}
+	}
 	qp.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(ctx, `
-		UPDATE content_question_pools SET subject_id=$1, chapter_ids=$2, easy_pct=$3, medium_pct=$4, hard_pct=$5, total_pool_size=$6, questions_per_student=$7, shuffle_questions=$8, shuffle_options=$9, updated_at=$10 WHERE id=$11
-	`, qp.SubjectID, qp.ChapterIDs, qp.EasyPct, qp.MediumPct, qp.HardPct, qp.TotalPoolSize, qp.QuestionsPerStudent, qp.ShuffleQuestions, qp.ShuffleOptions, qp.UpdatedAt, qp.ID)
-	return err
+	return tx.Commit(ctx)
 }
 
 func (r *repository) DeleteQuestionPool(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM content_question_pools WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_question_pool WHERE id=$1`, id)
 	return err
 }
 
@@ -2327,9 +3000,9 @@ func (r *repository) GetQuestionsForPool(ctx context.Context, pool *QuestionPool
 
 // ========== EXAM SESSION QUESTIONS ==========
 
-// TODO(2.4b-followup): AddSessionQuestions still writes the dropped legacy
-// content_exam_sessions / content_exam_session_questions. The new runtime
-// models per-question rows in cbt.attempt_question (Batch 3). Keep compile-only.
+// AddSessionQuestions snapshots the given questions into cbt.attempt_question
+// (+ cbt.attempt_option labels) for the session/attempt, mirroring the runtime.
+// The engine passes the cbt.exam_attempt id as sessionID.
 func (r *repository) AddSessionQuestions(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -2337,45 +3010,60 @@ func (r *repository) AddSessionQuestions(ctx context.Context, sessionID uuid.UUI
 	}
 	defer tx.Rollback(ctx)
 
-	var examContentID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT exam_content_id FROM content_exam_sessions WHERE id=$1`, sessionID).Scan(&examContentID)
-	if err != nil {
-		return err
-	}
-
 	for i, qid := range questionIDs {
-		var eqID uuid.UUID
-		err = tx.QueryRow(ctx, `SELECT id FROM content_exam_questions WHERE exam_content_id=$1 AND question_content_id=$2`, examContentID, qid).Scan(&eqID)
-		if err != nil {
-			return err
-		}
-
-		displayOrder := i + 1
-		var optionOrder []byte
-		if shuffleOptions {
-			optRows, err := tx.Query(ctx, `SELECT id FROM content_question_options WHERE question_content_id=$1 ORDER BY RANDOM()`, qid)
-			if err != nil {
+		aqID := uuid.New()
+		// Snapshot the question's current version_no so later grading resolves
+		// correct-option labels against the version the student actually saw.
+		var snapshotNo int
+		if err := tx.QueryRow(ctx, `
+			SELECT qv.version_no
+			FROM question.question q
+			JOIN question.question_version qv ON qv.id = q.current_version_id
+			WHERE q.id = $1`, qid).Scan(&snapshotNo); err != nil {
+			if err == pgx.ErrNoRows {
+				snapshotNo = 1
+			} else {
 				return err
 			}
-			var optIDs []uuid.UUID
-			for optRows.Next() {
-				var oid uuid.UUID
-				optRows.Scan(&oid)
-				optIDs = append(optIDs, oid)
-			}
-			optRows.Close()
-			optionOrder, _ = json.Marshal(optIDs)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.attempt_question (id, attempt_id, question_id, display_order, snapshot_version)
+			VALUES ($1, $2, $3, $4, $5)`, aqID, sessionID, qid, i+1, snapshotNo); err != nil {
+			return err
 		}
 
-		_, err = tx.Exec(ctx, `
-			INSERT INTO content_exam_session_questions (id, session_id, exam_question_id, display_order, assigned_option_order)
-			VALUES ($1,$2,$3,$4,$5)
-		`, uuid.New(), sessionID, eqID, displayOrder, optionOrder)
+		order := "op.display_order"
+		if shuffleOptions {
+			order = "RANDOM()"
+		}
+		optRows, err := tx.Query(ctx, fmt.Sprintf(`
+			SELECT op.label
+			FROM question.question q
+			JOIN question.question_option op ON op.question_version_id = q.current_version_id
+			WHERE q.id = $1
+			ORDER BY %s`, order), qid)
 		if err != nil {
 			return err
 		}
-	}
+		var labels []string
+		for optRows.Next() {
+			var l string
+			if err := optRows.Scan(&l); err != nil {
+				optRows.Close()
+				return err
+			}
+			labels = append(labels, l)
+		}
+		optRows.Close()
 
+		for j, l := range labels {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO cbt.attempt_option (attempt_question_id, option_label, display_order)
+				VALUES ($1, $2, $3)`, aqID, l, j+1); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
 }
 
@@ -2558,54 +3246,110 @@ func (r *repository) DeletePracticeSet(ctx context.Context, contentID uuid.UUID)
 
 // ========== PRACTICE SESSIONS ==========
 
-// TODO(2.4b-followup): practice SESSIONS are a Batch 3 concern; no
-// content.practice_session table exists yet, so these four methods keep their
-// legacy SQL (compile-only).
+// Practice sessions persist to content.practice_session (migration 211). The
+// schema carries student/subject/grade, status, scores and timestamps but has
+// no practice_set_id, tag_filter, time_spent_seconds or subject_breakdown
+// columns, so those DTO fields are dropped on write and nil on read.
+
+// practiceCBTStatus maps the DTO status into the practice_session CHECK domain.
+func practiceCBTStatus(s PracticeSessionStatus) string {
+	switch s {
+	case PracticeSubmitted:
+		return "SUBMITTED"
+	case PracticeGraded:
+		return "GRADED"
+	default:
+		return "IN_PROGRESS"
+	}
+}
+
+func legacyPracticeStatus(s string) PracticeSessionStatus {
+	switch s {
+	case "SUBMITTED":
+		return PracticeSubmitted
+	case "GRADED":
+		return PracticeGraded
+	default:
+		return PracticeInProgress
+	}
+}
+
+func floatPtr(f float64) *float64 { return &f }
+
 func (r *repository) CreatePracticeSession(ctx context.Context, ps *PracticeSession) error {
 	ps.ID = uuid.New()
 	ps.CreatedAt = time.Now()
 	ps.StartedAt = time.Now()
+	status := practiceCBTStatus(ps.Status)
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO content_practice_sessions (id, user_id, practice_set_id, subject_id, grade_id, tag_filter, status, started_at, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-	`, ps.ID, ps.UserID, ps.PracticeSetID, ps.SubjectID, ps.GradeID, ps.TagFilter, ps.Status, ps.StartedAt, ps.CreatedAt)
+		INSERT INTO content.practice_session (id, student_id, subject_id, grade_id, status, started_at, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+	`, ps.ID, ps.UserID, ps.SubjectID, ps.GradeID, status, ps.StartedAt, ps.CreatedAt)
 	return err
 }
 
-func (r *repository) GetPracticeSession(ctx context.Context, sessionID uuid.UUID) (*PracticeSession, error) {
+func scanPracticeSession(row pgx.Row) (*PracticeSession, error) {
 	ps := &PracticeSession{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, user_id, practice_set_id, subject_id, grade_id, tag_filter, status, started_at, submitted_at, graded_at, total_score, max_score, time_spent_seconds, subject_breakdown, created_at
-		FROM content_practice_sessions WHERE id = $1
-	`, sessionID).Scan(&ps.ID, &ps.UserID, &ps.PracticeSetID, &ps.SubjectID, &ps.GradeID, &ps.TagFilter, &ps.Status, &ps.StartedAt, &ps.SubmittedAt, &ps.GradedAt, &ps.TotalScore, &ps.MaxScore, &ps.TimeSpentSeconds, &ps.SubjectBreakdown, &ps.CreatedAt)
-	if err != nil {
+	var status string
+	var total, max float64
+	var finishedAt *time.Time
+	if err := row.Scan(&ps.ID, &ps.UserID, &ps.SubjectID, &ps.GradeID, &status, &total, &max, &ps.StartedAt, &finishedAt, &ps.CreatedAt); err != nil {
 		return nil, err
+	}
+	ps.Status = legacyPracticeStatus(status)
+	ps.TotalScore = floatPtr(total)
+	ps.MaxScore = floatPtr(max)
+	if finishedAt != nil {
+		if ps.Status == PracticeGraded {
+			ps.GradedAt = finishedAt
+		} else if ps.Status == PracticeSubmitted {
+			ps.SubmittedAt = finishedAt
+		}
 	}
 	return ps, nil
 }
 
+const practiceSessionColumns = `
+	id, student_id, subject_id, grade_id, status, total_score, max_score, started_at, finished_at, created_at`
+
+func (r *repository) GetPracticeSession(ctx context.Context, sessionID uuid.UUID) (*PracticeSession, error) {
+	return scanPracticeSession(r.pool.QueryRow(ctx, `
+		SELECT `+practiceSessionColumns+`
+		FROM content.practice_session WHERE id = $1`, sessionID))
+}
+
 func (r *repository) UpdatePracticeSession(ctx context.Context, ps *PracticeSession) error {
+	// content.practice_session has a single finished_at timestamp; persist the
+	// later of submitted/graded so the grade state is never lost.
+	var finishedAt *time.Time
+	switch {
+	case ps.GradedAt != nil:
+		finishedAt = ps.GradedAt
+	case ps.SubmittedAt != nil:
+		finishedAt = ps.SubmittedAt
+	case ps.Status == PracticeGraded || ps.Status == PracticeSubmitted:
+		now := time.Now()
+		finishedAt = &now
+	}
 	_, err := r.pool.Exec(ctx, `
-		UPDATE content_practice_sessions SET
-			status = $1, submitted_at = $2, graded_at = $3,
-			total_score = $4, max_score = $5, time_spent_seconds = $6,
-			subject_breakdown = $7
-		WHERE id = $8
-	`, ps.Status, ps.SubmittedAt, ps.GradedAt, ps.TotalScore, ps.MaxScore, ps.TimeSpentSeconds, ps.SubjectBreakdown, ps.ID)
+		UPDATE content.practice_session SET
+			status = $2, finished_at = COALESCE($3, finished_at),
+			total_score = COALESCE($4, total_score), max_score = COALESCE($5, max_score),
+			updated_at = NOW()
+		WHERE id = $1
+	`, ps.ID, practiceCBTStatus(ps.Status), finishedAt, ps.TotalScore, ps.MaxScore)
 	return err
 }
 
 func (r *repository) GetUserPracticeSessions(ctx context.Context, userID uuid.UUID, limit, offset int) ([]PracticeSession, int, error) {
 	var total int
-	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_practice_sessions WHERE user_id=$1`, userID).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content.practice_session WHERE student_id=$1`, userID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, user_id, practice_set_id, subject_id, grade_id, tag_filter, status, started_at, submitted_at, graded_at, total_score, max_score, time_spent_seconds, subject_breakdown, created_at
-		FROM content_practice_sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
+		SELECT `+practiceSessionColumns+`
+		FROM content.practice_session WHERE student_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2613,13 +3357,13 @@ func (r *repository) GetUserPracticeSessions(ctx context.Context, userID uuid.UU
 
 	var sessions []PracticeSession
 	for rows.Next() {
-		var ps PracticeSession
-		if err := rows.Scan(&ps.ID, &ps.UserID, &ps.PracticeSetID, &ps.SubjectID, &ps.GradeID, &ps.TagFilter, &ps.Status, &ps.StartedAt, &ps.SubmittedAt, &ps.GradedAt, &ps.TotalScore, &ps.MaxScore, &ps.TimeSpentSeconds, &ps.SubjectBreakdown, &ps.CreatedAt); err != nil {
+		ps, err := scanPracticeSession(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		sessions = append(sessions, ps)
+		sessions = append(sessions, *ps)
 	}
-	return sessions, total, nil
+	return sessions, total, rows.Err()
 }
 
 // ========== PRACTICE QUESTION SELECTION ==========
@@ -2695,9 +3439,10 @@ func (r *repository) GetQuestionsForMaterialPractice(ctx context.Context, materi
 
 // ========== PRACTICE QUESTION SELECTION (Extended) ==========
 
-// TODO(2.4b-followup): AddSessionQuestionsWithSubject still writes the dropped
-// legacy content_exam_session_questions. Keep compile-only (Batch 3 maps to
-// cbt.attempt_question + subject-scored grading).
+// AddSessionQuestionsWithSubject snapshots questions into cbt.attempt_question
+// (+ cbt.attempt_option) for the session/attempt, the same as AddSessionQuestions
+// (cbt.attempt_question carries no per-question subject column; subject scoring
+// resolves subjects on the fly via GetQuestionSubject).
 func (r *repository) AddSessionQuestionsWithSubject(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -2705,55 +3450,58 @@ func (r *repository) AddSessionQuestionsWithSubject(ctx context.Context, session
 	}
 	defer tx.Rollback(ctx)
 
-	// Get exam_content_id from the attempt
-	var examContentID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT exam_content_id FROM content_exam_attempts WHERE id=$1`, sessionID).Scan(&examContentID)
-	if err != nil {
-		return err
-	}
-
 	for i, qid := range questionIDs {
-		var eqID uuid.UUID
-		var subjectID *uuid.UUID
-
-		// Get exam_question id and subject_id from contents
-		err = tx.QueryRow(ctx, `
-			SELECT eq.id, c.subject_id
-			FROM content_exam_questions eq
-			JOIN contents c ON eq.question_content_id = c.id
-			WHERE eq.exam_content_id = $1
-			AND eq.question_content_id = $2
-		`, examContentID, qid).Scan(&eqID, &subjectID)
-		if err != nil {
-			return err
-		}
-
-		displayOrder := i + 1
-		var optionOrder []byte
-		if shuffleOptions {
-			optRows, err := tx.Query(ctx, `SELECT id FROM content_question_options WHERE question_content_id=$1 ORDER BY RANDOM()`, qid)
-			if err != nil {
+		aqID := uuid.New()
+		var snapshotNo int
+		if err := tx.QueryRow(ctx, `
+			SELECT qv.version_no
+			FROM question.question q
+			JOIN question.question_version qv ON qv.id = q.current_version_id
+			WHERE q.id = $1`, qid).Scan(&snapshotNo); err != nil {
+			if err == pgx.ErrNoRows {
+				snapshotNo = 1
+			} else {
 				return err
 			}
-			var optIDs []uuid.UUID
-			for optRows.Next() {
-				var oid uuid.UUID
-				optRows.Scan(&oid)
-				optIDs = append(optIDs, oid)
-			}
-			optRows.Close()
-			optionOrder, _ = json.Marshal(optIDs)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO cbt.attempt_question (id, attempt_id, question_id, display_order, snapshot_version)
+			VALUES ($1, $2, $3, $4, $5)`, aqID, sessionID, qid, i+1, snapshotNo); err != nil {
+			return err
 		}
 
-		_, err = tx.Exec(ctx, `
-			INSERT INTO content_exam_session_questions (id, session_id, exam_question_id, display_order, assigned_option_order, subject_id)
-			VALUES ($1,$2,$3,$4,$5,$6)
-		`, uuid.New(), sessionID, eqID, displayOrder, optionOrder, subjectID)
+		order := "op.display_order"
+		if shuffleOptions {
+			order = "RANDOM()"
+		}
+		optRows, err := tx.Query(ctx, fmt.Sprintf(`
+			SELECT op.label
+			FROM question.question q
+			JOIN question.question_option op ON op.question_version_id = q.current_version_id
+			WHERE q.id = $1
+			ORDER BY %s`, order), qid)
 		if err != nil {
 			return err
 		}
-	}
+		var labels []string
+		for optRows.Next() {
+			var l string
+			if err := optRows.Scan(&l); err != nil {
+				optRows.Close()
+				return err
+			}
+			labels = append(labels, l)
+		}
+		optRows.Close()
 
+		for j, l := range labels {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO cbt.attempt_option (attempt_question_id, option_label, display_order)
+				VALUES ($1, $2, $3)`, aqID, l, j+1); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
 }
 
