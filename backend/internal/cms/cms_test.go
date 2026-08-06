@@ -70,6 +70,12 @@ func TestCMSRepositoryLifecycle(t *testing.T) {
 		t.Fatalf("expected 1 version after update, got %d", len(vers))
 	}
 
+	// Update on a non-existent page must 404-style ErrNoRows (previously
+	// leaked a FK-constraint 500 by inserting a version for a missing page).
+	if _, err := r.UpdatePage(ctx, &Page{ID: uuid.New(), Slug: "nope", Title: "x", PageType: "CUSTOM", Visibility: "PUBLIC"}, &uid, nil, strPtr("hi")); err != pgx.ErrNoRows {
+		t.Fatalf("UpdatePage(nonexistent) err = %v, want pgx.ErrNoRows", err)
+	}
+
 	// Explicit version creation (version+1).
 	v, err := r.CreatePageVersion(ctx, pageID, &uid, strPtr("About Us v2"), strPtr("by hand"))
 	if err != nil {

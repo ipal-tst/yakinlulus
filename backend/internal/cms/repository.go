@@ -205,13 +205,17 @@ func (r *Repository) UpdatePage(ctx context.Context, p *Page, userID *uuid.UUID,
 		return nil, err
 	}
 
-	if _, err := tx.Exec(ctx, `UPDATE cms.cms_page SET
+	tag, err := tx.Exec(ctx, `UPDATE cms.cms_page SET
 		slug=$1, title=$2, subtitle=$3, description=$4, page_type=$5, template=$6,
 		visibility=$7, cover_image=$8, thumbnail=$9, editor_id=$10, updated_at=NOW()
 		WHERE id=$11 AND deleted_at IS NULL`,
 		p.Slug, p.Title, p.Subtitle, p.Description, p.PageType, p.Template,
-		p.Visibility, p.CoverImage, p.Thumbnail, userID, p.ID); err != nil {
+		p.Visibility, p.CoverImage, p.Thumbnail, userID, p.ID)
+	if err != nil {
 		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, pgx.ErrNoRows
 	}
 
 	if _, err := tx.Exec(ctx, `INSERT INTO cms.cms_page_version
@@ -461,12 +465,16 @@ func (r *Repository) UpdatePost(ctx context.Context, p *Post, userID *uuid.UUID,
 		return nil, err
 	}
 
-	if _, err := tx.Exec(ctx, `UPDATE cms.cms_post SET
+	tag, err := tx.Exec(ctx, `UPDATE cms.cms_post SET
 		slug=$1, title=$2, excerpt=$3, content=$4, cover_image=$5, category_id=$6,
 		status=$7, reading_time=$8, updated_at=NOW()
 		WHERE id=$9 AND deleted_at IS NULL`,
-		p.Slug, p.Title, p.Excerpt, p.Content, p.CoverImage, p.CategoryID, p.Status, p.ReadingTime, p.ID); err != nil {
+		p.Slug, p.Title, p.Excerpt, p.Content, p.CoverImage, p.CategoryID, p.Status, p.ReadingTime, p.ID)
+	if err != nil {
 		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, pgx.ErrNoRows
 	}
 
 	if _, err := tx.Exec(ctx, `INSERT INTO cms.cms_post_version (post_id, version, content, editor_id)

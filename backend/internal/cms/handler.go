@@ -19,51 +19,55 @@ func NewHandler(svc *Service, jwtSecret string) *Handler { return &Handler{svc: 
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	write := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
+	// Admin/staff read gate: listing and get-by-id expose draft/private
+	// content and must require auth. Only slug feeds (PUBLISHED content) and
+	// active public lookups (settings/faqs/banners) are open.
+	read := middleware.RequireAuth(h.auth)
 
 	// Pages
 	pages := router.Group("/cms/pages")
-	pages.Get("/", h.ListPages)
-	pages.Post("/", middleware.RequireAuth(h.auth), write, h.CreatePage)
+	pages.Get("/", read, h.ListPages)
+	pages.Post("/", read, write, h.CreatePage)
 	pages.Get("/slug/:slug", h.GetPageBySlug)
-	pages.Get("/:id", h.GetPage)
-	pages.Put("/:id", middleware.RequireAuth(h.auth), write, h.UpdatePage)
-	pages.Delete("/:id", middleware.RequireAuth(h.auth), write, h.DeletePage)
-	pages.Post("/:id/publish", middleware.RequireAuth(h.auth), write, h.PublishPage)
-	pages.Post("/:id/approve", middleware.RequireAuth(h.auth), write, h.ApprovePage)
-	pages.Post("/:id/review", middleware.RequireAuth(h.auth), write, h.ReviewPage)
-	pages.Post("/:id/version", middleware.RequireAuth(h.auth), write, h.CreatePageVersion)
-	pages.Get("/:id/versions", h.ListPageVersions)
-	pages.Put("/:id/seo", middleware.RequireAuth(h.auth), write, h.UpdatePageSEO)
+	pages.Get("/:id", read, h.GetPage)
+	pages.Put("/:id", read, write, h.UpdatePage)
+	pages.Delete("/:id", read, write, h.DeletePage)
+	pages.Post("/:id/publish", read, write, h.PublishPage)
+	pages.Post("/:id/approve", read, write, h.ApprovePage)
+	pages.Post("/:id/review", read, write, h.ReviewPage)
+	pages.Post("/:id/version", read, write, h.CreatePageVersion)
+	pages.Get("/:id/versions", read, h.ListPageVersions)
+	pages.Put("/:id/seo", read, write, h.UpdatePageSEO)
 
 	// Posts
 	posts := router.Group("/cms/posts")
-	posts.Get("/", h.ListPosts)
-	posts.Post("/", middleware.RequireAuth(h.auth), write, h.CreatePost)
+	posts.Get("/", read, h.ListPosts)
+	posts.Post("/", read, write, h.CreatePost)
 	posts.Get("/slug/:slug", h.GetPostBySlug)
-	posts.Get("/:id", h.GetPost)
-	posts.Put("/:id", middleware.RequireAuth(h.auth), write, h.UpdatePost)
-	posts.Delete("/:id", middleware.RequireAuth(h.auth), write, h.DeletePost)
-	posts.Post("/:id/publish", middleware.RequireAuth(h.auth), write, h.PublishPost)
+	posts.Get("/:id", read, h.GetPost)
+	posts.Put("/:id", read, write, h.UpdatePost)
+	posts.Delete("/:id", read, write, h.DeletePost)
+	posts.Post("/:id/publish", read, write, h.PublishPost)
 
 	// Categories
 	cats := router.Group("/cms/categories")
-	cats.Get("/", h.ListCategories)
-	cats.Post("/", middleware.RequireAuth(h.auth), write, h.CreateCategory)
-	cats.Put("/:id", middleware.RequireAuth(h.auth), write, h.UpdateCategory)
-	cats.Delete("/:id", middleware.RequireAuth(h.auth), write, h.DeleteCategory)
+	cats.Get("/", read, h.ListCategories)
+	cats.Post("/", read, write, h.CreateCategory)
+	cats.Put("/:id", read, write, h.UpdateCategory)
+	cats.Delete("/:id", read, write, h.DeleteCategory)
 
 	// Tags
 	tags := router.Group("/cms/tags")
-	tags.Get("/", h.ListTags)
-	tags.Post("/", middleware.RequireAuth(h.auth), write, h.CreateTag)
-	tags.Put("/:id", middleware.RequireAuth(h.auth), write, h.UpdateTag)
-	tags.Delete("/:id", middleware.RequireAuth(h.auth), write, h.DeleteTag)
+	tags.Get("/", read, h.ListTags)
+	tags.Post("/", read, write, h.CreateTag)
+	tags.Put("/:id", read, write, h.UpdateTag)
+	tags.Delete("/:id", read, write, h.DeleteTag)
 
-	// Settings
+	// Settings — read public (readability is a setting-level concern)
 	settings := router.Group("/cms/settings")
-	settings.Get("/", h.ListSettings)
+	settings.Get("/", read, h.ListSettings)
 	settings.Get("/:key", h.GetSetting)
-	settings.Put("/:key", middleware.RequireAuth(h.auth), write, h.UpdateSetting)
+	settings.Put("/:key", read, write, h.UpdateSetting)
 
 	// FAQs
 	faqs := router.Group("/cms/faqs")
@@ -564,7 +568,9 @@ func (h *Handler) UpdateSetting(c *fiber.Ctx) error {
 // ---- FAQ handlers
 
 func (h *Handler) ListFAQs(c *fiber.Ctx) error {
-	faqs, err := h.svc.ListFAQs(c.Context(), c.Query("active") != "false")
+	// Public list: always active-only. Draft/inactive preview is admin-only via
+	// the auth-gated pages/posts routes; do not expose an `?all` escape here.
+	faqs, err := h.svc.ListFAQs(c.Context(), true)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list faqs"))
 	}
@@ -625,7 +631,8 @@ func (h *Handler) DeleteFAQ(c *fiber.Ctx) error {
 // ---- Banner handlers
 
 func (h *Handler) ListBanners(c *fiber.Ctx) error {
-	banners, err := h.svc.ListBanners(c.Context(), c.Query("status") == "")
+	// Public list: always active-only (no admin `?status` escape opened here).
+	banners, err := h.svc.ListBanners(c.Context(), true)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list banners"))
 	}
@@ -686,7 +693,8 @@ func (h *Handler) DeleteBanner(c *fiber.Ctx) error {
 // ---- News handlers
 
 func (h *Handler) ListNews(c *fiber.Ctx) error {
-	news, err := h.svc.ListNews(c.Context(), c.Query("all") != "true")
+	// Public news feed: always published-only (no `?all` draft escape).
+	news, err := h.svc.ListNews(c.Context(), true)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list news"))
 	}
