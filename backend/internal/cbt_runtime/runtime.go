@@ -1573,7 +1573,7 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 			if err != nil {
 				continue
 			}
-			if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.IsCorrect == nil); err != nil {
+			if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.SelectedOptionID == nil); err != nil {
 			continue
 		}
 		}
@@ -1663,7 +1663,7 @@ func (s *Service) Finish(ctx context.Context, sessionID uuid.UUID, userID uuid.U
 		if err != nil {
 			continue
 		}
-		if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.IsCorrect == nil); err != nil {
+if err := s.repo.UpdateQuestionAnalytics(ctx, qid, a.IsCorrect != nil && *a.IsCorrect, a.SelectedOptionID == nil); err != nil {
 			continue
 		}
 	}
