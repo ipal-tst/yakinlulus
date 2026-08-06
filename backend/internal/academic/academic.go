@@ -3,6 +3,7 @@ package academic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -94,29 +95,29 @@ type Program struct {
 }
 
 type Topic struct {
-	ID           uuid.UUID `json:"id"`
-	ChapterID    uuid.UUID `json:"chapter_id"`
-	Title        string    `json:"title"`
-	Sequence     int       `json:"sequence"`
-	Description  *string   `json:"description,omitempty"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	ChapterName  string    `json:"chapter_name,omitempty"`
-	SubjectName  string    `json:"subject_name,omitempty"`
+	ID          uuid.UUID `json:"id"`
+	ChapterID   uuid.UUID `json:"chapter_id"`
+	Title       string    `json:"title"`
+	Sequence    int       `json:"sequence"`
+	Description *string   `json:"description,omitempty"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ChapterName string    `json:"chapter_name,omitempty"`
+	SubjectName string    `json:"subject_name,omitempty"`
 }
 
 type LearningOutcome struct {
-	ID           uuid.UUID  `json:"id"`
-	TopicID      uuid.UUID  `json:"topic_id"`
-	Code         *string    `json:"code,omitempty"`
-	Title        string     `json:"title"`
-	Sequence     int        `json:"sequence"`
-	Description  *string    `json:"description,omitempty"`
-	BloomDefault *string    `json:"bloom_default,omitempty"`
-	IsActive     bool       `json:"is_active"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	TopicID      uuid.UUID `json:"topic_id"`
+	Code         *string   `json:"code,omitempty"`
+	Title        string    `json:"title"`
+	Sequence     int       `json:"sequence"`
+	Description  *string   `json:"description,omitempty"`
+	BloomDefault *string   `json:"bloom_default,omitempty"`
+	IsActive     bool      `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type CreateTopicReq struct {
@@ -133,12 +134,12 @@ type UpdateTopicReq struct {
 }
 
 type CreateLearningOutcomeReq struct {
-	TopicID      string  `json:"topic_id"`
-	Code         string  `json:"code,omitempty"`
-	Title        string  `json:"title"`
-	Sequence     int     `json:"sequence"`
-	Description  string  `json:"description,omitempty"`
-	BloomDefault string  `json:"bloom_default,omitempty"`
+	TopicID      string `json:"topic_id"`
+	Code         string `json:"code,omitempty"`
+	Title        string `json:"title"`
+	Sequence     int    `json:"sequence"`
+	Description  string `json:"description,omitempty"`
+	BloomDefault string `json:"bloom_default,omitempty"`
 }
 
 type UpdateLearningOutcomeReq struct {
@@ -195,28 +196,35 @@ func (r *Repository) ListGrades(ctx context.Context) ([]Grade, error) {
 func (r *Repository) CreateGrade(ctx context.Context, g *Grade) error {
 	g.ID = uuid.New()
 	g.IsActive = true
+	code := ""
+	if g.Alias != nil {
+		code = *g.Alias
+	}
+	if code == "" {
+		code = g.Name
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO grades (id, education_level_id, name, alias, display_order, is_active) VALUES ($1,$2,$3,$4,$5,$6)`,
-		g.ID, g.EducationLevelID, g.Name, g.Alias, g.DisplayOrder, g.IsActive)
+		`INSERT INTO academic.grade (id, education_level_id, code, name, sort_order) VALUES ($1,$2,$3,$4,$5)`,
+		g.ID, g.EducationLevelID, code, g.Name, g.DisplayOrder)
 	return err
 }
 
 func (r *Repository) UpdateGrade(ctx context.Context, g *Grade) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE grades SET name=$1, alias=$2, display_order=$3, updated_at=NOW() WHERE id=$4`,
-		g.Name, g.Alias, g.DisplayOrder, g.ID)
+		`UPDATE academic.grade SET name=$1, sort_order=$2 WHERE id=$3`,
+		g.Name, g.DisplayOrder, g.ID)
 	return err
 }
 
 func (r *Repository) DeleteGrade(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM grades WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.grade WHERE id=$1`, id)
 	return err
 }
 
 func (r *Repository) FindEducationLevelByCodeOrID(ctx context.Context, levelIDOrCode string) (*uuid.UUID, error) {
 	if parsedID, err := uuid.Parse(levelIDOrCode); err == nil {
 		var exists bool
-		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM education_levels WHERE id=$1)`, parsedID).Scan(&exists); err != nil {
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM academic.education_level WHERE id=$1)`, parsedID).Scan(&exists); err != nil {
 			return nil, err
 		}
 		if exists {
@@ -225,7 +233,7 @@ func (r *Repository) FindEducationLevelByCodeOrID(ctx context.Context, levelIDOr
 		return nil, nil
 	}
 	var id uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT id FROM education_levels WHERE UPPER(code)=UPPER($1) OR UPPER(name)=UPPER($1) LIMIT 1`, levelIDOrCode).Scan(&id)
+	err := r.pool.QueryRow(ctx, `SELECT id FROM academic.education_level WHERE UPPER(code)=UPPER($1) OR UPPER(name)=UPPER($1) LIMIT 1`, levelIDOrCode).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -286,7 +294,7 @@ func levelNameFromCode(code string) string {
 func (r *Repository) ListCurriculums(ctx context.Context) ([]Curriculum, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, name, code, COALESCE(description, ''), is_active, created_at, updated_at
-		FROM curriculums
+		FROM academic.curriculum
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
@@ -309,28 +317,30 @@ func (r *Repository) CreateCurriculum(ctx context.Context, c *Curriculum) error 
 	c.ID = uuid.New()
 	c.IsActive = true
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO curriculums (id, name, code, description, is_active) VALUES ($1,$2,$3,$4,$5)`,
+		`INSERT INTO academic.curriculum (id, name, code, description, is_active) VALUES ($1,$2,$3,$4,$5)`,
 		c.ID, c.Name, c.Code, c.Description, c.IsActive)
 	return err
 }
 
 func (r *Repository) UpdateCurriculum(ctx context.Context, c *Curriculum) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE curriculums SET name=$1, code=$2, description=$3, updated_at=NOW() WHERE id=$4`,
+		`UPDATE academic.curriculum SET name=$1, code=$2, description=$3, updated_at=NOW() WHERE id=$4`,
 		c.Name, c.Code, c.Description, c.ID)
 	return err
 }
 
 func (r *Repository) DeleteCurriculum(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM curriculums WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.curriculum WHERE id=$1`, id)
 	return err
 }
 
 func (r *Repository) ListPrograms(ctx context.Context) ([]Program, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, code, name, academic_year, target_type, status,
-		       COALESCE(description, ''), enrolled_students, is_active, created_at, updated_at
-		FROM academic_programs
+		SELECT id, code, name, ''::text AS academic_year, 'PROGRAM'::text AS target_type,
+		       CASE WHEN is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+		       NULL::text AS description, 0 AS enrolled_students, is_active, created_at, updated_at
+		FROM academic.program
+		WHERE deleted_at IS NULL
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
@@ -354,22 +364,21 @@ func (r *Repository) CreateProgram(ctx context.Context, p *Program) error {
 	p.ID = uuid.New()
 	p.IsActive = true
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO academic_programs (id, code, name, academic_year, target_type, status, description, enrolled_students, is_active)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		p.ID, p.Code, p.Name, p.AcademicYear, p.TargetType, p.Status, p.Description, p.EnrolledStudents, p.IsActive)
+		`INSERT INTO academic.program (id, code, name, is_active)
+		 VALUES ($1,$2,$3,true)`,
+		p.ID, p.Code, p.Name)
 	return err
 }
 
 func (r *Repository) UpdateProgram(ctx context.Context, p *Program) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE academic_programs SET code=$1, name=$2, academic_year=$3, target_type=$4, status=$5,
-		 description=$6, updated_at=NOW() WHERE id=$7`,
-		p.Code, p.Name, p.AcademicYear, p.TargetType, p.Status, p.Description, p.ID)
+		`UPDATE academic.program SET code=$1, name=$2, updated_at=NOW() WHERE id=$3 AND deleted_at IS NULL`,
+		p.Code, p.Name, p.ID)
 	return err
 }
 
 func (r *Repository) DeleteProgram(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM academic_programs WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `UPDATE academic.program SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
 	return err
 }
 
@@ -393,69 +402,21 @@ func (r *Repository) CreateLevel(ctx context.Context, l *EducationLevel) error {
 	l.ID = uuid.New()
 	l.IsActive = true
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO education_levels (id, name, code, display_order, is_active) VALUES ($1,$2,$3,$4,$5)`,
-		l.ID, l.Name, l.Code, l.DisplayOrder, l.IsActive)
+		`INSERT INTO academic.education_level (id, name, code, sort_order) VALUES ($1,$2,$3,$4)`,
+		l.ID, l.Name, l.Code, l.DisplayOrder)
 	return err
 }
 
 func (r *Repository) UpdateLevel(ctx context.Context, l *EducationLevel) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE education_levels SET name=$1, code=$2, display_order=$3, updated_at=NOW() WHERE id=$4`,
+		`UPDATE academic.education_level SET name=$1, code=$2, sort_order=$3 WHERE id=$4`,
 		l.Name, l.Code, l.DisplayOrder, l.ID)
 	return err
 }
 
 func (r *Repository) DeleteLevel(ctx context.Context, id uuid.UUID) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	// Clean up unified contents referencing subjects/grades under this level
-	_, _ = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id IN (
-		SELECT id FROM contents WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)
-		OR grade_id IN (SELECT id FROM grades WHERE education_level_id=$1)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_questions WHERE content_id IN (
-		SELECT id FROM contents WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)
-		OR grade_id IN (SELECT id FROM grades WHERE education_level_id=$1)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_materials WHERE content_id IN (
-		SELECT id FROM contents WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)
-		OR grade_id IN (SELECT id FROM grades WHERE education_level_id=$1)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_exams WHERE content_id IN (
-		SELECT id FROM contents WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)
-		OR grade_id IN (SELECT id FROM grades WHERE education_level_id=$1)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM contents WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)
-		OR grade_id IN (SELECT id FROM grades WHERE education_level_id=$1)`, id)
-
-	_, _ = tx.Exec(ctx, `DELETE FROM learning_outcomes WHERE topic_id IN (
-		SELECT id FROM topics WHERE chapter_id IN (
-			SELECT id FROM chapters WHERE subject_id IN (
-				SELECT id FROM subjects WHERE level_id=$1
-			)
-		)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM topics WHERE chapter_id IN (
-		SELECT id FROM chapters WHERE subject_id IN (
-			SELECT id FROM subjects WHERE level_id=$1
-		)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM chapters WHERE subject_id IN (SELECT id FROM subjects WHERE level_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM subjects WHERE level_id=$1`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM grades WHERE education_level_id=$1`, id)
-
-	// Clean up optional school/profile references if any
-	_, _ = tx.Exec(ctx, `UPDATE schools SET level_id = NULL WHERE level_id=$1`, id)
-
-	_, err = tx.Exec(ctx, `DELETE FROM education_levels WHERE id=$1`, id)
-	if err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.education_level WHERE id=$1`, id)
+	return err
 }
 
 func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UUID) ([]Subject, error) {
@@ -488,8 +449,14 @@ func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UU
 
 func (r *Repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
 	var gradeID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT grade_id FROM users WHERE id = $1`, userID).Scan(&gradeID)
+	err := r.pool.QueryRow(ctx,
+		`SELECT se.grade_id FROM academic.student_enrollment se
+		 WHERE se.student_id = $1 AND se.status = 'ACTIVE' AND se.grade_id IS NOT NULL
+		 ORDER BY se.created_at DESC LIMIT 1`, userID).Scan(&gradeID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &gradeID, nil
@@ -525,48 +492,67 @@ func (r *Repository) GetSubject(ctx context.Context, id uuid.UUID) (*Subject, er
 func (r *Repository) CreateSubject(ctx context.Context, s *Subject) error {
 	s.ID = uuid.New()
 	s.IsActive = true
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO subjects (id, level_id, grade_id, name, code, description, display_order, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		s.ID, s.LevelID, s.GradeID, s.Name, s.Code, s.Description, s.DisplayOrder, s.IsActive)
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO academic.subject (id, code, name, description, is_active) VALUES ($1,$2,$3,$4,$5)`,
+		s.ID, s.Code, s.Name, s.Description, s.IsActive); err != nil {
+		return err
+	}
+	return r.linkSubject(ctx, s.ID, &s.LevelID, s.GradeID, s.DisplayOrder)
+}
+
+// linkSubject attaches a subject to the active (or a default) curriculum with an
+// optional education level / grade, mirroring the legacy subject->level->grade link.
+func (r *Repository) linkSubject(ctx context.Context, subjectID uuid.UUID, levelID *uuid.UUID, gradeID *uuid.UUID, sortOrder int) error {
+	var curriculumID uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM academic.curriculum WHERE is_active=true ORDER BY created_at ASC LIMIT 1`).Scan(&curriculumID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		curriculumID = uuid.New()
+		if _, e := r.pool.Exec(ctx,
+			`INSERT INTO academic.curriculum (id, code, name, is_active) VALUES ($1,$2,$3,true)`,
+			curriculumID, "DEFAULT", "Default Curriculum"); e != nil {
+			return e
+		}
+	} else if err != nil {
+		return err
+	}
+	if levelID != nil && *levelID == uuid.Nil {
+		levelID = nil
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO academic.curriculum_subject (curriculum_id, subject_id, education_level_id, grade_id, sort_order)
+		 VALUES ($1,$2,$3,$4,$5)`,
+		curriculumID, subjectID, levelID, gradeID, sortOrder)
 	return err
 }
 
 func (r *Repository) UpdateSubject(ctx context.Context, s *Subject) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE subjects SET name=$1, code=$2, description=$3, display_order=$4, updated_at=NOW() WHERE id=$5`,
-		s.Name, s.Code, s.Description, s.DisplayOrder, s.ID)
-	return err
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE academic.subject SET code=$1, name=$2, description=$3, updated_at=NOW() WHERE id=$4`,
+		s.Code, s.Name, s.Description, s.ID); err != nil {
+		return err
+	}
+	var levelID *uuid.UUID
+	var existing uuid.UUID
+	if err := r.pool.QueryRow(ctx,
+		`SELECT education_level_id FROM academic.curriculum_subject WHERE subject_id=$1 AND education_level_id IS NOT NULL LIMIT 1`,
+		s.ID).Scan(&existing); err == nil {
+		levelID = &existing
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM academic.curriculum_subject WHERE subject_id=$1`, s.ID); err != nil {
+		return err
+	}
+	if s.GradeID != nil || levelID != nil {
+		if s.GradeID != nil && *s.GradeID == uuid.Nil {
+			s.GradeID = nil
+		}
+		return r.linkSubject(ctx, s.ID, levelID, s.GradeID, s.DisplayOrder)
+	}
+	return nil
 }
 
 func (r *Repository) DeleteSubject(ctx context.Context, id uuid.UUID) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	// Clean up unified contents referencing this subject
-	_, _ = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id IN (SELECT id FROM contents WHERE subject_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_questions WHERE content_id IN (SELECT id FROM contents WHERE subject_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_materials WHERE content_id IN (SELECT id FROM contents WHERE subject_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_exams WHERE content_id IN (SELECT id FROM contents WHERE subject_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM contents WHERE subject_id=$1`, id)
-
-	_, _ = tx.Exec(ctx, `DELETE FROM learning_outcomes WHERE topic_id IN (
-		SELECT id FROM topics WHERE chapter_id IN (
-			SELECT id FROM chapters WHERE subject_id=$1
-		)
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM topics WHERE chapter_id IN (
-		SELECT id FROM chapters WHERE subject_id=$1
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM chapters WHERE subject_id=$1`, id)
-
-	_, err = tx.Exec(ctx, `DELETE FROM subjects WHERE id=$1`, id)
-	if err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.subject WHERE id=$1`, id)
+	return err
 }
 
 func (r *Repository) ListChapters(ctx context.Context, subjectID uuid.UUID) ([]Chapter, error) {
@@ -628,43 +614,33 @@ func (r *Repository) GetChapter(ctx context.Context, id uuid.UUID) (*Chapter, er
 func (r *Repository) CreateChapter(ctx context.Context, c *Chapter) error {
 	c.ID = uuid.New()
 	c.IsActive = true
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO chapters (id, subject_id, name, description, display_order, is_active) VALUES ($1,$2,$3,$4,$5,$6)`,
-		c.ID, c.SubjectID, c.Name, c.Description, c.DisplayOrder, c.IsActive)
+	var csID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM academic.curriculum_subject WHERE subject_id=$1 ORDER BY created_at LIMIT 1`,
+		c.SubjectID).Scan(&csID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("academic: no curriculum_subject linked to subject %s", c.SubjectID)
+	}
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO academic.chapter (id, curriculum_subject_id, title, order_no, description, is_active)
+		 VALUES ($1,$2,$3,$4,$5,$6)`,
+		c.ID, csID, c.Name, c.DisplayOrder, c.Description, c.IsActive)
 	return err
 }
 
 func (r *Repository) UpdateChapter(ctx context.Context, c *Chapter) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE chapters SET name=$1, description=$2, display_order=$3, updated_at=NOW() WHERE id=$4`,
+		`UPDATE academic.chapter SET title=$1, description=$2, order_no=$3, updated_at=NOW() WHERE id=$4`,
 		c.Name, c.Description, c.DisplayOrder, c.ID)
 	return err
 }
 
 func (r *Repository) DeleteChapter(ctx context.Context, id uuid.UUID) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	// Clean up unified contents referencing this chapter
-	_, _ = tx.Exec(ctx, `DELETE FROM content_question_options WHERE content_id IN (SELECT id FROM contents WHERE chapter_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_questions WHERE content_id IN (SELECT id FROM contents WHERE chapter_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_materials WHERE content_id IN (SELECT id FROM contents WHERE chapter_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM content_exams WHERE content_id IN (SELECT id FROM contents WHERE chapter_id=$1)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM contents WHERE chapter_id=$1`, id)
-
-	_, _ = tx.Exec(ctx, `DELETE FROM learning_outcomes WHERE topic_id IN (
-		SELECT id FROM topics WHERE chapter_id=$1
-	)`, id)
-	_, _ = tx.Exec(ctx, `DELETE FROM topics WHERE chapter_id=$1`, id)
-
-	_, err = tx.Exec(ctx, `DELETE FROM chapters WHERE id=$1`, id)
-	if err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.chapter WHERE id=$1`, id)
+	return err
 }
 
 func (r *Repository) ListAllTopics(ctx context.Context) ([]Topic, error) {
@@ -696,9 +672,18 @@ func (r *Repository) ListAllTopics(ctx context.Context) ([]Topic, error) {
 func (r *Repository) CreateTopic(ctx context.Context, t *Topic) error {
 	t.ID = uuid.New()
 	t.IsActive = true
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO topics (id, chapter_id, title, sequence, description, is_active) VALUES ($1,$2,$3,$4,$5,$6)`,
-		t.ID, t.ChapterID, t.Title, t.Sequence, t.Description, t.IsActive)
+	var scID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO academic.subchapter (chapter_id, title, order_no, description)
+		 VALUES ($1,$2,$3,$4) RETURNING id`,
+		t.ChapterID, t.Title, t.Sequence, t.Description).Scan(&scID)
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO academic.topic (id, subchapter_id, name, description, order_no)
+		 VALUES ($1,$2,$3,$4,$5)`,
+		t.ID, scID, t.Title, t.Description, t.Sequence)
 	return err
 }
 
@@ -718,33 +703,42 @@ func (r *Repository) GetTopic(ctx context.Context, id uuid.UUID) (*Topic, error)
 }
 
 func (r *Repository) UpdateTopic(ctx context.Context, id uuid.UUID, t *Topic) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE topics SET title=$1, sequence=$2, description=$3, updated_at=NOW() WHERE id=$4`,
-		t.Title, t.Sequence, t.Description, id)
-	return err
-}
-
-func (r *Repository) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-
-	_, _ = tx.Exec(ctx, `DELETE FROM learning_outcomes WHERE topic_id=$1`, id)
-	_, err = tx.Exec(ctx, `DELETE FROM topics WHERE id=$1`, id)
-	if err != nil {
+	var scID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT subchapter_id FROM academic.topic WHERE id=$1`, id).Scan(&scID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE academic.subchapter SET title=$1, description=$2, order_no=$3 WHERE id=$4`,
+		t.Title, t.Description, t.Sequence, scID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE academic.topic SET name=$1, description=$2, order_no=$3 WHERE id=$4`,
+		t.Title, t.Description, t.Sequence, id); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) DeleteTopic(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.topic WHERE id=$1`, id)
+	return err
+}
+
 func (r *Repository) ListLearningOutcomes(ctx context.Context, topicID uuid.UUID) ([]LearningOutcome, error) {
-	rows, err := r.pool.Query(ctx, `SELECT lo.id, lo.competency_id AS topic_id, NULL::text AS code, lo.title,
+	rows, err := r.pool.Query(ctx, `SELECT lo.id, t.id AS topic_id, NULL::text AS code, lo.title,
 		0 AS sequence, lo.description, lo.blooms_level AS bloom_default,
 		true AS is_active, lo.created_at, NOW()
 		FROM academic.learning_outcome lo
-		WHERE lo.competency_id=$1
+		JOIN academic.competency comp ON comp.id = lo.competency_id
+		JOIN academic.subchapter sc ON sc.chapter_id = comp.chapter_id
+		JOIN academic.topic t ON t.subchapter_id = sc.id
+		WHERE t.id=$1
 		ORDER BY lo.created_at`, topicID)
 	if err != nil {
 		return nil, err
@@ -765,10 +759,53 @@ func (r *Repository) ListLearningOutcomes(ctx context.Context, topicID uuid.UUID
 func (r *Repository) CreateLearningOutcome(ctx context.Context, o *LearningOutcome) error {
 	o.ID = uuid.New()
 	o.IsActive = true
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO learning_outcomes (id, topic_id, code, title, sequence, description, bloom_default, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		o.ID, o.TopicID, o.Code, o.Title, o.Sequence, o.Description, o.BloomDefault, o.IsActive)
+	compID, err := r.ensureCompetencyForTopic(ctx, o.TopicID)
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO academic.learning_outcome (id, competency_id, title, description, blooms_level)
+		 VALUES ($1,$2,$3,$4,$5)`,
+		o.ID, compID, o.Title, o.Description, bloomsLevel(o.BloomDefault))
 	return err
+}
+
+func (r *Repository) ensureCompetencyForTopic(ctx context.Context, topicID uuid.UUID) (uuid.UUID, error) {
+	var chapterID uuid.UUID
+	if err := r.pool.QueryRow(ctx,
+		`SELECT sc.chapter_id FROM academic.topic t
+		 JOIN academic.subchapter sc ON sc.id = t.subchapter_id
+		 WHERE t.id=$1`, topicID).Scan(&chapterID); err != nil {
+		return uuid.Nil, err
+	}
+	var compID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM academic.competency WHERE chapter_id=$1 ORDER BY created_at LIMIT 1`, chapterID).Scan(&compID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		compID = uuid.New()
+		if _, err := r.pool.Exec(ctx,
+			`INSERT INTO academic.competency (id, chapter_id, code, title, is_active) VALUES ($1,$2,$3,$4,true)`,
+			compID, chapterID, "GENERAL", "General"); err != nil {
+			return uuid.Nil, err
+		}
+		return compID, nil
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return compID, nil
+}
+
+func bloomsLevel(bloomDefault *string) *string {
+	if bloomDefault == nil {
+		return nil
+	}
+	normalized := strings.ToUpper(strings.TrimSpace(*bloomDefault))
+	switch normalized {
+	case "REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE":
+		return &normalized
+	}
+	return nil
 }
 
 func (r *Repository) GetLearningOutcome(ctx context.Context, id uuid.UUID) (*LearningOutcome, error) {
@@ -788,13 +825,13 @@ func (r *Repository) GetLearningOutcome(ctx context.Context, id uuid.UUID) (*Lea
 
 func (r *Repository) UpdateLearningOutcome(ctx context.Context, id uuid.UUID, o *LearningOutcome) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE learning_outcomes SET code=$1, title=$2, sequence=$3, description=$4, bloom_default=$5, updated_at=NOW() WHERE id=$6`,
-		o.Code, o.Title, o.Sequence, o.Description, o.BloomDefault, id)
+		`UPDATE academic.learning_outcome SET title=$1, description=$2, blooms_level=$3 WHERE id=$4`,
+		o.Title, o.Description, bloomsLevel(o.BloomDefault), id)
 	return err
 }
 
 func (r *Repository) DeleteLearningOutcome(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM learning_outcomes WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM academic.learning_outcome WHERE id=$1`, id)
 	return err
 }
 
@@ -1285,7 +1322,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r := router.Group("/academic")
-	write := middleware.RequireRole("ADMIN", "STAFF")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	// Levels
 	r.Get("/levels", middleware.RequireAuth(h.jwt), h.ListLevels)
