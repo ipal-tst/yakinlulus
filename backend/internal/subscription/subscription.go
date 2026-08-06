@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -17,16 +18,16 @@ import (
 // --- Models ---
 
 type Plan struct {
-	ID           uuid.UUID              `json:"id"`
-	Name         string                 `json:"name"`
-	Slug         string                 `json:"slug"`
-	Description  *string                `json:"description,omitempty"`
-	Price        int64                  `json:"price"`
-	DurationDays int                    `json:"duration_days"`
-	Features     []interface{}          `json:"features,omitempty"`
-	IsActive     bool                   `json:"is_active"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
+	ID           uuid.UUID     `json:"id"`
+	Name         string        `json:"name"`
+	Slug         string        `json:"slug"`
+	Description  *string       `json:"description,omitempty"`
+	Price        int64         `json:"price"`
+	DurationDays int           `json:"duration_days"`
+	Features     []interface{} `json:"features,omitempty"`
+	IsActive     bool          `json:"is_active"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 }
 
 type UserSubscription struct {
@@ -57,21 +58,65 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+const planTable = "finance.membership_package"
+
+const planSelect = `
+	SELECT p.id, p.name, p.slug, NULL::text AS description,
+	       ROUND(p.price)::bigint AS price,
+	       COALESCE(p.duration_day, 0) AS duration_days,
+	       COALESCE((SELECT ARRAY_AGG(f.feature_name ORDER BY f.feature_code)
+	                  FROM finance.package_feature f WHERE f.membership_package_id = p.id), ARRAY[]::text[]) AS features,
+	       p.is_active, p.created_at, p.updated_at
+	FROM finance.membership_package p`
+
+func featureStrings(in []interface{}) []string {
+	if len(in) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		switch t := v.(type) {
+		case string:
+			out = append(out, t)
+		default:
+			out = append(out, fmt.Sprint(t))
+		}
+	}
+	return out
+}
+
 func (r *Repository) CreatePlan(ctx context.Context, p *Plan) error {
 	p.ID = uuid.New()
 	p.Features = ensureJSONArray(p.Features)
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO subscription_plans (id, name, slug, description, price, duration_days, features, is_active)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-	`, p.ID, p.Name, p.Slug, p.Description, p.Price, p.DurationDays, p.Features, p.IsActive)
-	return err
+	code := p.Slug
+	if code == "" {
+		code = generateSlug(p.Name)
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO `+planTable+` (id, code, name, slug, package_type, price, duration_day, is_active)
+		VALUES ($1, $2, $3, $4, 'monthly', $5, $6, $7)`,
+		p.ID, code, p.Name, p.Slug, p.Price, p.DurationDays, p.IsActive); err != nil {
+		return err
+	}
+	if len(p.Features) > 0 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance.package_feature (membership_package_id, feature_code, feature_name)
+			SELECT $1, 'F'||ord::text, feat
+			FROM unnest($2::text[]) WITH ORDINALITY AS t(feat, ord)`, p.ID, featureStrings(p.Features)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) ListPlans(ctx context.Context) ([]Plan, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, name, slug, description, price, duration_days, features, is_active, created_at, updated_at
-		FROM subscription_plans ORDER BY price ASC
-	`)
+	rows, err := r.pool.Query(ctx, planSelect+` WHERE p.deleted_at IS NULL ORDER BY p.price ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +125,11 @@ func (r *Repository) ListPlans(ctx context.Context) ([]Plan, error) {
 	var plans []Plan
 	for rows.Next() {
 		var p Plan
-		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.Price, &p.DurationDays, &p.Features, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		var feats []string
+		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.Price, &p.DurationDays, &feats, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
+		p.Features = ifaceSlice(feats)
 		plans = append(plans, p)
 	}
 	return plans, nil
@@ -90,42 +137,64 @@ func (r *Repository) ListPlans(ctx context.Context) ([]Plan, error) {
 
 func (r *Repository) FindPlanByID(ctx context.Context, id uuid.UUID) (*Plan, error) {
 	p := &Plan{}
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, name, slug, description, price, duration_days, features, is_active, created_at, updated_at
-		FROM subscription_plans WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.Price, &p.DurationDays, &p.Features, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+	var feats []string
+	err := r.pool.QueryRow(ctx, planSelect+` WHERE p.id = $1 AND p.deleted_at IS NULL`, id).
+		Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.Price, &p.DurationDays, &feats, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	p.Features = ifaceSlice(feats)
 	return p, nil
 }
 
 func (r *Repository) UpdatePlan(ctx context.Context, p *Plan) error {
 	p.Features = ensureJSONArray(p.Features)
-	_, err := r.pool.Exec(ctx, `
-		UPDATE subscription_plans SET name=$1, slug=$2, description=$3, price=$4, duration_days=$5, features=$6, is_active=$7, updated_at=NOW()
-		WHERE id=$8
-	`, p.Name, p.Slug, p.Description, p.Price, p.DurationDays, p.Features, p.IsActive, p.ID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE `+planTable+` SET name=$1, slug=$2, price=$3, duration_day=$4, is_active=$5, updated_at=NOW()
+		WHERE id=$6`,
+		p.Name, p.Slug, p.Price, p.DurationDays, p.IsActive, p.ID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance.package_feature WHERE membership_package_id = $1`, p.ID); err != nil {
+		return err
+	}
+	if len(p.Features) > 0 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance.package_feature (membership_package_id, feature_code, feature_name)
+			SELECT $1, 'F'||ord::text, feat
+			FROM unnest($2::text[]) WITH ORDINALITY AS t(feat, ord)`, p.ID, featureStrings(p.Features)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) DeletePlan(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM subscription_plans WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `UPDATE `+planTable+` SET deleted_at = NOW() WHERE id=$1`, id)
 	return err
 }
 
 func (r *Repository) ListSubscriptions(ctx context.Context, limit, offset int) ([]UserSubscription, int, error) {
 	var total int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM user_subscriptions`).Scan(&total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM finance.user_membership`).Scan(&total)
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT s.id, s.user_id, s.plan_id, s.status, s.started_at, s.expires_at,
-		       s.payment_method, s.payment_proof, s.notes, s.created_at, s.updated_at,
+		SELECT s.id, s.user_id, s.membership_package_id, s.status, COALESCE(s.active_from, s.created_at),
+		       s.expired_at,
+		       NULL::text AS payment_method, NULL::text AS payment_proof, NULL::text AS notes,
+		       s.created_at, s.updated_at,
 		       COALESCE(p.name, '') AS plan_name, COALESCE(u.email, '') AS user_email,
-		       COALESCE(u.full_name, '') AS user_fullname
-		FROM user_subscriptions s
-		LEFT JOIN subscription_plans p ON s.plan_id = p.id
-		LEFT JOIN users u ON s.user_id = u.id
+		       COALESCE(up.full_name, '') AS user_fullname
+		FROM finance.user_membership s
+		LEFT JOIN finance.membership_package p ON p.id = s.membership_package_id
+		LEFT JOIN identity.user u ON u.id = s.user_id
+		LEFT JOIN identity.user_profile up ON up.user_id = s.user_id
 		ORDER BY s.created_at DESC LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
@@ -148,12 +217,20 @@ func (r *Repository) ListSubscriptions(ctx context.Context, limit, offset int) (
 
 func (r *Repository) GetStats(ctx context.Context) (int64, int, int, error) {
 	var mrr int64
-	r.pool.QueryRow(ctx, `SELECT COALESCE(SUM(p.price), 0) FROM user_subscriptions s JOIN subscription_plans p ON s.plan_id = p.id WHERE s.status = 'ACTIVE'`).Scan(&mrr)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(ROUND(SUM(p.price))::bigint, 0) FROM finance.user_membership s JOIN finance.membership_package p ON p.id = s.membership_package_id WHERE s.status = 'ACTIVE'`).Scan(&mrr)
 	var active int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM user_subscriptions WHERE status = 'ACTIVE'`).Scan(&active)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM finance.user_membership WHERE status = 'ACTIVE'`).Scan(&active)
 	var total int
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM subscription_plans`).Scan(&total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM finance.membership_package WHERE deleted_at IS NULL`).Scan(&total)
 	return mrr, active, total, nil
+}
+
+func ifaceSlice(in []string) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, v := range in {
+		out[i] = v
+	}
+	return out
 }
 
 func ensureJSONArray(v []interface{}) []interface{} {
@@ -279,13 +356,13 @@ type CreatePlanReq struct {
 }
 
 type UpdatePlanReq struct {
-	Name         *string       `json:"name,omitempty"`
-	Slug         *string       `json:"slug,omitempty"`
-	Description  *string       `json:"description,omitempty"`
-	Price        *int64        `json:"price,omitempty"`
-	DurationDays *int          `json:"duration_days,omitempty"`
+	Name         *string        `json:"name,omitempty"`
+	Slug         *string        `json:"slug,omitempty"`
+	Description  *string        `json:"description,omitempty"`
+	Price        *int64         `json:"price,omitempty"`
+	DurationDays *int           `json:"duration_days,omitempty"`
 	Features     *[]interface{} `json:"features,omitempty"`
-	IsActive     *bool         `json:"is_active,omitempty"`
+	IsActive     *bool          `json:"is_active,omitempty"`
 }
 
 type StatsResponse struct {
@@ -307,7 +384,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	admin := middleware.RequireRole("ADMIN", "STAFF")
+	admin := middleware.RequireRole("SUPER_ADMIN", "STAFF", "FINANCE", "INVESTOR")
 
 	r := router.Group("/subscriptions", authM)
 	r.Get("/stats", admin, h.GetStats)
