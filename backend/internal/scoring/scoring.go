@@ -48,17 +48,36 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+const resultProjection = `
+	a.id,
+	a.id AS session_id,
+	p.exam_id AS exam_id,
+	p.student_id AS user_id,
+	COALESCE(g.correct,0)+COALESCE(g.wrong,0)+COALESCE(g.blank,0) AS total_questions,
+	COALESCE(g.correct,0)+COALESCE(g.wrong,0) AS answered_count,
+	COALESCE(g.correct,0) AS correct_count,
+	COALESCE(g.wrong,0) AS wrong_count,
+	COALESCE(g.blank,0) AS unanswered_count,
+	COALESCE(g.score,0) AS score,
+	COALESCE(md.passing_score, 60.0) AS passing_grade,
+	COALESCE(g.passed, false) AS is_passed,
+	EXTRACT(EPOCH FROM (COALESCE(a.finished_at, a.started_at) - a.started_at))::int AS duration_seconds,
+	a.started_at AS created_at`
+
 func (r *Repository) GetResult(ctx context.Context, sessionID uuid.UUID) (*Result, error) {
 	res := &Result{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, id AS session_id, exam_content_id AS exam_id, user_id, total_questions, answered_count, correct_count, wrong_count, unanswered_count, score, COALESCE(passing_grade, 60.0), COALESCE(is_passed, false), EXTRACT(EPOCH FROM (COALESCE(submitted_at, NOW()) - started_at))::int AS duration_seconds, started_at AS created_at
-		 FROM content_exam_attempts WHERE id = $1`, sessionID,
+	err := r.pool.QueryRow(ctx, `
+		SELECT `+resultProjection+`
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		LEFT JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		WHERE a.id = $1`, sessionID,
 	).Scan(&res.ID, &res.SessionID, &res.ExamID, &res.UserID, &res.TotalQuestions, &res.AnsweredCount, &res.CorrectCount, &res.WrongCount, &res.UnansweredCount, &res.Score, &res.PassingGrade, &res.IsPassed, &res.DurationSeconds, &res.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch subject breakdown
 	breakdown, err := r.GetSubjectBreakdown(ctx, sessionID)
 	if err == nil {
 		res.SubjectBreakdown = breakdown
@@ -69,21 +88,19 @@ func (r *Repository) GetResult(ctx context.Context, sessionID uuid.UUID) (*Resul
 
 func (r *Repository) GetSubjectBreakdown(ctx context.Context, sessionID uuid.UUID) ([]SubjectBreakdown, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT 
-			sq.subject_id,
-			s.name as subject_name,
-			COUNT(*) as questions_count,
-			SUM(CASE WHEN (a.value->>'is_correct')::boolean = true THEN 1 ELSE 0 END) as correct_count,
-			SUM(COALESCE((a.value->>'points')::float8, 0)) as total_score,
-			COUNT(*) * 1.0 as max_score
-		FROM content_exam_session_questions sq
-		JOIN contents c ON sq.exam_question_id = c.id
-		JOIN subjects s ON sq.subject_id = s.id
-		LEFT JOIN content_exam_attempts cea ON cea.id = $1
-		LEFT JOIN LATERAL jsonb_each(cea.answers) a ON a.key = c.id::text
-		WHERE sq.session_id = $1
-		GROUP BY sq.subject_id, s.name
-	`, sessionID)
+		SELECT
+			sub.subject_id,
+			s.name AS subject_name,
+			COUNT(*) AS questions_count,
+			COALESCE(SUM(CASE WHEN gd.status_correct THEN 1 ELSE 0 END),0) AS correct_count,
+			COALESCE(SUM(gd.score),0) AS total_score,
+			COUNT(*) * 1.0 AS max_score
+		FROM cbt.grading_detail gd
+		JOIN cbt.attempt_question aq ON aq.id = gd.attempt_question_id
+		JOIN question.question_subject sub ON sub.question_id = aq.question_id
+		JOIN academic.subject s ON s.id = sub.subject_id
+		WHERE aq.attempt_id = $1
+		GROUP BY sub.subject_id, s.name`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -106,11 +123,18 @@ func (r *Repository) GetSubjectBreakdown(ctx context.Context, sessionID uuid.UUI
 
 func (r *Repository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Result, int, error) {
 	var total int
-	r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM content_exam_attempts WHERE user_id = $1", userID).Scan(&total)
+	r.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		WHERE p.student_id = $1`, userID).Scan(&total)
 
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, id AS session_id, exam_content_id AS exam_id, user_id, total_questions, answered_count, correct_count, wrong_count, unanswered_count, score, COALESCE(passing_grade, 60.0), COALESCE(is_passed, false), EXTRACT(EPOCH FROM (COALESCE(submitted_at, NOW()) - started_at))::int AS duration_seconds, started_at AS created_at
-		 FROM content_exam_attempts WHERE user_id = $1 ORDER BY started_at DESC LIMIT $2 OFFSET $3`,
+	rows, err := r.pool.Query(ctx, `
+		SELECT `+resultProjection+`
+		FROM cbt.exam_attempt a
+		JOIN cbt.exam_participant p ON p.id = a.participant_id
+		LEFT JOIN cbt.grading_result g ON g.attempt_id = a.id
+		LEFT JOIN cbt.exam_metadata md ON md.exam_id = p.exam_id
+		WHERE p.student_id = $1 ORDER BY a.started_at DESC LIMIT $2 OFFSET $3`,
 		userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
