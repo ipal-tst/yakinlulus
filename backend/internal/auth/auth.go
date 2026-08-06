@@ -208,7 +208,7 @@ func nilString(p *string) interface{} {
 
 func (r *Repository) GradeExists(ctx context.Context, gradeID uuid.UUID) (bool, error) {
 	var ok bool
-	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM grades WHERE id = $1)`, gradeID).Scan(&ok)
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM academic.grade WHERE id = $1)`, gradeID).Scan(&ok)
 	return ok, err
 }
 
@@ -278,15 +278,14 @@ func (r *Repository) RevokeSession(ctx context.Context, refreshToken string) err
 
 func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int, error) {
 	var total int
-	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&total)
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user u WHERE u.deleted_at IS NULL`).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, grade_id, school_name, gender, phone, major, created_at, updated_at
-		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		userSelect+` WHERE u.deleted_at IS NULL ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -306,51 +305,77 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 
 func (r *Repository) SetActive(ctx context.Context, userID uuid.UUID, active bool) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2`,
-		active, userID)
+		`UPDATE identity.user SET status = CASE WHEN $2 THEN 'ACTIVE' ELSE 'INACTIVE' END, updated_at = NOW() WHERE id = $1`,
+		userID, active)
 	return err
 }
 
+// buildUpdateUserQuery returns the identity.user statement used by UpdateUser.
 func buildUpdateUserQuery() string {
-	return "UPDATE users SET email = $1, full_name = $2, role = $3, grade_id = $4, school_name = $5, is_active = $6, updated_at = NOW() WHERE id = $7"
+	return "UPDATE identity.user SET email = $1, updated_at = NOW() WHERE id = $2"
 }
 
 func (r *Repository) UpdateUser(ctx context.Context, u *User) error {
-	_, err := r.pool.Exec(ctx, buildUpdateUserQuery(),
-		u.Email, u.FullName, u.Role, u.GradeID, u.SchoolName, u.IsActive, u.ID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, buildUpdateUserQuery(), u.Email, u.ID); err != nil {
+		return err
+	}
+
+	profileQ := `INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, updated_at = NOW()`
+	profileArgs := []interface{}{u.ID, u.FullName}
+	if u.Gender != nil {
+		profileQ = `INSERT INTO identity.user_profile (user_id, full_name, gender) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, gender = EXCLUDED.gender, updated_at = NOW()`
+		profileArgs = append(profileArgs, nilString(u.Gender))
+	}
+	if _, err := tx.Exec(ctx, profileQ, profileArgs...); err != nil {
+		return err
+	}
+
+	if u.Role != "" {
+		if _, err := tx.Exec(ctx, `DELETE FROM identity.user_role WHERE user_id = $1`, u.ID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO identity.user_role (user_id, role_id, is_primary)
+			SELECT $1, id, true FROM identity.role WHERE code = $2`, u.ID, u.Role); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	cleanupQueries := []string{
-		`DELETE FROM sessions WHERE user_id = $1`,
-		`DELETE FROM password_resets WHERE user_id = $1`,
-		`DELETE FROM exam_participants WHERE user_id = $1`,
-		`DELETE FROM exam_sessions WHERE user_id = $1`,
-		`DELETE FROM cbt_sessions WHERE user_id = $1`,
-		`DELETE FROM student_answers WHERE user_id = $1`,
-		`DELETE FROM cbt_events WHERE user_id = $1`,
-		`DELETE FROM cbt_logs WHERE user_id = $1`,
-		`DELETE FROM learning_progress WHERE user_id = $1`,
-		`DELETE FROM exam_results WHERE user_id = $1`,
-		`DELETE FROM student_scores WHERE user_id = $1`,
-		`DELETE FROM notifications WHERE user_id = $1`,
-		`DELETE FROM question_revisions WHERE user_id = $1`,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
 	}
+	defer tx.Rollback(ctx)
 
-	for _, q := range cleanupQueries {
-		_, _ = r.pool.Exec(ctx, q, id)
+	if _, err := tx.Exec(ctx, `DELETE FROM identity.login_session WHERE user_id = $1`, id); err != nil {
+		return err
 	}
-
-	_, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
-	return err
+	if _, err := tx.Exec(ctx, `DELETE FROM identity.password_reset WHERE user_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]User, int, error) {
 	var total int
 	pattern := "%" + q + "%"
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM users WHERE email ILIKE $1 OR full_name ILIKE $1`, pattern,
+		`SELECT COUNT(*) FROM identity.user u
+		 LEFT JOIN identity.user_profile p ON p.user_id = u.id
+		 WHERE u.deleted_at IS NULL AND (u.email ILIKE $1 OR p.full_name ILIKE $1)`, pattern,
 	).Scan(&total)
 	if err != nil {
 		return nil, 0, err
@@ -358,9 +383,8 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 
 	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, full_name, role, is_active, avatar_url, school_name, gender, phone, major, created_at, updated_at
-		 FROM users WHERE email ILIKE $1 OR full_name ILIKE $1
-		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
+		userSelect+` WHERE u.deleted_at IS NULL AND (u.email ILIKE $1 OR p.full_name ILIKE $1)
+		 ORDER BY u.created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -370,7 +394,7 @@ func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]U
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.AvatarURL, &u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -569,7 +593,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authed.Post("/refresh", h.Refresh)
 
 	// Admin routes
-	admin := r.Group("", middleware.RequireAuth(h.jwt), middleware.RequireRole("ADMIN", "STAFF"))
+	admin := r.Group("", middleware.RequireAuth(h.jwt), middleware.RequireRole("SUPER_ADMIN", "STAFF"))
 	admin.Get("/users", h.ListUsers)
 	admin.Get("/users/search", h.SearchUsers)
 	admin.Get("/users/:id", h.AdminGetUser)
@@ -1019,11 +1043,14 @@ func validatePublicRegisterRole(role string) error {
 }
 
 func restrictGradeSchoolForRole(req UpdateProfileRequest, role string) UpdateProfileRequest {
-	if role != "ADMIN" && role != "STAFF" {
+	switch role {
+	case middleware.RoleSuperAdmin, middleware.RoleStaff, middleware.RoleGuru:
+		return req
+	default:
 		req.GradeID = nil
 		req.SchoolName = nil
+		return req
 	}
-	return req
 }
 
 func validateProfileRequest(req UpdateProfileRequest) error {

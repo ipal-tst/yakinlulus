@@ -43,10 +43,10 @@ func TestGenerateToken(t *testing.T) {
 
 func TestLoginValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		email   string
+		name     string
+		email    string
 		password string
-		wantErr bool
+		wantErr  bool
 	}{
 		{"empty email", "", "ValidPass1!", true},
 		{"empty password", "test@test.com", "", true},
@@ -133,14 +133,14 @@ func TestRestrictGradeSchoolByRole(t *testing.T) {
 	g := "grade-123"
 	s := "SMPN 1 Jakarta"
 
-	for _, role := range []string{"STUDENT", "TEACHER"} {
+	for _, role := range []string{"SISWA", "INVESTOR", "FINANCE"} {
 		req := UpdateProfileRequest{GradeID: &g, SchoolName: &s}
 		got := restrictGradeSchoolForRole(req, role)
 		assert.Nil(t, got.GradeID, "role %s must not update grade", role)
 		assert.Nil(t, got.SchoolName, "role %s must not update school", role)
 	}
 
-	for _, role := range []string{"ADMIN", "STAFF"} {
+	for _, role := range []string{"SUPER_ADMIN", "STAFF", "GURU"} {
 		req := UpdateProfileRequest{GradeID: &g, SchoolName: &s}
 		got := restrictGradeSchoolForRole(req, role)
 		assert.NotNil(t, got.GradeID, "role %s may update grade", role)
@@ -149,12 +149,14 @@ func TestRestrictGradeSchoolByRole(t *testing.T) {
 
 	name := "Budi"
 	req := UpdateProfileRequest{FullName: &name, GradeID: &g, SchoolName: &s}
-	got := restrictGradeSchoolForRole(req, "STUDENT")
+	got := restrictGradeSchoolForRole(req, "SISWA")
 	assert.NotNil(t, got.FullName)
 	assert.Equal(t, "Budi", *got.FullName)
 }
 
-func TestUpdateUserSQLIncludesSchoolName(t *testing.T) {
+func TestUpdateUserQueryTargetsIdentityUser(t *testing.T) {
 	q := buildUpdateUserQuery()
-	assert.Contains(t, q, "school_name", "UpdateUser SQL must set school_name")
+	assert.Contains(t, q, "identity.user", "UpdateUser SQL must target identity.user")
+	assert.Contains(t, q, "email", "UpdateUser SQL must set email")
+	assert.NotContains(t, q, "school_name", "school_name no longer exists on identity.user")
 }
