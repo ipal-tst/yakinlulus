@@ -472,7 +472,7 @@ func (r *Repository) GetTeacherUpcomingExams(ctx context.Context, userID uuid.UU
 		 LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = e.id LIMIT 1) es ON true
 		 LEFT JOIN academic.subject s ON s.id = es.subject_id
 		 LEFT JOIN LATERAL (SELECT start_time, end_time FROM cbt.exam_schedule WHERE exam_id = e.id ORDER BY created_at DESC LIMIT 1) sch ON true
-		 WHERE e.deleted_at IS NULL AND e.created_by = $1 AND st.code IN ('SCHEDULED','PUBLISHED')
+		 WHERE e.deleted_at IS NULL AND e.created_by = $1 AND st.code = 'PUBLISHED'
 		 ORDER BY e.created_at ASC`, userID)
 	if err != nil {
 		return []UpcomingExam{}
@@ -556,8 +556,8 @@ func (r *Repository) GetTeacherRecentActivity(ctx context.Context, userID uuid.U
 func (r *Repository) GetKPI(ctx context.Context) KPIData {
 	var kpi KPIData
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user WHERE deleted_at IS NULL`).Scan(&kpi.TotalUsers)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id WHERE r.code = 'TEACHER'`).Scan(&kpi.TotalTeachers)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id WHERE r.code = 'STUDENT'`).Scan(&kpi.TotalStudents)
+	r.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT ur.user_id) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id JOIN identity.user u ON u.id = ur.user_id AND u.deleted_at IS NULL WHERE r.code = 'GURU'`).Scan(&kpi.TotalTeachers)
+	r.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT ur.user_id) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id JOIN identity.user u ON u.id = ur.user_id AND u.deleted_at IS NULL WHERE r.code = 'SISWA'`).Scan(&kpi.TotalStudents)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM academic.school WHERE deleted_at IS NULL`).Scan(&kpi.TotalSchools)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam WHERE deleted_at IS NULL`).Scan(&kpi.TotalExams)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content.material WHERE deleted_at IS NULL`).Scan(&kpi.TotalMaterials)
@@ -571,7 +571,7 @@ func (r *Repository) GetKPI(ctx context.Context) KPIData {
 func (r *Repository) GetActiveUsers(ctx context.Context) ActiveUserStat {
 	stat := ActiveUserStat{}
 	r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM analytics.analytics_session WHERE logout_time IS NULL`).Scan(&stat.OnlineNow)
+		`SELECT COUNT(*) FROM analytics.analytics_session WHERE logout_time IS NULL AND login_time > NOW() - INTERVAL '15 minutes'`).Scan(&stat.OnlineNow)
 	r.pool.QueryRow(ctx,
 		`SELECT COUNT(DISTINCT student_id) FROM analytics.analytics_session WHERE login_time > NOW() - INTERVAL '24 hours'`).Scan(&stat.Active24h)
 	return stat
@@ -589,7 +589,7 @@ func (r *Repository) GetCBTMonitoring(ctx context.Context) CBTMonitoring {
 	var m CBTMonitoring
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code = 'DRAFT'`).Scan(&m.Scheduled)
 	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code = 'PUBLISHED'`).Scan(&m.Running)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code IN ('FINISHED','CLOSED','ARCHIVED')`).Scan(&m.Finished)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code = 'ARCHIVED'`).Scan(&m.Finished)
 	return m
 }
 

@@ -241,3 +241,45 @@ func assertDashboardResidueZero(t *testing.T, p *pgxpool.Pool, student, owner, s
 		}
 	}
 }
+
+// TestDashboardKPI verifies KPI teacher/student counts use the v2 role codes
+// (GURU/SISWA) — the legacy TEACHER/STUDENT codes would always return 0.
+func TestDashboardKPI(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	seedRole := func(code, name string) uuid.UUID {
+		id := uuid.New()
+		var rid uuid.UUID
+		if err := p.QueryRow(ctx, `
+			INSERT INTO identity.role (id, code, name, is_system)
+			VALUES ($1, $2, $3, false)
+			ON CONFLICT (code) DO NOTHING RETURNING id`, id, code, name).Scan(&rid); err != nil {
+			p.QueryRow(ctx, `SELECT id FROM identity.role WHERE code=$1`, code).Scan(&rid)
+		}
+		t.Cleanup(func() { _, _ = p.Exec(ctx, `DELETE FROM identity.role WHERE id=$1 AND is_system=false`, rid) })
+		return rid
+	}
+
+	guru := seedUser(t, p, ctx, "kpi_guru")
+	siswa := seedUser(t, p, ctx, "kpi_siswa")
+	guruRole := seedRole("GURU", "Guru")
+	siswaRole := seedRole("SISWA", "Siswa")
+
+	if _, err := p.Exec(ctx, `INSERT INTO identity.user_role (user_id, role_id) VALUES ($1,$2)`, guru, guruRole); err != nil {
+		t.Fatalf("link guru: %v", err)
+	}
+	if _, err := p.Exec(ctx, `INSERT INTO identity.user_role (user_id, role_id) VALUES ($1,$2)`, siswa, siswaRole); err != nil {
+		t.Fatalf("link siswa: %v", err)
+	}
+	t.Cleanup(func() { _, _ = p.Exec(ctx, `DELETE FROM identity.user_role WHERE user_id IN ($1,$2)`, guru, siswa) })
+
+	kpi := r.GetKPI(ctx)
+	if kpi.TotalTeachers < 1 {
+		t.Errorf("KPI TotalTeachers = %d, want >=1 (GURU role)", kpi.TotalTeachers)
+	}
+	if kpi.TotalStudents < 1 {
+		t.Errorf("KPI TotalStudents = %d, want >=1 (SISWA role)", kpi.TotalStudents)
+	}
+}
