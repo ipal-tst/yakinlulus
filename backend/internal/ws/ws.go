@@ -200,7 +200,7 @@ func NewHandler(hub *Hub, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r := router.Group("/ws", middleware.RequireAuth(h.jwt))
-	r.Get("/proctor", middleware.RequireRole("ADMIN", "STAFF", "TEACHER"), h.HandleProctorWebSocket)
+	r.Get("/proctor", middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU"), h.HandleProctorWebSocket)
 	r.Get("/exam/:session_id", h.HandleExamWebSocket)
 }
 

@@ -262,7 +262,7 @@ func main() {
 	examHandler.RegisterRoutes(api)
 	cbtHandler.RegisterRoutes(api)
 	// Admin-only CBT ops
-	cbtAdmin := api.Group("/cbt/admin", middleware.RequireAuth(cfg.JWT.Secret), middleware.RequireRole("ADMIN"))
+	cbtAdmin := api.Group("/cbt/admin", middleware.RequireAuth(cfg.JWT.Secret), middleware.RequireRole("SUPER_ADMIN"))
 	cbtAdmin.Post("/auto-submit", cbtHandler.AutoSubmitExpired)
 	scoreHandler.RegisterRoutes(api)
 	analyticsHandler.RegisterRoutes(api)

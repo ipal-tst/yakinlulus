@@ -171,7 +171,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	admin := middleware.RequireRole("ADMIN", "STAFF")
+	admin := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	r := router.Group("/audit-logs", authM)
 	r.Get("/stats", admin, h.GetStats)

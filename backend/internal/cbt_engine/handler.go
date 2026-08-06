@@ -66,7 +66,7 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	// Analytics
 	exams.Get("/:id/analytics", h.GetAnalytics)
 
-	// Practice endpoints (exam engine) — distinct prefix from /practice/sessions
+	// Practice endpoints (exam engine) â€” distinct prefix from /practice/sessions
 	practice := authed.Group("/exam-practice")
 	practice.Post("/material/:materialId", h.StartMaterialPractice)
 	practice.Post("/subject", h.StartSubjectPractice)
@@ -283,7 +283,7 @@ func (h *Handler) ListExams(c *fiber.Ctx) error {
 		EndTime:   parseTime(c.Query("end_time")),
 	}
 
-	if filter.GradeID == nil && c.Locals("role") == "STUDENT" {
+	if filter.GradeID == nil && c.Locals("role") == "SISWA" {
 		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
 			if gid, err := h.svc.content.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
 				filter.GradeID = gid

@@ -346,7 +346,7 @@ func NewHandler(svc *Service, secret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	write := middleware.RequireRole("ADMIN", "TEACHER")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF", "GURU")
 
 	r := router.Group("/exam-packages", authM)
 	r.Get("/", h.List)

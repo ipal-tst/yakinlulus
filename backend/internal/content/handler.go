@@ -35,7 +35,7 @@ func (h *Handler) ListContent(c *fiber.Ctx) error {
 		}
 	}
 	// Auto-restrict to student's grade if no explicit grade_id
-	if filter.GradeID == nil && c.Locals("role") == "STUDENT" {
+	if filter.GradeID == nil && c.Locals("role") == "SISWA" {
 		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
 			if gid, err := h.repo.GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
 				filter.GradeID = gid

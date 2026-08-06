@@ -1599,7 +1599,7 @@ func (h *Handler) ListSubjects(c *fiber.Ctx) error {
 
 	// For students, auto-filter subjects by their grade
 	var gradeID *uuid.UUID
-	if c.Locals("role") == "STUDENT" {
+	if c.Locals("role") == "SISWA" {
 		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
 			gid, err := h.svc.repo.GetUserGradeID(c.Context(), uid)
 			if err == nil && gid != nil {

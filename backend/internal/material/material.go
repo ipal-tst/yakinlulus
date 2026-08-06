@@ -386,7 +386,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		gradeID = &id
 	}
 	// Auto-restrict to student's grade
-	if gradeID == nil && c.Locals("role") == "STUDENT" {
+	if gradeID == nil && c.Locals("role") == "SISWA" {
 		if uid, err := uuid.Parse(c.Locals("user_id").(string)); err == nil {
 			if gid, err := h.svc.ContentRepo().GetUserGradeID(c.Context(), uid); err == nil && gid != nil {
 				gradeID = gid

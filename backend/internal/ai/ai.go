@@ -906,7 +906,7 @@ func (h *Handler) TestConnection(c *fiber.Ctx) error {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.role)
-	admin := middleware.RequireRole("ADMIN", "STAFF")
+	admin := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	r := router.Group("/ai", authM)
 	r.Post("/tutor/chat", h.TutorChat)

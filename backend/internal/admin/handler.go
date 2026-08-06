@@ -36,7 +36,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	admin := middleware.RequireRole("ADMIN")
+	admin := middleware.RequireRole("SUPER_ADMIN")
 
 	r := router.Group("/admin", authM, admin)
 	r.Get("/health", h.GetHealth)
