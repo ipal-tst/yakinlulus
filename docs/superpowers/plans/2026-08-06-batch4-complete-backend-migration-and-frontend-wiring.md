@@ -117,19 +117,21 @@ git commit -m "feat(db): add academic.target_school for target-school mapping"
 - Create: `backend/migrations/215_academic_program.up.sql` / `.down.sql`
 
 **Interfaces:**
-- Produces: `profile.student_target` (consumed by Task 4); `academic.program` (if academic program needed — verify first).
+- Produces: `identity.student_target` (consumed by Task 4); `academic.program` (if academic program needed — verify first).
 
 - [ ] **Step 1: Verify whether `academic.program` / student-target already exist**
 
 Run from `backend/`: `go run ./cmd/migrate/main.go status` and probe:
 `SELECT table_schema, table_name FROM information_schema.tables WHERE table_name IN ('program','academic_program','student_target')`.
-If `academic.program` exists, skip `215`. If `profile.student_target` exists, skip part of `214`.
+If `academic.program` exists, skip `215`. If `identity.student_target` exists, skip part of `214`.
+
+> **Note (verified):** there is NO `profile` schema in this DB (see migration 000). Per-user targets live in the `identity` schema (alongside `identity.user_profile`). Migration 214 creates `identity.student_target` accordingly.
 
 - [ ] **Step 2: Write migration `214`** (student target, mirrors legacy `student_targets` used by Task 4):
 
 ```sql
--- Migration 214: profile.student_target.
-CREATE TABLE profile.student_target (
+-- Migration 214: identity.student_target (per-user ranked school choices).
+CREATE TABLE identity.student_target (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES identity.user(id) ON DELETE CASCADE,
     choice int NOT NULL DEFAULT 1 CHECK (choice IN (1,2)),
@@ -139,12 +141,12 @@ CREATE TABLE profile.student_target (
     major varchar(120),
     passing_score_irt numeric(10,2),
     created_at timestamptz NOT NULL DEFAULT NOW(),
-    updated_at timestamptz NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, choice)
+    updated_at timestamptz NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_student_target_user ON profile.student_target(user_id);
+CREATE UNIQUE INDEX uq_student_target_user_choice ON identity.student_target(user_id, choice);
+CREATE INDEX idx_student_target_user ON identity.student_target(user_id);
 ```
-Down: `DROP TABLE IF EXISTS profile.student_target;`
+Down: `DROP TABLE IF EXISTS identity.student_target;`
 
 - [ ] **Step 3: If `academic.program` absent, write migration `215`**
 
@@ -170,7 +172,7 @@ Down: `DROP TABLE IF EXISTS academic.program;`
 
 ```bash
 git add backend/migrations/214_*.sql backend/migrations/215_*.sql
-git commit -m "feat(db): add profile.student_target and academic.program"
+git commit -m "feat(db): add identity.student_target and academic.program"
 ```
 
 ---
@@ -264,18 +266,18 @@ git commit -m "feat(auth): migrate admin user CRUD to identity schema + fix role
 - Test: `backend/internal/profile/profile_repository_test.go` (create)
 
 **Interfaces:**
-- Consumes: `profile.student_target` (Task 2), `identity.user_profile`, `cbt.exam_attempt`+`cbt.grading_result`, junction subject.
-- Produces: unchanged `StudentTarget`, `Certificate`, `TargetInput` DTOs.
+- Consumes: `identity.student_target` (Task 2), `identity.user_profile`, `cbt.exam_attempt`+`cbt.grading_result`, junction subject.
+**Produces:** unchanged `StudentProfile`, `Certificate`, `TargetInput` DTOs.
 
 **Legacy→New mapping:**
-- `public.users.grade_id` → read user's grade via `academic.student_enrollment` (student ↔ grade) or default.
-- `public.student_targets` → `profile.student_target` (id, user_id, choice, target_type, target_school_id, school_name, major, passing_score).
+- `public.users.grade_id` → read `identity.user_profile` joined fields or `academic.student_enrollment` (verify during implementation); default when absent.
+- `public.student_targets` → `identity.student_target` (id, user_id, choice, target_type, target_school_id, school_name, major, passing_score).
 - `public.content_exam_attempts`/`contents`/`subjects` for certificates → `cbt.exam_attempt` + `cbt.grading_result` + `cbt.exam`/`cbt.exam_subject`/`academic.subject`.
 - BestCertificatePct: use `cbt.grading_result.score` (0-100 scale): `MAX(COALESCE(gr.score,0))/100*100`. Use attempt status filter (SUBMITTED/GRADING/COMPLETED).
 - SumBestPerSubject: `MAX(COALESCE(gr.score,0))` per `academic.subject.name`, group by subject.
 - Grade ID resolution: on profile load, resolve via `academic.student_enrollment WHERE student_id=$1 AND status='ACTIVE'` → school/grade.
 
-- [ ] **Step 1:** Write failing DB test `profile_repository_test.go` covering: `ListTargets`/`UpsertTargets` use `profile.student_target` (round-trip); `BestCertificatePct`/`SumBestPerSubject`/`ListCertificates` read from `cbt.exam_attempt`+`grading_result`. Seed `cbt` rows (user+participant+attempt+grading_result+subject), `t.Cleanup` cascade; assert zero residue.
+- [ ] **Step 1:** Write failing DB test `profile_repository_test.go` covering: `ListTargets`/`UpsertTargets` use `identity.student_target` (round-trip); `BestCertificatePct`/`SumBestPerSubject`/`ListCertificates` read from `cbt.exam_attempt`+`grading_result`. Seed `cbt` rows (user+participant+attempt+grading_result+subject), `t.Cleanup` cascade; assert zero residue.
 
 - [ ] **Step 2:** Run to confirm FAIL.
 
@@ -497,11 +499,11 @@ Expected: 0 (or only lines that are inside tests referencing `academic.*` incorr
 
 - [ ] **Step 2:** Confirm no `RequireRole` with legacy codes remain.
 
-- [ ] **Step 3:** Sync `backend/openapi.yaml` so all paths/hggates match the final route set (methods, paths, security role codes). Validate with a YAML parse; keep the file valid.
+- [x] **Step 3:** Sync `backend/openapi.yaml` so all paths/hggates match the final route set (methods, paths, security role codes). Validate with a YAML parse; keep the file valid.
 
-- [ ] **Step 4:** Full build+vet+serial test pass.
+- [x] **Step 4:** Full build+vet+serial test pass.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ---
 
@@ -515,29 +517,29 @@ Expected: 0 (or only lines that are inside tests referencing `academic.*` incorr
 
 **Goal:** deliver a self-contained contract a developer can hand to Google Antigravity to rebuild the frontend for all 6 roles.
 
-- [ ] **Step 1: `API-contract.md`** — table-grouped by module: method, path, role gate, request (fields), response (shape), source table. Include the renamed `/exam-practice` paths. Note which module serves each route.
+- [x] **Step 1: `API-contract.md`** — table-grouped by module: method, path, role gate, request (fields), response (shape), source table. Include the renamed `/exam-practice` paths. Note which module serves each route.
 
-- [ ] **Step 2: `PAGE-WIRING.md`** — for each of the 6 roles (SUPER_ADMIN, STAFF, FINANCE, GURU, SISWA, INVESTOR): top nav, page list (route + purpose), the API endpoints each page consumes, auth guard. Include greenfield pages for FINANCE (dashboard finance, memberships, payments, invoices, reports, wallet) and INVESTOR (investor board). Include the student loop (materials→practice→exam→results→ranking).
+- [x] **Step 2: `PAGE-WIRING.md`** — for each of the 6 roles (SUPER_ADMIN, STAFF, FINANCE, GURU, SISWA, INVESTOR): top nav, page list (route + purpose), the API endpoints each page consumes, auth guard. Include greenfield pages for FINANCE (dashboard finance, memberships, payments, invoices, reports, wallet) and INVESTOR (investor board). Include the student loop (materials→practice→exam→results→ranking).
 
-- [ ] **Step 3: `ANTIGRAVITY-SETUP.md`** — steps to get Antigravity (IDE/CLI) pointed at this repo, mount `AGENTS.md`, apply skills (frontend/React + TanStack Query), wire the API client to the documented base, and verify.
+- [x] **Step 3: `ANTIGRAVITY-SETUP.md`** — steps to get Antigravity (IDE/CLI) pointed at this repo, mount `AGENTS.md`, apply skills (frontend/React + TanStack Query), wire the API client to the documented base, and verify.
 
-- [ ] **Step 4:** cross-check each page maps to a documented endpoint; no orphan route.
+- [x] **Step 4:** cross-check each page maps to a documented endpoint; no orphan route.
 
-- [ ] **Step 5:** commit.
+- [x] **Step 5:** commit.
 
 ---
 
 ## Final Verification Gate
 
-- [ ] `go build ./...`, `go vet ./...`, `go test ./...` green (serial; tolerate only env flakes).
-- [ ] No legacy `public.*` table reference in code (grep returns 0).
-- [ ] All role gates use only the 6 new roles.
-- [ ] `openapi.yaml` parses and matches routes.
-- [ ] Docs frontend complete; zero huge-gap left skeleton placeholders.
+- [x] `go build ./...`, `go vet ./...`, `go test ./...` green (serial; tolerate only env flakes).
+- [x] No legacy `public.*` table reference in code (grep returns 0).
+- [x] All role gates use only the 6 new roles.
+- [x] `openapi.yaml` parses and matches routes.
+- [x] Docs frontend complete; zero huge-gap left skeleton placeholders.
 
 ## Deliverables Checklist
 
-- [ ] Task 1–11 done; merged to `main`.
-- [ ] `docs/frontend/API-contract.md`, `PAGE-WIRING.md`, `ANTIGRAVITY-SETUP.md`.
-- [ ] `openapi.yaml` synced.
-- [ ] Every API route hits a new schema; no `public.*`.
+- [x] Task 1–11 done; merged to `main`.
+- [x] `docs/frontend/API-contract.md`, `PAGE-WIRING.md`, `ANTIGRAVITY-SETUP.md`.
+- [x] `openapi.yaml` synced.
+- [x] Every API route hits a new schema; no `public.*`.
