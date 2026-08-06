@@ -30,6 +30,7 @@ Antigravity's ONLY job is to **build the frontend**. Everything else is off-limi
 - `docs/frontend/API-contract.md`, `docs/frontend/PAGE-WIRING.md` — source of truth for
   endpoints and page structure. Read, follow, NEVER modify.
 - `backend/openapi.yaml` — API spec. Read, NEVER modify.
+- `design.md` — design system spec. Read, follow, NEVER modify.
 - `README.md`, `AGENTS.md`, `guardrail.md`, `.gitignore` — read; never edit.
 
 ## Forbidden (STRICTLY NEVER — regardless of "helpfulness")

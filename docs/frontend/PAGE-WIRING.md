@@ -4,6 +4,10 @@ Maps every page/route of the frontend to the backend endpoints it consumes, per 
 Base path: `/api/v1`. Auth guard: `SISWA` students and `GURU`/`STAFF`/`SUPER_ADMIN`
 are routed to their own app shells after login.
 
+> **Design system:** implement all pages with the components, colors, typography, spacing,
+> and motion tokens in `design.md` (Design System YakinLulus.id v1.0). Stack: Next.js 16 +
+> React 19 + Tailwind CSS v4 + shadcn/ui.
+
 The same auth hooks apply to every shell: store the Bearer token from `/auth/login`,
 refresh via `/auth/refresh` before expiry, attach to every request.
 

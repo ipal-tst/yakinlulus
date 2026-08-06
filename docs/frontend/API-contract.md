@@ -3,6 +3,10 @@
 Authoritative reference for the frontend. Server is a Go/Fiber backend; every route is
 under the base path `/api/v1`. Auth = Bearer JWT from `POST /api/v1/auth/login`.
 
+> **Frontend implementation:** build the UI with the stack and design tokens in `design.md`
+> (Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui). Page structure per role is in
+> `PAGE-WIRING.md`.
+
 Role codes used in gates: `SUPER_ADMIN`, `STAFF`, `FINANCE`, `GURU`, `SISWA`, `INVESTOR`.
 
 Conventions:

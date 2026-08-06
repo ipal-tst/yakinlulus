@@ -18,13 +18,17 @@ frontend for all six roles (SISWA, GURU, STAFF, SUPER_ADMIN, FINANCE, INVESTOR).
 
 ## Mount AGENTS.md
 
-The repo already has `AGENTS.md` with project conventions; Antigravity reads it
-automatically when the workspace is opened. If missing, create one at the repo root with:
+The repo already has `AGENTS.md` with project conventions and the design system;
+Antigravity reads it automatically when the workspace is opened. It points to
+`design.md` (the authoritative design system) and `docs/frontend/*` (API contract).
+If missing, create one at the repo root with:
 
 ```md
 # Yakinlulus.id — Frontend Rebuild
 
-- Stack: React + TypeScript + Vite, TanStack Query for server state, Tailwind.
+- Stack: Next.js 16 + React 19 + TypeScript strict + Tailwind CSS v4 + shadcn/ui.
+- Server state: TanStack Query. Client state: Zustand. Charts: Recharts. Icons: Lucide.
+- Design system: follow design.md verbatim (colors, type, spacing, radius, motion).
 - All server reads in the plan go to `GET/POST/PUT/PATCH/DELETE <base>/...`.
 - Base URL: http://localhost:8080/api/v1
 - Auth: Bearer JWT; refresh via /auth/refresh.
@@ -39,13 +43,14 @@ pages. This instructs the model to:
 - Build typed fetchers that attach the Bearer token and unwrap `{success}` envelopes.
 - Use TanStack Query for caching server state (`useQuery`/`useMutation`).
 - Render routes per `docs/frontend/PAGE-WIRING.md`.
+- Use shadcn/ui components and the tokens in `design.md` — do not invent a visual style.
 
 ## Wire the API client
 
-Create `src/lib/api.ts`:
+Create `lib/api.ts` (Next.js App Router `lib/` directory, not `src/`):
 
 ```ts
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8080/api/v1";
+const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080/api/v1";
 
 export async function api<T>(
   path: string,
@@ -74,6 +79,8 @@ export async function api<T>(
 2. In Antigravity, run the page-by-page checklist in `docs/frontend/PAGE-WIRING.md`;
    confirm each page calls the mapped endpoints and the login flow issues a token.
 3. Smoke-test one page: log in as SISWA, open Materials, fetch `/material`.
+4. Check the UI against `design.md`: colors (Blue/Green/Orange tokens), Inter font,
+   4px spacing, radius 12 default, skeletons for loading, empty states with CTA.
 
 ## Troubleshooting
 

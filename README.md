@@ -227,10 +227,13 @@ Prefix: `/api/v1` · Response wrapper: `{ success, message, data, error_code, me
 
 Frontend **dibangun ulang seluruhnya** oleh developer memakai **Google Antigravity** — TIDAK ada kode frontend di repo ini (Next.js lama sudah dihapus).
 
+**Stack (wajib, dari `design.md`):** Next.js 16 + React 19 + TypeScript strict + Tailwind CSS v4 + shadcn/ui; TanStack Query (server state), Zustand (client state), Recharts (charts), Lucide (icons), Framer Motion, TanStack Table, next-themes (dark mode).
+
 Sumber kebenaran untuk membangun frontend:
 
 | Dokumen | Isi |
 |---------|-----|
+| `design.md` | Design system v1.0: warna, tipografi, spacing, radius, shadow, komponen, motion, layout, dark mode |
 | `docs/frontend/API-contract.md` | Semua endpoint: method, path final, role gate, request/response, sumber tabel |
 | `docs/frontend/PAGE-WIRING.md` | Struktur halaman + wiring per role (nav, page list, hook + endpoint, guard) untuk 6 peran |
 | `docs/frontend/ANTIGRAVITY-SETUP.md` | Panduan membawa kontrak ke Antigravity (AGENTS.md, skill mount, api client, verifikasi) |
