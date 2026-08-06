@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -60,8 +61,8 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) Create(ctx context.Context, n *Notification) error {
 	n.ID = uuid.New()
 	return r.pool.QueryRow(ctx,
-		`INSERT INTO notifications (id, user_id, title, body, channel, status, reference_type, reference_id)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		`INSERT INTO notification.user_notification (id, user_id, title, body, channel, status, reference_type, reference_id, is_read)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false)
 		 RETURNING created_at`,
 		n.ID, n.UserID, n.Title, n.Body, n.Channel, n.Status, n.ReferenceType, n.ReferenceID,
 	).Scan(&n.CreatedAt)
@@ -70,14 +71,14 @@ func (r *Repository) Create(ctx context.Context, n *Notification) error {
 func (r *Repository) FindByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Notification, int, error) {
 	var total int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND archived_at IS NULL`, userID).Scan(&total)
+		`SELECT COUNT(*) FROM notification.user_notification WHERE user_id=$1 AND archived_at IS NULL`, userID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, title, body, channel, status, reference_type, reference_id,
 		 created_at, delivered_at, read_at, archived_at
-		 FROM notifications WHERE user_id=$1 AND archived_at IS NULL
+		 FROM notification.user_notification WHERE user_id=$1 AND archived_at IS NULL
 		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -98,7 +99,7 @@ func (r *Repository) FindByUser(ctx context.Context, userID uuid.UUID, limit, of
 func (r *Repository) MarkRead(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	now := time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE notifications SET status='READ', read_at=$1 WHERE id=$2 AND user_id=$3`,
+		`UPDATE notification.user_notification SET is_read=true, read_at=$1 WHERE id=$2 AND user_id=$3`,
 		now, id, userID)
 	return err
 }
@@ -106,7 +107,7 @@ func (r *Repository) MarkRead(ctx context.Context, id uuid.UUID, userID uuid.UUI
 func (r *Repository) Archive(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	now := time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE notifications SET archived_at=$1 WHERE id=$2 AND user_id=$3`,
+		`UPDATE notification.user_notification SET archived_at=$1 WHERE id=$2 AND user_id=$3`,
 		now, id, userID)
 	return err
 }
@@ -114,7 +115,7 @@ func (r *Repository) Archive(ctx context.Context, id uuid.UUID, userID uuid.UUID
 func (r *Repository) MarkAllRead(ctx context.Context, userID uuid.UUID) error {
 	now := time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE notifications SET status='READ', read_at=$1 WHERE user_id=$2 AND status='PENDING'`,
+		`UPDATE notification.user_notification SET is_read=true, read_at=$1 WHERE user_id=$2 AND is_read=false`,
 		now, userID)
 	return err
 }
@@ -122,7 +123,7 @@ func (r *Repository) MarkAllRead(ctx context.Context, userID uuid.UUID) error {
 func (r *Repository) GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND status='PENDING' AND archived_at IS NULL`,
+		`SELECT COUNT(*) FROM notification.user_notification WHERE user_id=$1 AND is_read=false AND archived_at IS NULL`,
 		userID).Scan(&n)
 	return n, err
 }
@@ -132,7 +133,7 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Notification,
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, title, body, channel, status, reference_type, reference_id,
 		 created_at, delivered_at, read_at, archived_at
-		 FROM notifications WHERE id=$1`, id).Scan(&n.ID, &n.UserID, &n.Title, &n.Body, &n.Channel, &n.Status,
+		 FROM notification.user_notification WHERE id=$1`, id).Scan(&n.ID, &n.UserID, &n.Title, &n.Body, &n.Channel, &n.Status,
 		&n.ReferenceType, &n.ReferenceID, &n.CreatedAt, &n.DeliveredAt, &n.ReadAt, &n.ArchivedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -144,7 +145,7 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Notification,
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM notifications WHERE id=$1 AND user_id=$2`, id, userID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM notification.user_notification WHERE id=$1 AND user_id=$2`, id, userID)
 	return err
 }
 
@@ -160,8 +161,8 @@ func (r *Repository) Broadcast(ctx context.Context, userIDs []uuid.UUID, title, 
 
 	for _, userID := range userIDs {
 		_, err = tx.Exec(ctx,
-			`INSERT INTO notifications (id, user_id, title, body, channel, status, created_at)
-			 VALUES ($1,$2,$3,$4,$5,$6,NOW())`,
+			`INSERT INTO notification.user_notification (id, user_id, title, body, channel, status, is_read, created_at)
+			 VALUES ($1,$2,$3,$4,$5,$6,false,NOW())`,
 			uuid.New(), userID, title, body, channel, "PENDING")
 		if err != nil {
 			return err
@@ -170,73 +171,115 @@ func (r *Repository) Broadcast(ctx context.Context, userIDs []uuid.UUID, title, 
 	return tx.Commit(ctx)
 }
 
+var prefChannelCol = map[string]string{
+	"EMAIL":     "allow_email",
+	"PUSH":      "allow_push",
+	"SMS":       "allow_sms",
+	"WHATSAPP":  "allow_whatsapp",
+	"IN_APP":    "allow_in_app",
+	"MARKETING": "allow_marketing",
+	"EXAM":      "allow_exam",
+	"PAYMENT":   "allow_payment",
+	"LEARNING":  "allow_learning",
+	"AI":        "allow_ai",
+	"SYSTEM":    "allow_system",
+}
+
 func (r *Repository) GetPreferences(ctx context.Context, userID uuid.UUID) ([]NotificationPreference, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, channel, enabled FROM notification_preferences WHERE user_id=$1`, userID)
+	var id uuid.UUID
+	var email, push, sms, whatsapp, inApp bool
+	var marketing, exam, payment, learning, ai, system bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, allow_email, allow_push, allow_sms, allow_whatsapp, allow_in_app,
+		 allow_marketing, allow_exam, allow_payment, allow_learning, allow_ai, allow_system
+		 FROM notification.notification_preferences WHERE user_id=$1`, userID,
+	).Scan(&id, &email, &push, &sms, &whatsapp, &inApp,
+		&marketing, &exam, &payment, &learning, &ai, &system)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return []NotificationPreference{}, nil
+		}
 		return nil, err
 	}
-	defer rows.Close()
-	var prefs []NotificationPreference
-	for rows.Next() {
-		var p NotificationPreference
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Channel, &p.Enabled); err != nil {
-			return nil, err
-		}
-		prefs = append(prefs, p)
-	}
-	return prefs, nil
+	return []NotificationPreference{
+		{ID: id, UserID: userID, Channel: "EMAIL", Enabled: email},
+		{ID: id, UserID: userID, Channel: "PUSH", Enabled: push},
+		{ID: id, UserID: userID, Channel: "WHATSAPP", Enabled: whatsapp},
+		{ID: id, UserID: userID, Channel: "SMS", Enabled: sms},
+		{ID: id, UserID: userID, Channel: "IN_APP", Enabled: inApp},
+		{ID: id, UserID: userID, Channel: "MARKETING", Enabled: marketing},
+		{ID: id, UserID: userID, Channel: "EXAM", Enabled: exam},
+		{ID: id, UserID: userID, Channel: "PAYMENT", Enabled: payment},
+		{ID: id, UserID: userID, Channel: "LEARNING", Enabled: learning},
+		{ID: id, UserID: userID, Channel: "AI", Enabled: ai},
+		{ID: id, UserID: userID, Channel: "SYSTEM", Enabled: system},
+	}, nil
 }
 
 func (r *Repository) UpsertPreference(ctx context.Context, p *NotificationPreference) error {
-	return r.pool.QueryRow(ctx,
-		`INSERT INTO notification_preferences (user_id, channel, enabled)
-		 VALUES ($1,$2,$3)
-		 ON CONFLICT (user_id, channel) DO UPDATE SET enabled=EXCLUDED.enabled
+	col, ok := prefChannelCol[p.Channel]
+	if !ok {
+		return fmt.Errorf("unknown notification channel %q", p.Channel)
+	}
+	query := fmt.Sprintf(
+		`INSERT INTO notification.notification_preferences (user_id, %s) VALUES ($1, $2)
+		 ON CONFLICT (user_id) DO UPDATE SET %s=EXCLUDED.%s, updated_at=NOW()
 		 RETURNING id`,
-		p.UserID, p.Channel, p.Enabled).Scan(&p.ID)
+		col, col, col)
+	return r.pool.QueryRow(ctx, query, p.UserID, p.Enabled).Scan(&p.ID)
 }
 
 func (r *Repository) GetTemplate(ctx context.Context, code string) (*NotificationTemplate, error) {
 	t := &NotificationTemplate{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, code, name, subject, body, channel FROM notification_templates WHERE code=$1`, code,
+		`SELECT id, code, name, email_subject, body_template, 'EMAIL'::text
+		 FROM notification.notification_template
+		 WHERE code=$1 AND is_active=true AND language='id'
+		 ORDER BY version DESC, created_at DESC LIMIT 1`, code,
 	).Scan(&t.ID, &t.Code, &t.Name, &t.Subject, &t.Body, &t.Channel)
-	return t, err
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (r *Repository) FindTemplateByID(ctx context.Context, id uuid.UUID) (*NotificationTemplate, error) {
 	t := &NotificationTemplate{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, code, name, subject, body, channel FROM notification_templates WHERE id=$1`, id,
+		`SELECT id, code, name, email_subject, body_template, 'EMAIL'::text
+		 FROM notification.notification_template WHERE id=$1`, id,
 	).Scan(&t.ID, &t.Code, &t.Name, &t.Subject, &t.Body, &t.Channel)
-	return t, err
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (r *Repository) CreateTemplate(ctx context.Context, t *NotificationTemplate) error {
 	t.ID = uuid.New()
 	return r.pool.QueryRow(ctx,
-		`INSERT INTO notification_templates (id, code, name, subject, body, channel)
-		 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-		t.ID, t.Code, t.Name, t.Subject, t.Body, t.Channel,
+		`INSERT INTO notification.notification_template (id, code, name, category, title_template, body_template, email_subject, language)
+		 VALUES ($1,$2,$3,'SYSTEM',$4,$5,$6,'id') RETURNING id`,
+		t.ID, t.Code, t.Name, t.Body, t.Body, t.Subject,
 	).Scan(&t.ID)
 }
 
 func (r *Repository) UpdateTemplate(ctx context.Context, t *NotificationTemplate) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE notification_templates SET code=$1, name=$2, subject=$3, body=$4, channel=$5 WHERE id=$6`,
-		t.Code, t.Name, t.Subject, t.Body, t.Channel, t.ID)
+		`UPDATE notification.notification_template SET name=$1, body_template=$2, email_subject=$3, updated_at=NOW() WHERE id=$4`,
+		t.Name, t.Body, t.Subject, t.ID)
 	return err
 }
 
 func (r *Repository) DeleteTemplate(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM notification_templates WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM notification.notification_template WHERE id=$1`, id)
 	return err
 }
 
 func (r *Repository) ListTemplates(ctx context.Context) ([]NotificationTemplate, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, code, name, subject, body, channel FROM notification_templates ORDER BY code`)
+		`SELECT id, code, name, email_subject, body_template, 'EMAIL'::text
+		 FROM notification.notification_template ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +472,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	admin := middleware.RequireRole("ADMIN", "STAFF")
+	admin := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	r := router.Group("/notifications", authM)
 	r.Get("/", h.List)
@@ -538,10 +581,10 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 }
 
 type SendNotificationReq struct {
-	UserIDs  []uuid.UUID `json:"user_ids"`
-	Title    string      `json:"title"`
-	Body     string      `json:"body"`
-	Channel  string      `json:"channel,omitempty"`
+	UserIDs []uuid.UUID `json:"user_ids"`
+	Title   string      `json:"title"`
+	Body    string      `json:"body"`
+	Channel string      `json:"channel,omitempty"`
 }
 
 func (h *Handler) Send(c *fiber.Ctx) error {
