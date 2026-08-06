@@ -1,17 +1,18 @@
 param(
     [Parameter(Mandatory = $true)]
-    [int[]]$Phases
+    [string]$Phases
 )
 
 # parallel-setup.ps1 - create a git worktree + branch phase-N for each listed phase.
-# Usage: powershell -File parallel-setup.ps1 -Phases 9,10,11
+# Usage: powershell -File parallel-setup.ps1 -Phases "9,10,11"
 # Assumes: run from repo root (main checked out), git available.
 
 $ErrorActionPreference = 'Stop'
 $repo = (Get-Location).Path
 $worktreeRoot = Join-Path (Split-Path $repo -Parent) "yl-phase-"
+$phaseList = @($Phases.Split(',') | ForEach-Object { [int]$_ })
 
-foreach ($phase in $Phases) {
+foreach ($phase in $phaseList) {
     $branch = "phase-$phase"
     $path = "$worktreeRoot$phase"
     $existing = git worktree list --porcelain | Select-String "worktree $([regex]::Escape($path))$"
