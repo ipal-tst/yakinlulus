@@ -336,6 +336,13 @@ func TestAnalyticsAdminOverviewAndDifficulty(t *testing.T) {
 	if ov.TotalExams < 1 {
 		t.Errorf("overview TotalExams = %d, want >=1", ov.TotalExams)
 	}
+	// Subject performance difficulty (0-100 scale): a filled subject with
+	// avg 90 must be "Mudah", not the old 0-1000 "Sangat Tinggi".
+	for _, sp := range ov.SubjectPerformance {
+		if sp.AvgScore > 0 && sp.Difficulty != "Mudah" {
+			t.Errorf("subject %s difficulty = %q with avg %v, want Mudah", sp.SubjectName, sp.Difficulty, sp.AvgScore)
+		}
+	}
 
 	// Difficulty: one question keeps EASY metadata (set by seedQuestion),
 	// one question has its metadata deleted (NULL → must group as MEDIUM via

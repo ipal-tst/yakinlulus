@@ -510,11 +510,11 @@ func (r *Repository) GetAdminOverviewAnalytics(ctx context.Context) (*AdminOverv
 			if err := subjRows.Scan(&item.SubjectID, &item.SubjectName, &item.AvgScore, &item.TotalQuestions); err == nil {
 				if item.AvgScore == 0 {
 					item.Difficulty = "Belum Ada Data"
-				} else if item.AvgScore < 550 {
+				} else if item.AvgScore < 55 {
 					item.Difficulty = "Sangat Tinggi"
-				} else if item.AvgScore < 620 {
+				} else if item.AvgScore < 62 {
 					item.Difficulty = "Tinggi"
-				} else if item.AvgScore < 680 {
+				} else if item.AvgScore < 68 {
 					item.Difficulty = "Sedang"
 				} else {
 					item.Difficulty = "Mudah"
