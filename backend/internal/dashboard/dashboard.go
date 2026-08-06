@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"yakinlulus.id/backend/internal/middleware"
@@ -182,23 +183,46 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 
 func (r *Repository) GetUserFullName(ctx context.Context, userID uuid.UUID) (string, error) {
 	var name string
-	err := r.pool.QueryRow(ctx, `SELECT full_name FROM users WHERE id=$1`, userID).Scan(&name)
+	err := r.pool.QueryRow(ctx, `
+		SELECT COALESCE(p.full_name, u.username)
+		FROM identity.user u
+		LEFT JOIN identity.user_profile p ON p.user_id = u.id
+		WHERE u.id=$1 AND u.deleted_at IS NULL`, userID).Scan(&name)
 	return name, err
+}
+
+// materialGradeFilter returns a WHERE fragment pinning a material to a grade
+// via the content.material_grade junction. Parameterized ($n) — never string
+// interpolated.
+func materialGradeFilter(gradeID *uuid.UUID, argN int) string {
+	if gradeID == nil {
+		return ""
+	}
+	return fmt.Sprintf(` AND EXISTS (SELECT 1 FROM content.material_grade mg WHERE mg.material_id = m.id AND mg.grade_id = $%d)`, argN)
+}
+
+// examGradeFilter is the cbt.exam_grade analog of materialGradeFilter.
+func examGradeFilter(gradeID *uuid.UUID, argN int) string {
+	if gradeID == nil {
+		return ""
+	}
+	return fmt.Sprintf(` AND EXISTS (SELECT 1 FROM cbt.exam_grade eg WHERE eg.exam_id = e.id AND eg.grade_id = $%d)`, argN)
 }
 
 func (r *Repository) GetContinueLearning(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) *ContinueLearning {
 	cl := &ContinueLearning{}
 	args := []interface{}{userID}
-	query := `SELECT c.id, c.title, COALESCE(s.name, ''), lp.progress
-		 FROM content_learning_progress lp
-		 JOIN contents c ON c.id = lp.content_id AND c.content_type = 'MATERIAL'
-		 LEFT JOIN subjects s ON s.id = c.subject_id
-		 WHERE lp.user_id = $1`
+	query := `SELECT m.id, m.title, COALESCE(s.name, ''), lp.progress_percent
+		 FROM content.learning_progress lp
+		 JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL
+		 LEFT JOIN LATERAL (SELECT subject_id FROM content.material_subject WHERE material_id = m.id LIMIT 1) ms ON true
+		 LEFT JOIN academic.subject s ON s.id = ms.subject_id
+		 WHERE lp.student_id = $1`
+	query += materialGradeFilter(gradeID, 2)
 	if gradeID != nil {
-		query += ` AND c.grade_id = $2`
 		args = append(args, *gradeID)
 	}
-	query += ` AND lp.progress < 100
+	query += ` AND lp.progress_percent < 100
 		 ORDER BY lp.updated_at DESC LIMIT 1`
 	err := r.pool.QueryRow(ctx, query, args...).Scan(&cl.MaterialID, &cl.Title, &cl.SubjectName, &cl.Progress)
 	if err != nil {
@@ -220,15 +244,16 @@ func (r *Repository) GetTodayGoal(ctx context.Context, userID uuid.UUID, gradeID
 	tg := TodayGoal{TargetMaterials: 3, TargetQuestions: 10}
 	today := time.Now().Format("2006-01-02")
 
-	mQ := `SELECT COUNT(*) FROM content_learning_progress lp
-		 JOIN contents c ON c.id = lp.content_id AND c.content_type = 'MATERIAL'
-		 WHERE lp.user_id = $1 AND lp.progress >= 100 AND lp.updated_at::date = $2::date`
-	eQ := `SELECT COUNT(*) FROM content_exam_attempts a
-		 JOIN contents c ON c.id = a.exam_content_id
-		 WHERE a.user_id = $1 AND a.started_at::date = $2`
+	mQ := `SELECT COUNT(*) FROM content.learning_progress lp
+		 JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL
+		 WHERE lp.student_id = $1 AND lp.progress_percent >= 100 AND lp.updated_at::date = $2::date`
+	eQ := `SELECT COUNT(*) FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.exam e ON e.id = p.exam_id AND e.deleted_at IS NULL
+		 WHERE p.student_id = $1 AND a.started_at::date = $2`
 	if gradeID != nil {
-		mQ += ` AND c.grade_id = $3`
-		eQ += ` AND c.grade_id = $3`
+		mQ += materialGradeFilter(gradeID, 3)
+		eQ += examGradeFilter(gradeID, 3)
 		r.pool.QueryRow(ctx, mQ, userID, today, *gradeID).Scan(&tg.CompletedMaterials)
 		r.pool.QueryRow(ctx, eQ, userID, today, *gradeID).Scan(&tg.AnsweredQuestions)
 	} else {
@@ -246,16 +271,17 @@ func (r *Repository) GetTodayGoal(ctx context.Context, userID uuid.UUID, gradeID
 
 func (r *Repository) GetLearningProgress(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) []SubjectProgress {
 	query := `SELECT s.id, s.name,
-		 COUNT(c.id) AS total,
-		 COUNT(lp.id) FILTER (WHERE lp.progress >= 100) AS completed
-		 FROM subjects s
-		 JOIN contents c ON c.subject_id = s.id AND c.content_type = 'MATERIAL'
-		 LEFT JOIN content_learning_progress lp ON lp.content_id = c.id AND lp.user_id = $1
+		 COUNT(DISTINCT m.id) AS total,
+		 COUNT(DISTINCT lp.material_id) FILTER (WHERE lp.progress_percent >= 100) AS completed
+		 FROM academic.subject s
+		 JOIN content.material_subject ms ON ms.subject_id = s.id
+		 JOIN content.material m ON m.id = ms.material_id AND m.deleted_at IS NULL
+		 LEFT JOIN content.learning_progress lp ON lp.material_id = m.id AND lp.student_id = $1
 		 WHERE 1=1`
 	args := []interface{}{userID}
 	if gradeID != nil {
 		args = append(args, *gradeID)
-		query += fmt.Sprintf(` AND c.grade_id = $%d`, len(args))
+		query += materialGradeFilter(gradeID, 2)
 	}
 	query += ` GROUP BY s.id, s.name ORDER BY s.name`
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -279,9 +305,15 @@ func (r *Repository) GetLearningProgress(ctx context.Context, userID uuid.UUID, 
 }
 
 func (r *Repository) GetWeeklyActivity(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) []DailyActivity {
-	gradeFilter := ""
+	// Material and exam subqueries share the student ($1) and optional grade
+	// ($2) parameters; both are bound once below.
+	args := []interface{}{userID}
+	mGrade := ""
+	eGrade := ""
 	if gradeID != nil {
-		gradeFilter = ` AND c.grade_id = '` + gradeID.String() + `'`
+		args = append(args, *gradeID)
+		mGrade = ` AND EXISTS (SELECT 1 FROM content.material_grade mg WHERE mg.material_id = m.id AND mg.grade_id = $2)`
+		eGrade = ` AND EXISTS (SELECT 1 FROM cbt.exam_grade eg WHERE eg.exam_id = e.id AND eg.grade_id = $2)`
 	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT d.date,
@@ -296,19 +328,20 @@ func (r *Repository) GetWeeklyActivity(ctx context.Context, userID uuid.UUID, gr
 		 ) d
 		 LEFT JOIN (
 		   SELECT lp.updated_at::date AS date, COUNT(*) AS cnt
-		   FROM content_learning_progress lp
-		   JOIN contents c ON c.id = lp.content_id AND c.content_type = 'MATERIAL'`+gradeFilter+`
-		   WHERE lp.user_id = $1 AND lp.progress >= 100 AND lp.updated_at >= CURRENT_DATE - INTERVAL '6 days'
+		   FROM content.learning_progress lp
+		   JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL`+mGrade+`
+		   WHERE lp.student_id = $1 AND lp.progress_percent >= 100 AND lp.updated_at >= CURRENT_DATE - INTERVAL '6 days'
 		   GROUP BY lp.updated_at::date
 		 ) m ON m.date = d.date
 		 LEFT JOIN (
 		   SELECT a.started_at::date AS date, COUNT(*) AS cnt
-		   FROM content_exam_attempts a
-		   JOIN contents c ON c.id = a.exam_content_id`+gradeFilter+`
-		   WHERE a.user_id = $1 AND a.started_at >= CURRENT_DATE - INTERVAL '6 days'
+		   FROM cbt.exam_attempt a
+		   JOIN cbt.exam_participant p ON p.id = a.participant_id
+		   JOIN cbt.exam e ON e.id = p.exam_id AND e.deleted_at IS NULL`+eGrade+`
+		   WHERE p.student_id = $1 AND a.started_at >= CURRENT_DATE - INTERVAL '6 days'
 		   GROUP BY a.started_at::date
 		 ) q ON q.date = d.date
-		 ORDER BY d.date`, userID)
+		 ORDER BY d.date`, args...)
 	if err != nil {
 		return []DailyActivity{}
 	}
@@ -327,17 +360,22 @@ func (r *Repository) GetWeeklyActivity(ctx context.Context, userID uuid.UUID, gr
 }
 
 func (r *Repository) GetUpcomingExams(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) []UpcomingExam {
-	query := `SELECT c.id, c.title, COALESCE(s.name, ''), COALESCE(c.published_at::text, c.created_at::text), e.duration_minutes, c.status
-		 FROM contents c
-		 JOIN content_exams e ON e.content_id = c.id
-		 LEFT JOIN subjects s ON s.id = c.subject_id
-		 WHERE c.content_type = 'EXAM' AND c.status IN ('PUBLISHED')`
+	query := `SELECT e.id, e.title, COALESCE(s.name, ''),
+		 COALESCE(sch.start_time::text, e.created_at::text),
+		 COALESCE(md.duration_minute, 0), COALESCE(st.code, '')
+		 FROM cbt.exam e
+		 LEFT JOIN cbt.exam_status st ON st.id = e.status_id
+		 LEFT JOIN cbt.exam_metadata md ON md.exam_id = e.id
+		 LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = e.id LIMIT 1) es ON true
+		 LEFT JOIN academic.subject s ON s.id = es.subject_id
+		 LEFT JOIN LATERAL (SELECT start_time, end_time FROM cbt.exam_schedule WHERE exam_id = e.id ORDER BY created_at DESC LIMIT 1) sch ON true
+		 WHERE e.deleted_at IS NULL AND st.code IN ('PUBLISHED')`
 	args := []interface{}{}
 	if gradeID != nil {
 		args = append(args, *gradeID)
-		query += fmt.Sprintf(` AND c.grade_id = $%d`, len(args))
+		query += examGradeFilter(gradeID, 1)
 	}
-	query += ` ORDER BY c.created_at DESC`
+	query += ` ORDER BY e.created_at DESC`
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return []UpcomingExam{}
@@ -359,10 +397,13 @@ func (r *Repository) GetExamStats(ctx context.Context, userID uuid.UUID) ExamSta
 	var s ExamStats
 	r.pool.QueryRow(ctx,
 		`SELECT COUNT(*),
-		        COALESCE(AVG(total_score), 0),
-		        COALESCE(MAX(total_score), 0)
-		 FROM content_exam_attempts
-		 WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL`,
+		        COALESCE(AVG(g.score), 0),
+		        COALESCE(MAX(g.score), 0)
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.grading_result g ON g.attempt_id = a.id
+		 WHERE p.student_id = $1 AND a.status IN ('COMPLETED','SUBMITTED','GRADING')
+		   AND g.score IS NOT NULL`,
 		userID).Scan(&s.TotalCompleted, &s.AverageScore, &s.HighestScore)
 	s.NationalRank = r.GetNationalRank(ctx, userID)
 	return s
@@ -371,21 +412,9 @@ func (r *Repository) GetExamStats(ctx context.Context, userID uuid.UUID) ExamSta
 func (r *Repository) GetNationalRank(ctx context.Context, userID uuid.UUID) int {
 	var rank int
 	err := r.pool.QueryRow(ctx,
-		`SELECT CASE WHEN u.avg IS NULL THEN 0
-		        ELSE (SELECT COUNT(*) + 1
-		              FROM (SELECT user_id, AVG(total_score) AS avg
-		                    FROM content_exam_attempts
-		                    WHERE status IN ('SUBMITTED','GRADED') AND total_score IS NOT NULL
-		                      AND submitted_at >= date_trunc('month', NOW())
-		                    GROUP BY user_id) t
-		              WHERE t.avg > u.avg)
-		        END
-		 FROM (SELECT AVG(total_score) AS avg
-		       FROM content_exam_attempts
-		       WHERE user_id = $1 AND status IN ('SUBMITTED','GRADED')
-		         AND total_score IS NOT NULL
-		         AND submitted_at >= date_trunc('month', NOW())) u`,
-		userID).Scan(&rank)
+		`SELECT COALESCE(global_rank, 0)
+		 FROM ranking.user_rank_summary
+		 WHERE user_id = $1`, userID).Scan(&rank)
 	if err != nil {
 		return 0
 	}
@@ -393,19 +422,27 @@ func (r *Repository) GetNationalRank(ctx context.Context, userID uuid.UUID) int 
 }
 
 func (r *Repository) GetStudentRecentActivity(ctx context.Context, userID uuid.UUID, gradeID *uuid.UUID) []ActivityItem {
-	gradeFilter := ""
+	args := []interface{}{userID}
+	mGrade := ""
+	eGrade := ""
 	if gradeID != nil {
-		gradeFilter = ` AND c.grade_id = '` + gradeID.String() + `'`
+		args = append(args, *gradeID)
+		mGrade = ` AND EXISTS (SELECT 1 FROM content.material_grade mg WHERE mg.material_id = m.id AND mg.grade_id = $2)`
+		eGrade = ` AND EXISTS (SELECT 1 FROM cbt.exam_grade eg WHERE eg.exam_id = e.id AND eg.grade_id = $2)`
 	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT type, message, created_at FROM (
-		 SELECT 'exam' AS type, 'Menyelesaikan ujian: ' || c.title AS message, a.submitted_at AS created_at
-		 FROM content_exam_attempts a JOIN contents c ON c.id = a.exam_content_id WHERE a.user_id = $1 AND a.submitted_at IS NOT NULL`+gradeFilter+`
+		 SELECT 'exam' AS type, 'Menyelesaikan ujian: ' || e.title AS message, COALESCE(a.finished_at, a.updated_at) AS created_at
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.exam e ON e.id = p.exam_id AND e.deleted_at IS NULL
+		 WHERE p.student_id = $1 AND a.finished_at IS NOT NULL`+eGrade+`
 		 UNION ALL
-		 SELECT 'material' AS type, 'Menyelesaikan materi: ' || c.title AS message, lp.updated_at AS created_at
-		 FROM content_learning_progress lp JOIN contents c ON c.id = lp.content_id
-		 WHERE lp.user_id = $1 AND lp.progress >= 100`+gradeFilter+`
-		) sub ORDER BY created_at DESC LIMIT 10`, userID)
+		 SELECT 'material' AS type, 'Menyelesaikan materi: ' || m.title AS message, lp.updated_at AS created_at
+		 FROM content.learning_progress lp
+		 JOIN content.material m ON m.id = lp.material_id AND m.deleted_at IS NULL
+		 WHERE lp.student_id = $1 AND lp.progress_percent >= 100`+mGrade+`
+		) sub ORDER BY created_at DESC LIMIT 10`, args...)
 	if err != nil {
 		return []ActivityItem{}
 	}
@@ -426,12 +463,17 @@ func (r *Repository) GetStudentRecentActivity(ctx context.Context, userID uuid.U
 
 func (r *Repository) GetTeacherUpcomingExams(ctx context.Context, userID uuid.UUID) []UpcomingExam {
 	rows, err := r.pool.Query(ctx,
-		`SELECT c.id, c.title, COALESCE(s.name, ''), COALESCE(c.published_at::text, c.created_at::text), e.duration_minutes, c.status
-		 FROM contents c
-		 JOIN content_exams e ON e.content_id = c.id
-		 LEFT JOIN subjects s ON s.id = c.subject_id
-		 WHERE c.content_type = 'EXAM' AND c.created_by = $1 AND c.status IN ('SCHEDULED','PUBLISHED')
-		 ORDER BY c.created_at ASC`, userID)
+		`SELECT e.id, e.title, COALESCE(s.name, ''),
+		 COALESCE(sch.start_time::text, e.created_at::text),
+		 COALESCE(md.duration_minute, 0), COALESCE(st.code, '')
+		 FROM cbt.exam e
+		 LEFT JOIN cbt.exam_status st ON st.id = e.status_id
+		 LEFT JOIN cbt.exam_metadata md ON md.exam_id = e.id
+		 LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = e.id LIMIT 1) es ON true
+		 LEFT JOIN academic.subject s ON s.id = es.subject_id
+		 LEFT JOIN LATERAL (SELECT start_time, end_time FROM cbt.exam_schedule WHERE exam_id = e.id ORDER BY created_at DESC LIMIT 1) sch ON true
+		 WHERE e.deleted_at IS NULL AND e.created_by = $1 AND st.code IN ('SCHEDULED','PUBLISHED')
+		 ORDER BY e.created_at ASC`, userID)
 	if err != nil {
 		return []UpcomingExam{}
 	}
@@ -451,11 +493,12 @@ func (r *Repository) GetTeacherUpcomingExams(ctx context.Context, userID uuid.UU
 func (r *Repository) GetTeacherStudentProgress(ctx context.Context, userID uuid.UUID) []SubjectProgress {
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name, COUNT(DISTINCT m.id) AS total,
-		 COUNT(DISTINCT lp.material_id) FILTER (WHERE lp.progress >= 100) AS completed
-		 FROM subjects s
-		 JOIN materials m ON m.subject_id = s.id
-		 LEFT JOIN learning_progress lp ON lp.material_id = m.id
-		 WHERE s.created_by = $1
+		 COUNT(DISTINCT lp.material_id) FILTER (WHERE lp.progress_percent >= 100) AS completed
+		 FROM academic.subject s
+		 JOIN content.material_subject ms ON ms.subject_id = s.id
+		 JOIN content.material m ON m.id = ms.material_id AND m.deleted_at IS NULL
+		 LEFT JOIN content.learning_progress lp ON lp.material_id = m.id
+		 WHERE m.owner_id = $1
 		 GROUP BY s.id, s.name`, userID)
 	if err != nil {
 		return []SubjectProgress{}
@@ -478,19 +521,20 @@ func (r *Repository) GetTeacherStudentProgress(ctx context.Context, userID uuid.
 
 func (r *Repository) GetQuestionBankStat(ctx context.Context, userID uuid.UUID) QuestionBankStat {
 	var stat QuestionBankStat
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions WHERE created_by = $1`, userID).Scan(&stat.Total)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions WHERE created_by = $1 AND status = 'DRAFT'`, userID).Scan(&stat.Draft)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions WHERE created_by = $1 AND status = 'PUBLISHED'`, userID).Scan(&stat.Published)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM question.question WHERE owner_id = $1 AND deleted_at IS NULL`, userID).Scan(&stat.Total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM question.question q JOIN question.question_status st ON st.id = q.status_id WHERE q.owner_id = $1 AND st.code = 'DRAFT'`, userID).Scan(&stat.Draft)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM question.question q JOIN question.question_status st ON st.id = q.status_id WHERE q.owner_id = $1 AND st.code = 'PUBLISHED'`, userID).Scan(&stat.Published)
 	return stat
 }
 
 func (r *Repository) GetTeacherRecentActivity(ctx context.Context, userID uuid.UUID) []ActivityItem {
 	rows, err := r.pool.Query(ctx,
-		`SELECT 'exam' AS type, 'Ujian selesai: ' || c.title AS message, a.submitted_at AS created_at
-		 FROM content_exam_attempts a
-		 JOIN contents c ON c.id = a.exam_content_id
-		 WHERE c.created_by = $1 AND a.submitted_at IS NOT NULL
-		 ORDER BY a.submitted_at DESC LIMIT 10`, userID)
+		`SELECT 'exam' AS type, 'Ujian selesai: ' || e.title AS message, COALESCE(a.finished_at, a.updated_at) AS created_at
+		 FROM cbt.exam_attempt a
+		 JOIN cbt.exam_participant p ON p.id = a.participant_id
+		 JOIN cbt.exam e ON e.id = p.exam_id AND e.deleted_at IS NULL
+		 WHERE e.created_by = $1 AND a.finished_at IS NOT NULL
+		 ORDER BY a.finished_at DESC LIMIT 10`, userID)
 	if err != nil {
 		return []ActivityItem{}
 	}
@@ -511,51 +555,52 @@ func (r *Repository) GetTeacherRecentActivity(ctx context.Context, userID uuid.U
 
 func (r *Repository) GetKPI(ctx context.Context) KPIData {
 	var kpi KPIData
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&kpi.TotalUsers)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE role = 'TEACHER'`).Scan(&kpi.TotalTeachers)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE role = 'STUDENT'`).Scan(&kpi.TotalStudents)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM schools`).Scan(&kpi.TotalSchools)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM'`).Scan(&kpi.TotalExams)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'MATERIAL'`).Scan(&kpi.TotalMaterials)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content_questions`).Scan(&kpi.TotalQuestions)
-	// Active today: users with any active session
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user WHERE deleted_at IS NULL`).Scan(&kpi.TotalUsers)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id WHERE r.code = 'TEACHER'`).Scan(&kpi.TotalTeachers)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id WHERE r.code = 'STUDENT'`).Scan(&kpi.TotalStudents)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM academic.school WHERE deleted_at IS NULL`).Scan(&kpi.TotalSchools)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam WHERE deleted_at IS NULL`).Scan(&kpi.TotalExams)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM content.material WHERE deleted_at IS NULL`).Scan(&kpi.TotalMaterials)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM question.question WHERE deleted_at IS NULL`).Scan(&kpi.TotalQuestions)
+	// Active today: distinct students with a session logged in within 24h.
 	r.pool.QueryRow(ctx,
-		`SELECT COUNT(DISTINCT user_id) FROM sessions WHERE expires_at > NOW()`).Scan(&kpi.ActiveToday)
+		`SELECT COUNT(DISTINCT student_id) FROM analytics.analytics_session WHERE login_time > NOW() - INTERVAL '24 hours'`).Scan(&kpi.ActiveToday)
 	return kpi
 }
 
 func (r *Repository) GetActiveUsers(ctx context.Context) ActiveUserStat {
 	stat := ActiveUserStat{}
 	r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM sessions WHERE expires_at > NOW()`).Scan(&stat.OnlineNow)
+		`SELECT COUNT(*) FROM analytics.analytics_session WHERE logout_time IS NULL`).Scan(&stat.OnlineNow)
 	r.pool.QueryRow(ctx,
-		`SELECT COUNT(DISTINCT user_id) FROM sessions WHERE expires_at > NOW() - INTERVAL '24 hours'`).Scan(&stat.Active24h)
+		`SELECT COUNT(DISTINCT student_id) FROM analytics.analytics_session WHERE login_time > NOW() - INTERVAL '24 hours'`).Scan(&stat.Active24h)
 	return stat
 }
 
 func (r *Repository) GetSchoolStats(ctx context.Context) SchoolStat {
 	var stat SchoolStat
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM schools`).Scan(&stat.Total)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM schools WHERE status = 'ACTIVE'`).Scan(&stat.Active)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM schools WHERE is_verified = true`).Scan(&stat.Verified)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM academic.school WHERE deleted_at IS NULL`).Scan(&stat.Total)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM academic.school WHERE is_active = true AND deleted_at IS NULL`).Scan(&stat.Active)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM academic.school WHERE npsn IS NOT NULL AND deleted_at IS NULL`).Scan(&stat.Verified)
 	return stat
 }
 
 func (r *Repository) GetCBTMonitoring(ctx context.Context) CBTMonitoring {
 	var m CBTMonitoring
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM' AND status = 'DRAFT'`).Scan(&m.Scheduled)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM' AND status = 'PUBLISHED'`).Scan(&m.Running)
-	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contents WHERE content_type = 'EXAM' AND status IN ('FINISHED','CLOSED','ARCHIVED')`).Scan(&m.Finished)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code = 'DRAFT'`).Scan(&m.Scheduled)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code = 'PUBLISHED'`).Scan(&m.Running)
+	r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam e JOIN cbt.exam_status st ON st.id = e.status_id WHERE e.deleted_at IS NULL AND st.code IN ('FINISHED','CLOSED','ARCHIVED')`).Scan(&m.Finished)
 	return m
 }
 
 func (r *Repository) GetAdminRecentActivity(ctx context.Context) []ActivityItem {
 	rows, err := r.pool.Query(ctx,
-		`SELECT 'user' AS type, 'Pengguna baru: ' || full_name AS message, created_at FROM users
+		`SELECT 'user' AS type, 'Pengguna baru: ' || COALESCE(p.full_name, u.username) AS message, u.created_at FROM identity.user u
+		 LEFT JOIN identity.user_profile p ON p.user_id = u.id WHERE u.deleted_at IS NULL
 		 UNION ALL
-		 SELECT 'exam' AS type, 'Ujian baru: ' || title AS message, created_at FROM contents WHERE content_type = 'EXAM'
+		 SELECT 'exam' AS type, 'Ujian baru: ' || e.title AS message, e.created_at FROM cbt.exam e WHERE e.deleted_at IS NULL
 		 UNION ALL
-		 SELECT 'material' AS type, 'Materi baru: ' || title AS message, created_at FROM contents WHERE content_type = 'MATERIAL'
+		 SELECT 'material' AS type, 'Materi baru: ' || m.title AS message, m.created_at FROM content.material m WHERE m.deleted_at IS NULL
 		 ORDER BY created_at DESC LIMIT 10`)
 	if err != nil {
 		return []ActivityItem{}
@@ -574,12 +619,18 @@ func (r *Repository) GetAdminRecentActivity(ctx context.Context) []ActivityItem 
 }
 
 func (r *Repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
-	var gradeID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT grade_id FROM users WHERE id = $1`, userID).Scan(&gradeID)
+	var gradeID *uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT grade_id FROM academic.student_enrollment
+		WHERE student_id = $1 AND status = 'ACTIVE'
+		ORDER BY updated_at DESC LIMIT 1`, userID).Scan(&gradeID)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &gradeID, nil
+	return gradeID, nil
 }
 
 // --- Service ---
@@ -749,7 +800,7 @@ func (h *Handler) GetAdminDashboard(c *fiber.Ctx) error {
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := middleware.RequireAuth(h.role)
-	admin := middleware.RequireRole("ADMIN")
+	admin := middleware.RequireRole("SUPER_ADMIN")
 
 	d := router.Group("/dashboard", auth)
 	d.Get("/student", h.GetStudentDashboard)
