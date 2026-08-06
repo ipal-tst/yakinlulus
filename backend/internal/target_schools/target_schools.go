@@ -63,6 +63,8 @@ func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: po
 
 const schoolCols = `id, name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active, created_at, updated_at`
 
+const schoolTable = "academic.target_school"
+
 func scanSchool(row pgx.Row) (*TargetSchool, error) {
 	var s TargetSchool
 	var subjects []byte
@@ -84,7 +86,7 @@ func scanSchool(row pgx.Row) (*TargetSchool, error) {
 }
 
 func (r *Repository) List(ctx context.Context, level string) ([]TargetSchool, error) {
-	query := `SELECT ` + schoolCols + ` FROM target_schools WHERE is_active = true`
+	query := `SELECT ` + schoolCols + ` FROM ` + schoolTable + ` WHERE is_active = true AND deleted_at IS NULL`
 	args := []interface{}{}
 	if level != "" {
 		query += ` AND level = $1`
@@ -108,7 +110,7 @@ func (r *Repository) List(ctx context.Context, level string) ([]TargetSchool, er
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*TargetSchool, error) {
-	return scanSchool(r.pool.QueryRow(ctx, `SELECT `+schoolCols+` FROM target_schools WHERE id = $1`, id))
+	return scanSchool(r.pool.QueryRow(ctx, `SELECT `+schoolCols+` FROM `+schoolTable+` WHERE id = $1 AND deleted_at IS NULL`, id))
 }
 
 func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*TargetSchool, error) {
@@ -122,7 +124,7 @@ func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*Target
 	}
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO target_schools (name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active)
+		`INSERT INTO `+schoolTable+` (name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
 		req.Name, req.Level, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, active,
 	).Scan(&id)
@@ -138,7 +140,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SaveSchoolReq
 		subjects = []byte("[]")
 	}
 	_, err := r.pool.Exec(ctx,
-		`UPDATE target_schools SET name=$2, level=$3, min_score=$4, max_score=$5,
+		`UPDATE `+schoolTable+` SET name=$2, level=$3, min_score=$4, max_score=$5,
 		   max_total_score=$6, subjects=$7, academic_year=$8,
 		   is_active=COALESCE($9, is_active), updated_at=NOW()
 		 WHERE id=$1`,
@@ -150,7 +152,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SaveSchoolReq
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM target_schools WHERE id = $1`, id)
+	_, err := r.pool.Exec(ctx, `DELETE FROM `+schoolTable+` WHERE id = $1`, id)
 	return err
 }
 
@@ -193,7 +195,7 @@ func NewHandler(svc *Service, jwtSecret string) *Handler { return &Handler{svc: 
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	authM := middleware.RequireAuth(h.auth)
-	write := middleware.RequireRole("ADMIN", "STAFF")
+	write := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
 	r := router.Group("/target-schools", authM)
 	r.Get("/", h.List)
