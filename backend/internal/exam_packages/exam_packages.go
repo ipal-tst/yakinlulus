@@ -102,7 +102,7 @@ func scanPackage(row pgx.Row) (*ExamPackage, error) {
 }
 
 func (r *Repository) List(ctx context.Context, level string) ([]ExamPackage, error) {
-	query := `SELECT ` + pkgCols + ` FROM exam_packages`
+	query := `SELECT ` + pkgCols + ` FROM cms.exam_packages`
 	args := []interface{}{}
 	if level != "" {
 		query += ` WHERE education_level = $1`
@@ -126,7 +126,7 @@ func (r *Repository) List(ctx context.Context, level string) ([]ExamPackage, err
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*ExamPackage, error) {
-	return scanPackage(r.pool.QueryRow(ctx, `SELECT `+pkgCols+` FROM exam_packages WHERE id = $1`, id))
+	return scanPackage(r.pool.QueryRow(ctx, `SELECT `+pkgCols+` FROM cms.exam_packages WHERE id = $1`, id))
 }
 
 func (r *Repository) Create(ctx context.Context, req SavePackageRequest) (*ExamPackage, error) {
@@ -140,11 +140,22 @@ func (r *Repository) Create(ctx context.Context, req SavePackageRequest) (*ExamP
 			gradeID = &id
 		}
 	}
+	examID := uuid.New()
+	if _, err := r.pool.Exec(ctx, `
+		INSERT INTO cbt.exam (id, exam_code, title, description, exam_type, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'CBT', NOW(), NOW())`,
+		examID, req.Code, req.Name, req.Name); err != nil {
+		return nil, err
+	}
+	if gradeID != nil {
+		_, _ = r.pool.Exec(ctx,
+			`INSERT INTO cbt.exam_grade (exam_id, grade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			examID, *gradeID)
+	}
 	var id uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO exam_packages (code, name, education_level, grade_id, is_active)
-		 VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-		req.Code, req.Name, req.EducationLevel, gradeID, active).Scan(&id)
+		`INSERT INTO cbt.exam_package (exam_id, name, is_active) VALUES ($1, $2, $3) RETURNING id`,
+		examID, req.Name, active).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -152,27 +163,49 @@ func (r *Repository) Create(ctx context.Context, req SavePackageRequest) (*ExamP
 }
 
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SavePackageRequest) (*ExamPackage, error) {
-	var gradeID *uuid.UUID
-	if req.GradeID != nil && *req.GradeID != "" {
-		if gid, err := uuid.Parse(*req.GradeID); err == nil {
-			gradeID = &gid
+	var examID uuid.UUID
+	if err := r.pool.QueryRow(ctx,
+		`SELECT exam_id FROM cbt.exam_package WHERE id = $1 AND deleted_at IS NULL`, id).Scan(&examID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pgx.ErrNoRows
 		}
+		return nil, err
+	}
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE cbt.exam SET exam_code = $2, title = $3, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
+		examID, req.Code, req.Name); err != nil {
+		return nil, err
 	}
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE exam_packages SET code=$2, name=$3, education_level=$4, grade_id=$5,
-		   is_active=COALESCE($6, is_active), updated_at=NOW() WHERE id=$1`,
-		id, req.Code, req.Name, req.EducationLevel, gradeID, req.IsActive)
+		`UPDATE cbt.exam_package SET exam_id = $2, is_active = COALESCE($3, is_active) WHERE id = $1 AND deleted_at IS NULL`,
+		id, examID, req.IsActive)
 	if err != nil {
 		return nil, err
 	}
 	if tag.RowsAffected() == 0 {
 		return nil, pgx.ErrNoRows
 	}
+	var gradeID *uuid.UUID
+	if req.GradeID != nil && *req.GradeID != "" {
+		if gid, err := uuid.Parse(*req.GradeID); err == nil {
+			gradeID = &gid
+		}
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_grade WHERE exam_id = $1`, examID); err != nil {
+		return nil, err
+	}
+	if gradeID != nil {
+		_, _ = r.pool.Exec(ctx,
+			`INSERT INTO cbt.exam_grade (exam_id, grade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			examID, *gradeID)
+	}
 	return r.GetByID(ctx, id)
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM exam_packages WHERE id = $1`, id)
+	// Hard delete on the package row only. cbt.exam_package cascades to
+	// cbt.exam_package_question; the underlying cbt.exam is left untouched.
+	tag, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam_package WHERE id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return err
 	}
@@ -184,11 +217,10 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *Repository) ListExams(ctx context.Context, packageID uuid.UUID) ([]PackageExam, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT epe.exam_content_id, epe.subject_id, COALESCE(s.name, ''), epe.display_order
-		 FROM exam_package_exams epe
-		 LEFT JOIN subjects s ON s.id = epe.subject_id
-		 WHERE epe.package_id = $1
-		 ORDER BY epe.display_order`, packageID)
+		`SELECT exam_content_id, subject_id, COALESCE(subject_name, ''), display_order
+		 FROM cms.exam_package_exams
+		 WHERE package_id = $1
+		 ORDER BY display_order`, packageID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +228,12 @@ func (r *Repository) ListExams(ctx context.Context, packageID uuid.UUID) ([]Pack
 	var out []PackageExam
 	for rows.Next() {
 		var pe PackageExam
-		if err := rows.Scan(&pe.ExamContentID, &pe.SubjectID, &pe.SubjectName, &pe.DisplayOrder); err != nil {
+		var subject *uuid.UUID
+		if err := rows.Scan(&pe.ExamContentID, &subject, &pe.SubjectName, &pe.DisplayOrder); err != nil {
 			return nil, err
+		}
+		if subject != nil {
+			pe.SubjectID = *subject
 		}
 		out = append(out, pe)
 	}
@@ -207,26 +243,29 @@ func (r *Repository) ListExams(ctx context.Context, packageID uuid.UUID) ([]Pack
 func (r *Repository) LinkExam(ctx context.Context, packageID uuid.UUID, req LinkExamRequest) error {
 	examID, _ := uuid.Parse(req.ExamContentID)
 	subjectID, _ := uuid.Parse(req.SubjectID)
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE cbt.exam_package SET exam_id = $2 WHERE id = $1 AND deleted_at IS NULL`,
+		packageID, examID); err != nil {
+		return err
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO exam_package_exams (package_id, exam_content_id, subject_id, display_order)
-		 VALUES ($1,$2,$3,$4)
-		 ON CONFLICT (package_id, exam_content_id) DO UPDATE SET subject_id = EXCLUDED.subject_id, display_order = EXCLUDED.display_order`,
-		packageID, examID, subjectID, req.DisplayOrder)
+		`INSERT INTO cbt.exam_subject (exam_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		examID, subjectID)
 	return err
 }
 
 func (r *Repository) IsExamContent(ctx context.Context, examContentID uuid.UUID) (bool, error) {
 	var ok bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM contents WHERE id = $1 AND content_type = 'EXAM')`,
+		`SELECT EXISTS(SELECT 1 FROM cbt.exam WHERE id = $1 AND deleted_at IS NULL)`,
 		examContentID).Scan(&ok)
 	return ok, err
 }
 
 func (r *Repository) UnlinkExam(ctx context.Context, packageID, examContentID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM exam_package_exams WHERE package_id = $1 AND exam_content_id = $2`,
-		packageID, examContentID)
+		`DELETE FROM cbt.exam_subject WHERE exam_id = $1`,
+		examContentID)
 	return err
 }
 

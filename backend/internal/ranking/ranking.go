@@ -120,21 +120,34 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) CountPackageSubjects(ctx context.Context, packageID uuid.UUID) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(DISTINCT subject_id) FROM exam_package_exams WHERE package_id = $1`, packageID).Scan(&n)
+		`SELECT COUNT(DISTINCT qs.subject_id)
+		 FROM cbt.exam_package ep
+		 JOIN cbt.exam_package_question epq ON epq.package_id = ep.id
+		 JOIN question.question_subject qs ON qs.question_id = epq.question_id
+		 WHERE ep.id = $1`, packageID).Scan(&n)
 	return n, err
 }
 
 func (r *Repository) FetchRawScores(ctx context.Context, packageID uuid.UUID, from, to time.Time) ([]rawScore, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT a.user_id, u.full_name, COALESCE(u.school_name, ''),
-		        epe.subject_id::text, MAX(a.total_score)
-		 FROM content_exam_attempts a
-		 JOIN exam_package_exams epe ON epe.exam_content_id = a.exam_content_id AND epe.package_id = $1
-		 JOIN users u ON u.id = a.user_id
-		 WHERE a.status IN ('SUBMITTED', 'GRADED')
-		   AND a.total_score IS NOT NULL
-		   AND a.submitted_at >= $2 AND a.submitted_at < $3
-		 GROUP BY a.user_id, u.full_name, u.school_name, epe.subject_id`,
+		`SELECT p.student_id,
+		        COALESCE(up.full_name, l.username),
+		        COALESCE(sc.name, ''),
+		        qs.subject_id::text,
+		        gr.score::float8
+		 FROM cbt.exam_package ep
+		 JOIN cbt.exam_package_question epq ON epq.package_id = ep.id
+		 JOIN question.question_subject qs ON qs.question_id = epq.question_id
+		 JOIN cbt.exam_participant p ON p.exam_id = ep.exam_id
+		 JOIN cbt.exam_attempt a ON a.participant_id = p.id
+		 JOIN cbt.grading_result gr ON gr.attempt_id = a.id
+		 JOIN identity.user l ON l.id = p.student_id
+		 LEFT JOIN identity.user_profile up ON up.user_id = l.id
+		 LEFT JOIN academic.student_enrollment se ON se.student_id = l.id AND se.status = 'ACTIVE'
+		 LEFT JOIN academic.school sc ON sc.id = se.school_id
+		 WHERE ep.id = $1
+		   AND a.status IN ('SUBMITTED', 'GRADING', 'COMPLETED')
+		   AND a.finished_at >= $2 AND a.finished_at < $3`,
 		packageID, from, to)
 	if err != nil {
 		return nil, err
