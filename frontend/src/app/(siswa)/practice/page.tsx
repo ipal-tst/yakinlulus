@@ -20,6 +20,7 @@ import {
 import { useAuthStore } from "@/stores/auth.store";
 import { GradeBadge } from "@/components/siswa/GradeBadge";
 import { academicService } from "@/services/academic.service";
+import { Exam, Material } from "@/types";
 import {
     PenTool,
     Target,
@@ -32,10 +33,9 @@ import {
     CheckCircle2,
     Zap,
     HelpCircle,
-    Star,
     Play,
     Sparkles,
-    ShieldAlert,
+    Inbox,
 } from "lucide-react";
 
 interface PracticeItem {
@@ -46,7 +46,6 @@ interface PracticeItem {
     difficulty: "EASY" | "MEDIUM" | "HARD" | "HOTS";
     total_questions: number;
     estimated_minutes: number;
-    completion_rate?: number;
     is_hot?: boolean;
     author?: string;
     description?: string;
@@ -57,134 +56,66 @@ export default function PracticePage() {
     const { user } = useAuthStore();
     const [activeTab, setActiveTab] = useState<"SUBJECT" | "TOPIC" | "ADMIN_DRILL">("SUBJECT");
     const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [practiceItems, setPracticeItems] = useState<PracticeItem[]>([]);
     const [selectedPractice, setSelectedPractice] = useState<PracticeItem | null>(null);
     const [selectedMode, setSelectedMode] = useState<"SANTAI" | "SIMULASI">("SANTAI");
 
-    // Practice items catalog (per mapel, per materi, drill admin)
-    const practiceItems: PracticeItem[] = [
-        // Per Mapel
-        {
-            id: "p-sub-1",
-            title: "Latihan Intensif Penalaran Matematika",
-            subject_name: "Penalaran Matematika",
-            type: "SUBJECT",
-            difficulty: "MEDIUM",
-            total_questions: 20,
-            estimated_minutes: 25,
-            completion_rate: 65,
-            is_hot: true,
-            description: "Bank latihan lengkap logika kuantitatif, analisis grafik, dan aljabar cerita.",
-        },
-        {
-            id: "p-sub-2",
-            title: "Latihan Kilat Literasi Bahasa Indonesia",
-            subject_name: "Literasi Bahasa Indonesia",
-            type: "SUBJECT",
-            difficulty: "EASY",
-            total_questions: 15,
-            estimated_minutes: 20,
-            completion_rate: 80,
-            description: "Pemantapan membaca wacana, kalimat efektif, dan penarikan kesimpulan teks.",
-        },
-        {
-            id: "p-sub-3",
-            title: "Mastery Drill Penalaran Umum",
-            subject_name: "Penalaran Umum",
-            type: "SUBJECT",
-            difficulty: "HARD",
-            total_questions: 25,
-            estimated_minutes: 30,
-            completion_rate: 50,
-            is_hot: true,
-            description: "Soal penalaran induktif, deduktif, dan kuantitatif tingkat tinggi.",
-        },
-        {
-            id: "p-sub-4",
-            title: "Latihan Pengetahuan Kuantitatif",
-            subject_name: "Pengetahuan Kuantitatif",
-            type: "SUBJECT",
-            difficulty: "HOTS",
-            total_questions: 20,
-            estimated_minutes: 25,
-            completion_rate: 40,
-            description: "Soal kuantitatif aljabar, geometri, dan statistika standar SNBT.",
-        },
+    useEffect(() => {
+        async function loadData() {
+            setLoading(true);
+            try {
+                // Fetch real data from backend API
+                const [examsRes, materialsRes] = await Promise.allSettled([
+                    academicService.getExams(),
+                    academicService.getMaterials(),
+                ]);
 
-        // Per Materi / Bab
-        {
-            id: "p-top-1",
-            title: "Drill Bab 1: Deret Angka & Pola Bilangan",
-            subject_name: "Penalaran Umum",
-            type: "TOPIC",
-            difficulty: "MEDIUM",
-            total_questions: 10,
-            estimated_minutes: 12,
-            completion_rate: 90,
-            description: "Latihan khusus menguasai pola deret bertingkat, deret huruf, dan matriks angka.",
-        },
-        {
-            id: "p-top-2",
-            title: "Drill Bab 2: Ide Pokok & Simpulan Paragraf",
-            subject_name: "Literasi Bahasa Indonesia",
-            type: "TOPIC",
-            difficulty: "EASY",
-            total_questions: 10,
-            estimated_minutes: 15,
-            completion_rate: 85,
-            description: "Trik cepat menemukan kalimat utama dan simpulan implicit wacana panjang.",
-        },
-        {
-            id: "p-top-3",
-            title: "Drill Bab 3: Persamaan Linear & Pertidaksamaan",
-            subject_name: "Penalaran Matematika",
-            type: "TOPIC",
-            difficulty: "HARD",
-            total_questions: 12,
-            estimated_minutes: 18,
-            completion_rate: 60,
-            description: "Penyelesaian sistem persamaan 2 variabel dan aplikasi soal cerita kuantitatif.",
-        },
+                const items: PracticeItem[] = [];
 
-        // Drill Soal Spesial Admin
-        {
-            id: "p-adm-1",
-            title: "🔥 Super Drill HOTS 15 Menit - UTBK 2026",
-            subject_name: "Paket Mix UTBK",
-            type: "ADMIN_DRILL",
-            difficulty: "HOTS",
-            total_questions: 15,
-            estimated_minutes: 15,
-            completion_rate: 35,
-            is_hot: true,
-            author: "Tim Pakar Akademik YakinLulus",
-            description: "Drill cepat 15 soal tingkat tinggi pilihan langsung dari tim pengajar senior.",
-        },
-        {
-            id: "p-adm-2",
-            title: "⚡ Drill Kilat 10 Soal Penalaran Kuantitatif",
-            subject_name: "Pengetahuan Kuantitatif",
-            type: "ADMIN_DRILL",
-            difficulty: "HARD",
-            total_questions: 10,
-            estimated_minutes: 10,
-            completion_rate: 75,
-            author: "Drs. Budi Santoso, M.Pd",
-            description: "Trik penyelesaian cepat 10 soal kuantitatif favorit SNBT tahun lalu.",
-        },
-        {
-            id: "p-adm-3",
-            title: "🏆 Bank Soal Prediksi UTBK SNBT Gelombang 1",
-            subject_name: "Campuran TPS",
-            type: "ADMIN_DRILL",
-            difficulty: "HOTS",
-            total_questions: 30,
-            estimated_minutes: 40,
-            completion_rate: 25,
-            is_hot: true,
-            author: "Staf Akademik Pusat",
-            description: "Prediksi kisi-kisi soal terakurat untuk persiapan ujian gelombang pertama.",
-        },
-    ];
+                if (examsRes.status === "fulfilled" && Array.isArray(examsRes.value)) {
+                    examsRes.value.forEach((exam: Exam) => {
+                        const isDrill = exam.category === "UJIAN_BAB" || exam.category === "UJIAN_HARIAN";
+                        items.push({
+                            id: exam.id,
+                            title: exam.title,
+                            subject_name: exam.category ? exam.category.replace(/_/g, " ") : "Paket Latihan",
+                            type: isDrill ? "ADMIN_DRILL" : "SUBJECT",
+                            difficulty: exam.total_questions > 20 ? "HOTS" : "MEDIUM",
+                            total_questions: exam.total_questions || 10,
+                            estimated_minutes: exam.duration_minutes || 15,
+                            description: exam.description || "Latihan soal terstandar sesuai kurikulum.",
+                            author: "Tim Akademik Admin",
+                        });
+                    });
+                }
+
+                if (materialsRes.status === "fulfilled" && Array.isArray(materialsRes.value)) {
+                    materialsRes.value.forEach((mat: Material) => {
+                        items.push({
+                            id: mat.id,
+                            title: `Latihan: ${mat.title}`,
+                            subject_name: mat.subject_name || "Materi Pelajaran",
+                            type: "TOPIC",
+                            difficulty: "MEDIUM",
+                            total_questions: 10,
+                            estimated_minutes: mat.estimated_duration || mat.reading_time_minutes || 15,
+                            description: mat.description || mat.body || "Latihan soal per materi untuk pemantapan konsep.",
+                        });
+                    });
+                }
+
+                setPracticeItems(items);
+            } catch {
+                // If API fails or yields 0 items, set empty array to match DB exactly
+                setPracticeItems([]);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadData();
+    }, []);
 
     const filteredItems = practiceItems.filter((item) => {
         const matchType = item.type === activeTab;
@@ -197,8 +128,7 @@ export default function PracticePage() {
 
     const handleStartPractice = () => {
         if (!selectedPractice) return;
-        // Navigate to CBT engine session or exams launcher
-        router.push(`/exams`);
+        router.push(`/exams?id=${selectedPractice.id}`);
         setSelectedPractice(null);
     };
 
@@ -226,7 +156,7 @@ export default function PracticePage() {
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground font-medium">Soal Dikerjakan</p>
-                            <h4 className="text-lg font-bold">148 Soal</h4>
+                            <h4 className="text-lg font-bold">0 Soal</h4>
                         </div>
                     </Card>
 
@@ -236,7 +166,7 @@ export default function PracticePage() {
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground font-medium">Akurasi Jawaban</p>
-                            <h4 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">78.5%</h4>
+                            <h4 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">0%</h4>
                         </div>
                     </Card>
 
@@ -246,7 +176,7 @@ export default function PracticePage() {
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground font-medium">Drill Streak</p>
-                            <h4 className="text-lg font-bold text-amber-600 dark:text-amber-400">5 Hari</h4>
+                            <h4 className="text-lg font-bold text-amber-600 dark:text-amber-400">0 Hari</h4>
                         </div>
                     </Card>
 
@@ -256,7 +186,7 @@ export default function PracticePage() {
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground font-medium">Total Skor Latihan</p>
-                            <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">685 Pts</h4>
+                            <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">0 Pts</h4>
                         </div>
                     </Card>
                 </div>
@@ -303,21 +233,32 @@ export default function PracticePage() {
                     </div>
                 </div>
 
-                {/* Practice Items Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredItems.map((item) => (
-                        <Card key={item.id} className="flex flex-col justify-between hover:border-primary transition-all group border-border/80">
-                            <CardHeader className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Badge variant="secondary" className="text-[10px] font-semibold">
-                                        {item.subject_name}
-                                    </Badge>
-                                    <div className="flex items-center gap-1">
-                                        {item.is_hot && (
-                                            <Badge variant="default" className="text-[10px] bg-red-500 text-white gap-1 px-1.5">
-                                                <Flame className="h-3 w-3 fill-current" /> HOT
-                                            </Badge>
-                                        )}
+                {/* Practice Items Cards Grid / Empty State */}
+                {loading ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                        Memuat data latihan dari database...
+                    </div>
+                ) : filteredItems.length === 0 ? (
+                    <Card className="p-12 text-center space-y-4 border-dashed border-2 border-border/80">
+                        <div className="mx-auto w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
+                            <Inbox className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="font-bold text-base">Belum Ada Soal Latihan</h3>
+                            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                                Tidak ada modul latihan yang tersedia di database untuk kategori ini saat ini. Silakan cek kembali nanti atau pilih tab lain.
+                            </p>
+                        </div>
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredItems.map((item) => (
+                            <Card key={item.id} className="flex flex-col justify-between hover:border-primary transition-all group border-border/80">
+                                <CardHeader className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Badge variant="secondary" className="text-[10px] font-semibold">
+                                            {item.subject_name}
+                                        </Badge>
                                         <Badge
                                             variant="outline"
                                             className={`text-[10px] font-bold ${item.difficulty === "HOTS"
@@ -332,46 +273,46 @@ export default function PracticePage() {
                                             {item.difficulty}
                                         </Badge>
                                     </div>
-                                </div>
 
-                                <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                                    {item.title}
-                                </CardTitle>
+                                    <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                                        {item.title}
+                                    </CardTitle>
 
-                                {item.description && (
-                                    <CardDescription className="line-clamp-2 text-xs">
-                                        {item.description}
-                                    </CardDescription>
-                                )}
+                                    {item.description && (
+                                        <CardDescription className="line-clamp-2 text-xs">
+                                            {item.description}
+                                        </CardDescription>
+                                    )}
 
-                                {item.author && (
-                                    <div className="text-[11px] text-muted-foreground flex items-center gap-1 pt-1 font-medium">
-                                        <span>Dibuat oleh:</span>
-                                        <span className="text-foreground font-semibold">{item.author}</span>
+                                    {item.author && (
+                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1 pt-1 font-medium">
+                                            <span>Dibuat oleh:</span>
+                                            <span className="text-foreground font-semibold">{item.author}</span>
+                                        </div>
+                                    )}
+                                </CardHeader>
+
+                                <CardContent className="pt-0 space-y-4">
+                                    <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1 font-medium">
+                                            <HelpCircle className="h-3.5 w-3.5 text-primary" /> {item.total_questions} Soal
+                                        </span>
+                                        <span className="flex items-center gap-1 font-medium">
+                                            <Clock className="h-3.5 w-3.5 text-primary" /> {item.estimated_minutes} Menit
+                                        </span>
                                     </div>
-                                )}
-                            </CardHeader>
 
-                            <CardContent className="pt-0 space-y-4">
-                                <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
-                                    <span className="flex items-center gap-1 font-medium">
-                                        <HelpCircle className="h-3.5 w-3.5 text-primary" /> {item.total_questions} Soal
-                                    </span>
-                                    <span className="flex items-center gap-1 font-medium">
-                                        <Clock className="h-3.5 w-3.5 text-primary" /> {item.estimated_minutes} Menit
-                                    </span>
-                                </div>
-
-                                <Button
-                                    onClick={() => setSelectedPractice(item)}
-                                    className="w-full rounded-xl text-xs gap-1.5 font-semibold shadow-xs"
-                                >
-                                    <Play className="h-3.5 w-3.5 fill-current" /> Mulai Latihan
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                    <Button
+                                        onClick={() => setSelectedPractice(item)}
+                                        className="w-full rounded-xl text-xs gap-1.5 font-semibold shadow-xs"
+                                    >
+                                        <Play className="h-3.5 w-3.5 fill-current" /> Mulai Latihan
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Modal Dialog Confirmation Launcher */}
