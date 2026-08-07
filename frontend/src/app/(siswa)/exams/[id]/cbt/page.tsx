@@ -427,51 +427,66 @@ export default function CBTPage() {
                         {currentQ.type === "TRUE_FALSE_MATRIX" && currentQ.statements && (
                             <div className="space-y-4">
                                 <span className="text-xs text-emerald-600 font-semibold block bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-                                    💡 Petunjuk: Pilih [ BENAR ] atau [ SALAH ] untuk setiap baris pernyataan di bawah.
+                                    💡 Petunjuk: Pilih [ BENAR ] atau [ SALAH ] untuk setiap baris pernyataan pada tabel di bawah.
                                 </span>
 
-                                <div className="space-y-3">
-                                    {currentQ.statements.map((st, idx) => {
-                                        const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
-                                        const val = currentObj?.[st.id];
+                                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead className="bg-muted/70 text-foreground font-bold border-b border-border">
+                                            <tr>
+                                                <th className="p-3 w-12 text-center">Opsi</th>
+                                                <th className="p-3">Pernyataan</th>
+                                                <th className="p-3 w-24 text-center">Benar</th>
+                                                <th className="p-3 w-24 text-center">Salah</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/60">
+                                            {currentQ.statements.map((st, idx) => {
+                                                const label = String.fromCharCode(65 + idx); // A, B, C, D...
+                                                const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
+                                                const val = currentObj?.[st.id];
 
-                                        return (
-                                            <div
-                                                key={st.id}
-                                                className="p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs"
-                                            >
-                                                <p className="text-xs sm:text-sm font-medium text-foreground leading-relaxed">
-                                                    <span className="font-bold text-primary mr-1">{idx + 1}.</span> {st.statement}
-                                                </p>
-
-                                                <div className="grid grid-cols-2 gap-2 pt-1">
-                                                    <button
-                                                        onClick={() => handleSetMatrixValue(st.id, "BENAR")}
-                                                        className={cn(
-                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-                                                            val === "BENAR"
-                                                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                                                        )}
-                                                    >
-                                                        <Check className="h-3.5 w-3.5" /> BENAR
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => handleSetMatrixValue(st.id, "SALAH")}
-                                                        className={cn(
-                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-                                                            val === "SALAH"
-                                                                ? "bg-red-600 text-white border-red-600 shadow-xs"
-                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                                                        )}
-                                                    >
-                                                        <X className="h-3.5 w-3.5" /> SALAH
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                return (
+                                                    <tr key={st.id} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="p-3 text-center align-middle font-bold">
+                                                            <span className="h-6 w-6 rounded-lg bg-primary/10 text-primary inline-flex items-center justify-center font-mono text-xs">
+                                                                {label}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 align-middle text-foreground leading-relaxed">
+                                                            {st.statement}
+                                                        </td>
+                                                        <td className="p-2 text-center align-middle">
+                                                            <button
+                                                                onClick={() => handleSetMatrixValue(st.id, "BENAR")}
+                                                                className={cn(
+                                                                    "w-full py-2 px-2 rounded-xl font-bold text-[11px] border transition-all flex items-center justify-center gap-1 cursor-pointer",
+                                                                    val === "BENAR"
+                                                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                )}
+                                                            >
+                                                                <Check className="h-3 w-3" /> Benar
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-2 text-center align-middle">
+                                                            <button
+                                                                onClick={() => handleSetMatrixValue(st.id, "SALAH")}
+                                                                className={cn(
+                                                                    "w-full py-2 px-2 rounded-xl font-bold text-[11px] border transition-all flex items-center justify-center gap-1 cursor-pointer",
+                                                                    val === "SALAH"
+                                                                        ? "bg-red-600 text-white border-red-600 shadow-xs"
+                                                                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                )}
+                                                            >
+                                                                <X className="h-3 w-3" /> Salah
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}
@@ -480,51 +495,66 @@ export default function CBTPage() {
                         {currentQ.type === "SUITABILITY_MATRIX" && currentQ.statements && (
                             <div className="space-y-4">
                                 <span className="text-xs text-amber-600 font-semibold block bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                                    💡 Petunjuk: Pilih [ SESUAI ] atau [ TIDAK SESUAI ] untuk setiap baris pernyataan di bawah.
+                                    💡 Petunjuk: Pilih [ SESUAI ] atau [ TIDAK SESUAI ] untuk setiap baris pernyataan pada tabel di bawah.
                                 </span>
 
-                                <div className="space-y-3">
-                                    {currentQ.statements.map((st, idx) => {
-                                        const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
-                                        const val = currentObj?.[st.id];
+                                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead className="bg-muted/70 text-foreground font-bold border-b border-border">
+                                            <tr>
+                                                <th className="p-3 w-12 text-center">Opsi</th>
+                                                <th className="p-3">Pernyataan</th>
+                                                <th className="p-3 w-28 text-center">Sesuai</th>
+                                                <th className="p-3 w-28 text-center">Tidak Sesuai</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/60">
+                                            {currentQ.statements.map((st, idx) => {
+                                                const label = String.fromCharCode(65 + idx); // A, B, C, D...
+                                                const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
+                                                const val = currentObj?.[st.id];
 
-                                        return (
-                                            <div
-                                                key={st.id}
-                                                className="p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs"
-                                            >
-                                                <p className="text-xs sm:text-sm font-medium text-foreground leading-relaxed">
-                                                    <span className="font-bold text-primary mr-1">{idx + 1}.</span> {st.statement}
-                                                </p>
-
-                                                <div className="grid grid-cols-2 gap-2 pt-1">
-                                                    <button
-                                                        onClick={() => handleSetMatrixValue(st.id, "SESUAI")}
-                                                        className={cn(
-                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-                                                            val === "SESUAI"
-                                                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                                                        )}
-                                                    >
-                                                        <Check className="h-3.5 w-3.5" /> SESUAI
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => handleSetMatrixValue(st.id, "TIDAK_SESUAI")}
-                                                        className={cn(
-                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-                                                            val === "TIDAK_SESUAI"
-                                                                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                                                        )}
-                                                    >
-                                                        <X className="h-3.5 w-3.5" /> TIDAK SESUAI
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                return (
+                                                    <tr key={st.id} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="p-3 text-center align-middle font-bold">
+                                                            <span className="h-6 w-6 rounded-lg bg-primary/10 text-primary inline-flex items-center justify-center font-mono text-xs">
+                                                                {label}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 align-middle text-foreground leading-relaxed">
+                                                            {st.statement}
+                                                        </td>
+                                                        <td className="p-2 text-center align-middle">
+                                                            <button
+                                                                onClick={() => handleSetMatrixValue(st.id, "SESUAI")}
+                                                                className={cn(
+                                                                    "w-full py-2 px-2 rounded-xl font-bold text-[11px] border transition-all flex items-center justify-center gap-1 cursor-pointer",
+                                                                    val === "SESUAI"
+                                                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                )}
+                                                            >
+                                                                <Check className="h-3 w-3" /> Sesuai
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-2 text-center align-middle">
+                                                            <button
+                                                                onClick={() => handleSetMatrixValue(st.id, "TIDAK_SESUAI")}
+                                                                className={cn(
+                                                                    "w-full py-2 px-2 rounded-xl font-bold text-[11px] border transition-all flex items-center justify-center gap-1 cursor-pointer",
+                                                                    val === "TIDAK_SESUAI"
+                                                                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                                                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                )}
+                                                            >
+                                                                <X className="h-3 w-3" /> Tidak Sesuai
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}
