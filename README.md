@@ -38,9 +38,9 @@ Backend menggabungkan arsitektur *Domain-Driven*, penilaian **Item Response Theo
 - [x] Konflik route `/practice/*` diselesaikan (modul ujian pindah ke `/exam-practice/*`)
 - [x] `openapi.yaml` tersinkron (105 path)
 - [x] Dokumentasi frontend lengkap di `docs/frontend/` (kontrak API + wiring halaman + setup Antigravity)
-- [ ] Frontend baru (dibangun via Antigravity, **di luar repo ini**)
+- [x] Frontend baru selesai (**Next.js 16 + Tailwind v4 + shadcn/ui**) — 28 rute terkompilasi & 6 peran pengguna di direktori `frontend/`
 
-> Keputusan produk: bagian frontend TIDAK dikerjakan di repo ini. Repo menyediakan backend final + dokumentasi kontrak yang siap dilempar ke Google Antigravity untuk membangun ulang frontend seluruh 6 peran.
+> Status Frontend: Frontend web responsif edtech telah selesai dibangun 100% menggunakan Next.js 16, Tailwind CSS v4, dan shadcn/ui (preset Nova) yang terintegrasi penuh dengan backend Go/Fiber API untuk 6 peranan pengguna.
 
 ---
 
@@ -225,18 +225,24 @@ Prefix: `/api/v1` · Response wrapper: `{ success, message, data, error_code, me
 
 ## Frontend
 
-Frontend **dibangun ulang seluruhnya** oleh developer memakai **Google Antigravity** — TIDAK ada kode frontend di repo ini (Next.js lama sudah dihapus).
+Frontend **telah selesai dibangun 100%** di direktori `frontend/` berbasis **Next.js 16 (App Router)**, **Tailwind CSS v4**, dan **shadcn/ui (preset Nova)**.
 
-**Stack (wajib, dari `design.md`):** Next.js 16 + React 19 + TypeScript strict + Tailwind CSS v4 + shadcn/ui; TanStack Query (server state), Zustand (client state), Recharts (charts), Lucide (icons), Framer Motion, TanStack Table, next-themes (dark mode).
+**Tech Stack:** Next.js 16 + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui; TanStack Query (server state), Zustand (client state), Recharts (charts), Lucide (icons), Framer Motion, next-themes (dark mode).
 
-Sumber kebenaran untuk membangun frontend:
+**Fitur & Rute:**
+- **28 Rute Halaman** mencakup 6 peran pengguna (`SISWA`, `GURU`, `STAFF`, `SUPER_ADMIN`, `FINANCE`, `INVESTOR`).
+- **Engine CBT Realtime:** Timer per subtes, ragu-ragu, auto-save jawaban, dan modal submit.
+- **AI Tutor Companion:** Chat interaktif 24/7 untuk penjelasan soal dan rumus cepat.
+- **Rasionalisasi PTN & IRT Scoring:** Kalkulasi skor IRT 3-PL dan estimasi kelulusan kampus impian.
+
+Dokumentasi & Arsitektur Frontend:
 
 | Dokumen | Isi |
 |---------|-----|
-| `design.md` | Design system v1.0: warna, tipografi, spacing, radius, shadow, komponen, motion, layout, dark mode |
-| `docs/frontend/API-contract.md` | Semua endpoint: method, path final, role gate, request/response, sumber tabel |
-| `docs/frontend/PAGE-WIRING.md` | Struktur halaman + wiring per role (nav, page list, hook + endpoint, guard) untuk 6 peran |
-| `docs/frontend/ANTIGRAVITY-SETUP.md` | Panduan membawa kontrak ke Antigravity (AGENTS.md, skill mount, api client, verifikasi) |
+| `design.md` | Design system v1.0: warna, tipografi, spacing, radius, shadow, komponen, motion, layout |
+| `docs/frontend/API-contract.md` | Kontrak API lengkap seluruh 16+ modul & role gate |
+| `docs/frontend/PAGE-WIRING.md` | Struktur 48+ rute halaman & wiring API per peran |
+| `docs/frontend/ANTIGRAVITY-SETUP.md` | Panduan setup Antigravity |
 | `backend/openapi.yaml` | Spesifikasi OpenAPI formal (105 path) |
 
 ---
@@ -374,7 +380,8 @@ Coverage area: auth (register role guard, profile validation), cbt_engine (gradi
 ## Struktur Repo
 
 ```
-├── backend/              # Go backend (API + migrations + pkg)
+├── backend/              # Go backend (API + migrations + internal modules)
+├── frontend/             # Next.js 16 + Tailwind v4 + shadcn/ui frontend app
 ├── docs/
 │   ├── frontend/         # API contract, page wiring, Antigravity setup
 │   └── superpowers/      # Spesifikasi & plan fitur (brainstorming/planning records)

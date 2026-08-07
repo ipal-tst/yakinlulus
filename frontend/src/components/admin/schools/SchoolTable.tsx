@@ -56,10 +56,8 @@ export function SchoolTable({ schools, onToggleStatus, onDelete }: SchoolTablePr
             accessorKey: "id",
             cell: (row) => (
                 <DropdownMenu>
-                    <DropdownMenuTrigger>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                    <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                        <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onToggleStatus(row)} className="gap-2">
