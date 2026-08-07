@@ -22,6 +22,7 @@ import {
     parseExcelQuestionFile,
     generateExcelFromRows,
     validateQuestionRow,
+    parseTrueFalseKeyMap,
     ParsedQuestionRow,
 } from "@/services/question-excel-parser";
 import {
@@ -37,6 +38,7 @@ import {
     HelpCircle,
     BookOpen,
     Check,
+    X,
     AlertTriangle,
     Pencil,
     Plus,
@@ -78,6 +80,7 @@ export default function QuestionImportPage() {
     const [simulatorDevice, setSimulatorDevice] = useState<"desktop" | "mobile">("desktop");
     const [simulatorShowSolution, setSimulatorShowSolution] = useState(true);
     const [simulatorSelectedOpt, setSimulatorSelectedOpt] = useState<string | null>(null);
+    const [simulatorMatrixAnswers, setSimulatorMatrixAnswers] = useState<Record<string, "BENAR" | "SALAH">>({});
 
     const reset = () => {
         setFile(null);
@@ -942,61 +945,147 @@ export default function QuestionImportPage() {
                                         />
                                     </div>
 
-                                    {/* Options Grid */}
+                                    {/* Options Grid / Matrix Pernyataan */}
                                     <div className="space-y-2 border-t border-border pt-3">
-                                        <label className="font-semibold text-foreground block">Pilihan Jawaban (Opsi A - E)</label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi A</span>
-                                                <Input
-                                                    value={editingRow.optionA}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                                        setEditingRow({ ...editingRow, optionA: e.target.value })
-                                                    }
-                                                    className="rounded-xl text-xs"
-                                                />
+                                        {editingRow.tipeSoal === "TRUE_FALSE" ? (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                                        Matriks Pernyataan &amp; Kunci (True / False)
+                                                    </label>
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        Centang [Benar] atau [Salah] pada setiap opsi untuk menyusun Kunci Jawaban
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {[
+                                                        { label: "A", text: editingRow.optionA, key: "optionA" as const },
+                                                        { label: "B", text: editingRow.optionB, key: "optionB" as const },
+                                                        { label: "C", text: editingRow.optionC, key: "optionC" as const },
+                                                        { label: "D", text: editingRow.optionD, key: "optionD" as const },
+                                                        { label: "E", text: editingRow.optionE, key: "optionE" as const },
+                                                    ].map((optItem) => {
+                                                        const keyMap = parseTrueFalseKeyMap(editingRow.kunciJawaban);
+                                                        const isBenar = keyMap[optItem.label] === "BENAR";
+                                                        const isSalah = keyMap[optItem.label] === "SALAH";
+
+                                                        const handleToggleKey = (targetValue: "BENAR" | "SALAH") => {
+                                                            const newMap = { ...keyMap, [optItem.label]: targetValue };
+                                                            const newKeyStr = Object.entries(newMap)
+                                                                .filter(([_, v]) => v)
+                                                                .map(([k, v]) => `${k}:${v}`)
+                                                                .join(", ");
+                                                            setEditingRow({ ...editingRow, kunciJawaban: newKeyStr });
+                                                        };
+
+                                                        return (
+                                                            <div key={optItem.label} className="p-3 rounded-2xl border border-border bg-card shadow-2xs space-y-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="h-6 w-6 rounded-lg bg-primary/10 text-primary font-mono font-bold text-xs flex items-center justify-center">
+                                                                            {optItem.label}
+                                                                        </span>
+                                                                        <span className="text-xs font-bold text-foreground">
+                                                                            Pernyataan {optItem.label}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-semibold text-muted-foreground">Pilih Kunci:</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleKey("BENAR")}
+                                                                            className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${isBenar
+                                                                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                                : "bg-muted/40 text-muted-foreground border-border hover:bg-emerald-500/10 hover:text-emerald-600"
+                                                                                }`}
+                                                                        >
+                                                                            <Check className="h-3 w-3" /> Benar
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleKey("SALAH")}
+                                                                            className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${isSalah
+                                                                                ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                                                                                : "bg-muted/40 text-muted-foreground border-border hover:bg-rose-500/10 hover:text-rose-600"
+                                                                                }`}
+                                                                        >
+                                                                            <X className="h-3 w-3" /> Salah
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <textarea
+                                                                    rows={2}
+                                                                    value={optItem.text}
+                                                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                                                                        setEditingRow({ ...editingRow, [optItem.key]: e.target.value })
+                                                                    }
+                                                                    placeholder={`Tulis teks pernyataan lengkap untuk Opsi ${optItem.label}...`}
+                                                                    className="w-full min-h-[54px] rounded-xl border border-input bg-background p-2.5 text-xs shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring leading-relaxed"
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi B</span>
-                                                <Input
-                                                    value={editingRow.optionB}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                                        setEditingRow({ ...editingRow, optionB: e.target.value })
-                                                    }
-                                                    className="rounded-xl text-xs"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi C</span>
-                                                <Input
-                                                    value={editingRow.optionC}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                                        setEditingRow({ ...editingRow, optionC: e.target.value })
-                                                    }
-                                                    className="rounded-xl text-xs"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi D</span>
-                                                <Input
-                                                    value={editingRow.optionD}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                                        setEditingRow({ ...editingRow, optionD: e.target.value })
-                                                    }
-                                                    className="rounded-xl text-xs"
-                                                />
-                                            </div>
-                                            <div className="space-y-1 col-span-2">
-                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi E (Opsional)</span>
-                                                <Input
-                                                    value={editingRow.optionE}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                                        setEditingRow({ ...editingRow, optionE: e.target.value })
-                                                    }
-                                                    className="rounded-xl text-xs"
-                                                />
-                                            </div>
-                                        </div>
+                                        ) : (
+                                            <>
+                                                <label className="font-semibold text-foreground block">Pilihan Jawaban (Opsi A - E)</label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-bold text-muted-foreground">Opsi A</span>
+                                                        <Input
+                                                            value={editingRow.optionA}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setEditingRow({ ...editingRow, optionA: e.target.value })
+                                                            }
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-bold text-muted-foreground">Opsi B</span>
+                                                        <Input
+                                                            value={editingRow.optionB}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setEditingRow({ ...editingRow, optionB: e.target.value })
+                                                            }
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-bold text-muted-foreground">Opsi C</span>
+                                                        <Input
+                                                            value={editingRow.optionC}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setEditingRow({ ...editingRow, optionC: e.target.value })
+                                                            }
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-bold text-muted-foreground">Opsi D</span>
+                                                        <Input
+                                                            value={editingRow.optionD}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setEditingRow({ ...editingRow, optionD: e.target.value })
+                                                            }
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1 col-span-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground">Opsi E (Opsional)</span>
+                                                        <Input
+                                                            value={editingRow.optionE}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setEditingRow({ ...editingRow, optionE: e.target.value })
+                                                            }
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
                                     {/* Explanation */}
@@ -1074,7 +1163,74 @@ export default function QuestionImportPage() {
 
                                             {/* Live Options List */}
                                             <div className="space-y-2 pt-1">
-                                                {getOptionsList(editingRow).length === 0 ? (
+                                                {editingRow.tipeSoal === "TRUE_FALSE" ? (
+                                                    <div className="space-y-2">
+                                                        <span className="text-[10px] text-emerald-600 font-semibold block bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
+                                                            💡 Tipe Soal Benar / Salah (Matrix Tabel Pernyataan)
+                                                        </span>
+                                                        <div className="overflow-hidden rounded-xl border border-border bg-card">
+                                                            <table className="w-full text-left text-xs border-collapse">
+                                                                <thead className="bg-muted/70 text-foreground font-bold border-b border-border">
+                                                                    <tr>
+                                                                        <th className="p-2 w-10 text-center text-[10px]">Opsi</th>
+                                                                        <th className="p-2 text-[10px]">Pernyataan</th>
+                                                                        <th className="p-2 w-20 text-center text-[10px]">Benar</th>
+                                                                        <th className="p-2 w-20 text-center text-[10px]">Salah</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-border/60">
+                                                                    {getOptionsList(editingRow).map((opt) => {
+                                                                        const keyMap = parseTrueFalseKeyMap(editingRow.kunciJawaban);
+                                                                        const isCorrectBenar = keyMap[opt.label] === "BENAR";
+                                                                        const isCorrectSalah = keyMap[opt.label] === "SALAH";
+                                                                        const currentSel = simulatorMatrixAnswers[opt.label];
+
+                                                                        return (
+                                                                            <tr key={opt.label} className="hover:bg-muted/30 transition-colors">
+                                                                                <td className="p-2 text-center align-middle font-bold">
+                                                                                    <span className="h-5 w-5 rounded-md bg-primary/10 text-primary inline-flex items-center justify-center font-mono text-[10px]">
+                                                                                        {opt.label}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="p-2 align-middle text-foreground leading-snug text-[11px]">
+                                                                                    {opt.text}
+                                                                                </td>
+                                                                                <td className="p-1 text-center align-middle">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setSimulatorMatrixAnswers(prev => ({ ...prev, [opt.label]: "BENAR" }))}
+                                                                                        className={`w-full py-1 px-1.5 rounded-lg font-bold text-[10px] border transition-all flex items-center justify-center gap-1 cursor-pointer ${simulatorShowSolution && isCorrectBenar
+                                                                                            ? "bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-500/30 font-bold"
+                                                                                            : currentSel === "BENAR"
+                                                                                                ? "bg-primary text-primary-foreground border-primary"
+                                                                                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                                            }`}
+                                                                                    >
+                                                                                        <Check className="h-2.5 w-2.5" /> Benar
+                                                                                    </button>
+                                                                                </td>
+                                                                                <td className="p-1 text-center align-middle">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setSimulatorMatrixAnswers(prev => ({ ...prev, [opt.label]: "SALAH" }))}
+                                                                                        className={`w-full py-1 px-1.5 rounded-lg font-bold text-[10px] border transition-all flex items-center justify-center gap-1 cursor-pointer ${simulatorShowSolution && isCorrectSalah
+                                                                                            ? "bg-rose-600 text-white border-rose-600 ring-2 ring-rose-500/30 font-bold"
+                                                                                            : currentSel === "SALAH"
+                                                                                                ? "bg-primary text-primary-foreground border-primary"
+                                                                                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                                                                            }`}
+                                                                                    >
+                                                                                        <X className="h-2.5 w-2.5" /> Salah
+                                                                                    </button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                ) : getOptionsList(editingRow).length === 0 ? (
                                                     <div className="p-3 rounded-xl border border-dashed text-center text-[11px] text-muted-foreground">
                                                         Belum ada opsi jawaban diisi
                                                     </div>
@@ -1232,33 +1388,99 @@ export default function QuestionImportPage() {
                                         </div>
 
                                         <div className="space-y-2.5 pt-2">
-                                            {getOptionsList(previewPovRow).map((opt) => {
-                                                const isCorrectKey = previewPovRow.kunciJawaban.includes(opt.label);
-                                                return (
-                                                    <div
-                                                        key={opt.label}
-                                                        className={`w-full p-3.5 rounded-xl border flex items-start gap-3 text-xs ${isCorrectKey
-                                                            ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
-                                                            : "border-border bg-card"
-                                                            }`}
-                                                    >
-                                                        <span
-                                                            className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${isCorrectKey ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                                            {previewPovRow.tipeSoal === "TRUE_FALSE" ? (
+                                                <div className="space-y-2">
+                                                    <span className="text-xs text-emerald-600 font-semibold block bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                                                        💡 Tipe Soal Benar / Salah (Matrix Tabel Pernyataan)
+                                                    </span>
+                                                    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+                                                        <table className="w-full text-left text-xs border-collapse">
+                                                            <thead className="bg-muted/70 text-foreground font-bold border-b border-border">
+                                                                <tr>
+                                                                    <th className="p-3 w-12 text-center">Opsi</th>
+                                                                    <th className="p-3">Pernyataan</th>
+                                                                    <th className="p-3 w-28 text-center">Benar</th>
+                                                                    <th className="p-3 w-28 text-center">Salah</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-border/60">
+                                                                {getOptionsList(previewPovRow).map((opt) => {
+                                                                    const keyMap = parseTrueFalseKeyMap(previewPovRow.kunciJawaban);
+                                                                    const isCorrectBenar = keyMap[opt.label] === "BENAR";
+                                                                    const isCorrectSalah = keyMap[opt.label] === "SALAH";
+
+                                                                    return (
+                                                                        <tr key={opt.label} className="hover:bg-muted/30 transition-colors">
+                                                                            <td className="p-3 text-center align-middle font-bold">
+                                                                                <span className="h-6 w-6 rounded-lg bg-primary/10 text-primary inline-flex items-center justify-center font-mono text-xs">
+                                                                                    {opt.label}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="p-3 align-middle text-foreground leading-relaxed text-xs">
+                                                                                {opt.text}
+                                                                            </td>
+                                                                            <td className="p-2 text-center align-middle">
+                                                                                <div
+                                                                                    className={`py-2 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-1 ${isCorrectBenar
+                                                                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                                        : "bg-muted/30 text-muted-foreground border-border"
+                                                                                        }`}
+                                                                                >
+                                                                                    <Check className="h-3 w-3" /> Benar
+                                                                                    {isCorrectBenar && (
+                                                                                        <Badge className="bg-white/20 text-white text-[9px] ml-1 px-1 py-0">Kunci</Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="p-2 text-center align-middle">
+                                                                                <div
+                                                                                    className={`py-2 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-1 ${isCorrectSalah
+                                                                                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                                                                                        : "bg-muted/30 text-muted-foreground border-border"
+                                                                                        }`}
+                                                                                >
+                                                                                    <X className="h-3 w-3" /> Salah
+                                                                                    {isCorrectSalah && (
+                                                                                        <Badge className="bg-white/20 text-white text-[9px] ml-1 px-1 py-0">Kunci</Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                getOptionsList(previewPovRow).map((opt) => {
+                                                    const isCorrectKey = previewPovRow.kunciJawaban.includes(opt.label);
+                                                    return (
+                                                        <div
+                                                            key={opt.label}
+                                                            className={`w-full p-3.5 rounded-xl border flex items-start gap-3 text-xs ${isCorrectKey
+                                                                ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
+                                                                : "border-border bg-card"
                                                                 }`}
                                                         >
-                                                            {opt.label}
-                                                        </span>
-                                                        <span className="mt-0.5 text-foreground leading-snug flex-1">
-                                                            {opt.text}
-                                                        </span>
-                                                        {isCorrectKey && (
-                                                            <Badge className="bg-emerald-500 text-white text-[10px] shrink-0 gap-1">
-                                                                <CheckCircle2 className="h-3 w-3" /> Kunci Jawaban
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                                            <span
+                                                                className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${isCorrectKey ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                                                                    }`}
+                                                            >
+                                                                {opt.label}
+                                                            </span>
+                                                            <span className="mt-0.5 text-foreground leading-snug flex-1">
+                                                                {opt.text}
+                                                            </span>
+                                                            {isCorrectKey && (
+                                                                <Badge className="bg-emerald-500 text-white text-[10px] shrink-0 gap-1">
+                                                                    <CheckCircle2 className="h-3 w-3" /> Kunci Jawaban
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
                                         </div>
 
                                         {previewPovRow.pembahasan && (

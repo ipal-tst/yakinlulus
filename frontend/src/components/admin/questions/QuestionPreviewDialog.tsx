@@ -126,43 +126,102 @@ export function QuestionPreviewDialog({ item, isOpen, onClose }: QuestionPreview
 
                             {/* Options List */}
                             <div className="space-y-2.5 pt-2">
-                                {item.options.map((opt) => {
-                                    const isSelected = selectedOption === opt.label;
-                                    const isCorrect = opt.is_answer || opt.label === item.correct_answer;
+                                {item.question_type === "TRUE_FALSE" ? (
+                                    <div className="space-y-2">
+                                        <span className="text-xs text-emerald-600 font-semibold block bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                                            💡 Tipe Soal Benar / Salah (Matrix Tabel Pernyataan)
+                                        </span>
+                                        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+                                            <table className="w-full text-left text-xs border-collapse">
+                                                <thead className="bg-muted/70 text-foreground font-bold border-b border-border">
+                                                    <tr>
+                                                        <th className="p-3 w-12 text-center">Opsi</th>
+                                                        <th className="p-3">Pernyataan</th>
+                                                        <th className="p-3 w-28 text-center">Benar</th>
+                                                        <th className="p-3 w-28 text-center">Salah</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/60">
+                                                    {item.options.map((opt) => {
+                                                        const isCorrectBenar = opt.is_answer || item.correct_answer?.includes("B") || item.correct_answer?.includes("BENAR");
+                                                        const isCorrectSalah = !isCorrectBenar;
 
-                                    return (
-                                        <button
-                                            key={opt.label}
-                                            type="button"
-                                            onClick={() => setSelectedOption(opt.label)}
-                                            className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 text-xs ${showSolution && isCorrect
-                                                ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
-                                                : isSelected
-                                                    ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-medium"
-                                                    : "border-border hover:bg-muted/40"
-                                                }`}
-                                        >
-                                            <span
-                                                className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${showSolution && isCorrect
-                                                    ? "bg-emerald-500 text-white"
+                                                        return (
+                                                            <tr key={opt.label} className="hover:bg-muted/30 transition-colors">
+                                                                <td className="p-3 text-center align-middle font-bold">
+                                                                    <span className="h-6 w-6 rounded-lg bg-primary/10 text-primary inline-flex items-center justify-center font-mono text-xs">
+                                                                        {opt.label}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 align-middle text-foreground leading-relaxed text-xs">
+                                                                    {opt.text}
+                                                                </td>
+                                                                <td className="p-2 text-center align-middle">
+                                                                    <div
+                                                                        className={`py-2 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-1 ${showSolution && isCorrectBenar
+                                                                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                            : "bg-muted/30 text-muted-foreground border-border"
+                                                                            }`}
+                                                                    >
+                                                                        <CheckCircle2 className="h-3 w-3" /> Benar
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-2 text-center align-middle">
+                                                                    <div
+                                                                        className={`py-2 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-1 ${showSolution && isCorrectSalah
+                                                                            ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                                                                            : "bg-muted/30 text-muted-foreground border-border"
+                                                                            }`}
+                                                                    >
+                                                                        <CheckCircle2 className="h-3 w-3" /> Salah
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    item.options.map((opt) => {
+                                        const isSelected = selectedOption === opt.label;
+                                        const isCorrect = opt.is_answer || opt.label === item.correct_answer;
+
+                                        return (
+                                            <button
+                                                key={opt.label}
+                                                type="button"
+                                                onClick={() => setSelectedOption(opt.label)}
+                                                className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 text-xs ${showSolution && isCorrect
+                                                    ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
                                                     : isSelected
-                                                        ? "bg-primary text-white"
-                                                        : "bg-muted text-muted-foreground"
+                                                        ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-medium"
+                                                        : "border-border hover:bg-muted/40"
                                                     }`}
                                             >
-                                                {opt.label}
-                                            </span>
-                                            <span className="mt-0.5 text-foreground leading-snug flex-1">
-                                                {opt.text || `Teks pilihan ${opt.label}`}
-                                            </span>
-                                            {showSolution && isCorrect && (
-                                                <Badge className="bg-emerald-500 text-white text-[10px] shrink-0 gap-1">
-                                                    <CheckCircle2 className="h-3 w-3" /> Kunci Jawaban
-                                                </Badge>
-                                            )}
-                                        </button>
-                                    );
-                                })}
+                                                <span
+                                                    className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${showSolution && isCorrect
+                                                        ? "bg-emerald-500 text-white"
+                                                        : isSelected
+                                                            ? "bg-primary text-white"
+                                                            : "bg-muted text-muted-foreground"
+                                                        }`}
+                                                >
+                                                    {opt.label}
+                                                </span>
+                                                <span className="mt-0.5 text-foreground leading-snug flex-1">
+                                                    {opt.text || `Teks pilihan ${opt.label}`}
+                                                </span>
+                                                {showSolution && isCorrect && (
+                                                    <Badge className="bg-emerald-500 text-white text-[10px] shrink-0 gap-1">
+                                                        <CheckCircle2 className="h-3 w-3" /> Kunci Jawaban
+                                                    </Badge>
+                                                )}
+                                            </button>
+                                        );
+                                    })
+                                )}
                             </div>
 
                             {/* Solution / Explanation Box (Admin Preview) */}

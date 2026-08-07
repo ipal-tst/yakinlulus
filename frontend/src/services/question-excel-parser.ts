@@ -34,6 +34,46 @@ export interface ParsedQuestionRow {
     validationErrors: string[];
 }
 
+export function parseTrueFalseKeyMap(kunciJawaban: string): Record<string, "BENAR" | "SALAH"> {
+    const map: Record<string, "BENAR" | "SALAH"> = {};
+    if (!kunciJawaban) return map;
+
+    const raw = kunciJawaban.trim().toUpperCase();
+
+    // Case 1: Key is formatted as "A:B, B:S" or "A:BENAR, B:SALAH"
+    if (raw.includes(":")) {
+        const parts = raw.split(/[,;\s]+/);
+        parts.forEach((p) => {
+            const [opt, val] = p.split(":");
+            if (opt && val) {
+                const cleanOpt = opt.trim();
+                const cleanVal = val.trim();
+                map[cleanOpt] = (cleanVal.startsWith("B") || cleanVal.startsWith("T") || cleanVal === "1") ? "BENAR" : "SALAH";
+            }
+        });
+        return map;
+    }
+
+    // Case 2: Comma or space separated values like "B,S,B" or "BENAR, SALAH, BENAR"
+    const tokens = raw.split(/[,;\s]+/).filter(Boolean);
+    if (tokens.length > 1) {
+        tokens.forEach((tok, idx) => {
+            const label = String.fromCharCode(65 + idx); // A, B, C, D...
+            map[label] = (tok.startsWith("B") || tok.startsWith("T") || tok === "1") ? "BENAR" : "SALAH";
+        });
+        return map;
+    }
+
+    // Case 3: Single token like "B" or "SALAH" (applies to option A by default)
+    if (raw.startsWith("B") || raw.startsWith("T") || raw === "1") {
+        map["A"] = "BENAR";
+    } else if (raw.startsWith("S") || raw.startsWith("F") || raw === "0") {
+        map["A"] = "SALAH";
+    }
+
+    return map;
+}
+
 export function validateQuestionRow(row: ParsedQuestionRow): string[] {
     const errors: string[] = [];
     if (!row.mapel || !row.mapel.trim()) {
@@ -43,7 +83,7 @@ export function validateQuestionRow(row: ParsedQuestionRow): string[] {
         errors.push("Konten Soal (Blok 1 Isi) kosong");
     }
     if (!row.kunciJawaban || !row.kunciJawaban.trim()) {
-        errors.push("Kunci Jawaban belum diisi (misal: A, B, C)");
+        errors.push("Kunci Jawaban belum diisi (misal: A, B, C atau B,S,B)");
     }
     if (row.tipeSoal !== "TRUE_FALSE" && row.tipeSoal !== "ESSAY" && row.tipeSoal !== "SHORT_ANSWER") {
         if (!row.optionA && !row.optionB) {
