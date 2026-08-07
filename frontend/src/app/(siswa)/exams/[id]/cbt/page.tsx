@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { academicService } from "@/services/academic.service";
-import { QuestionOption } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,31 +13,48 @@ import {
     Flag,
     CheckCircle2,
     AlertTriangle,
-    Menu,
-    X,
     Save,
     Grid,
-    HelpCircle,
-    Bookmark,
     BookOpen,
     FileText,
+    CheckSquare,
+    Square,
+    Check,
+    X,
+    HelpCircle,
+    Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface MockQuestion {
+export type QuestionType =
+    | "SINGLE_CHOICE"
+    | "MULTIPLE_CHOICE"
+    | "TRUE_FALSE_MATRIX"
+    | "SUITABILITY_MATRIX";
+
+export interface StatementRow {
+    id: string;
+    statement: string;
+}
+
+export interface MockQuestion {
     id: string;
     number: number;
     subtestName?: string;
+    type: QuestionType;
     content: string;
-    options: { key: string; text: string }[];
+    options?: { key: string; text: string }[];
+    statements?: StatementRow[];
 }
 
 const MOCK_QUESTIONS: MockQuestion[] = [
     {
         id: "q-1",
         number: 1,
+        type: "SINGLE_CHOICE",
         subtestName: "Penalaran Kuantitatif",
-        content: "Jika x + y = 10 dan xy = 21, maka berapakah nilai dari x² + y²?\n\nPetunjuk: Gunakan identitas aljabar dasar (x + y)² = x² + 2xy + y².",
+        content:
+            "Jika x + y = 10 dan xy = 21, maka berapakah nilai dari x² + y²?\n\nPetunjuk: Gunakan identitas aljabar dasar (x + y)² = x² + 2xy + y².",
         options: [
             { key: "A", text: "58" },
             { key: "B", text: "62" },
@@ -50,53 +66,72 @@ const MOCK_QUESTIONS: MockQuestion[] = [
     {
         id: "q-2",
         number: 2,
-        subtestName: "Penalaran Logis",
-        content: "Semua mahasiswa peserta seminar membawa kartu tanda mahasiswa. Sebagian peserta seminar memakai kemeja putih. Manakah kesimpulan yang paling tepat dari pernyataan tersebut?",
+        type: "MULTIPLE_CHOICE",
+        subtestName: "Penalaran Umum (Pilihan Ganda Kompleks)",
+        content:
+            "Manakah di antara pernyataan-pernyataan matematika berikut yang bernilai BENAR?\n(Petunjuk: Pilih semua jawaban yang benar, pilihan dapat lebih dari satu).",
         options: [
-            { key: "A", text: "Semua peserta seminar memakai kemeja putih" },
-            { key: "B", text: "Sebagian mahasiswa peserta seminar memakai kemeja putih" },
-            { key: "C", text: "Semua mahasiswa tidak memakai kemeja putih" },
-            { key: "D", text: "Sebagian peserta seminar tidak membawa kartu tanda mahasiswa" },
-            { key: "E", text: "Tidak dapat ditarik kesimpulan dari kedua pernyataan di atas" },
+            { key: "A", text: "Jumlah sudut dalam suatu segitiga adalah 180°" },
+            { key: "B", text: "Bilangan 2 merupakan satu-satunya bilangan genap yang prima" },
+            { key: "C", text: "Akar kuadrat dari 81 hanya bernilai 9 positif" },
+            { key: "D", text: "Semua bilangan yang berakhiran angka 0 pasti habis dibagi 5 dan 10" },
+            { key: "E", text: "Luas lingkaran dengan jari-jari r adalah 2πr" },
         ],
     },
     {
         id: "q-3",
         number: 3,
+        type: "TRUE_FALSE_MATRIX",
+        subtestName: "Penalaran Kuantitatif (Matriks Benar / Salah)",
+        content:
+            "Tentukan apakah setiap pernyataan statistik berikut bernilai BENAR atau SALAH berdasarkan konsep matematika dasar:",
+        statements: [
+            { id: "s-1", statement: "Nilai rata-rata (mean) dari data 4, 6, 8, 10 adalah 7." },
+            { id: "s-2", statement: "Median dari data terurut selalu sama dengan kuartil tengah (Q2)." },
+            { id: "s-3", statement: "Modus adalah nilai data yang frekuensi kemunculannya paling tinggi." },
+            { id: "s-4", statement: "Simpangan baku tidak pernah bernilai negatif." },
+        ],
+    },
+    {
+        id: "q-4",
+        number: 4,
+        type: "SUITABILITY_MATRIX",
+        subtestName: "Literasi Bahasa Indonesia (Matriks Sesuai / Tidak Sesuai)",
+        content:
+            "Bacalah teks singkat berikut:\n\n'Transisi energi terbarukan di Indonesia membutuhkan investasi teknologi dan regulasi yang konsisten. Meskipun potensi energi surya dan angin sangat tinggi, tantangan utama terletak pada efisiensi penyimpanan baterai jaringan listrik.'\n\nBerdasarkan kutipan teks di atas, tentukan apakah pernyataan berikut SESUAI atau TIDAK SESUAI:",
+        statements: [
+            { id: "st-1", statement: "Potensi energi surya dan angin di Indonesia dinilai sangat melimpah." },
+            { id: "st-2", statement: "Investasi teknologi dan regulasi tidak lagi diperlukan dalam transisi energi." },
+            { id: "st-3", statement: "Efisiensi penyimpanan baterai jaringan merupakan tantangan utama." },
+        ],
+    },
+    {
+        id: "q-5",
+        number: 5,
+        type: "MULTIPLE_CHOICE",
+        subtestName: "Literasi Bahasa Inggris (Pilihan Ganda Kompleks)",
+        content:
+            "Select ALL statements that are ACCURATE regarding effective essay structure and academic writing principles:",
+        options: [
+            { key: "A", text: "A strong thesis statement presents the main argument of the essay." },
+            { key: "B", text: "Topic sentences should introduce the main idea of each paragraph." },
+            { key: "C", text: "Informal slang and contractions should be used frequently in formal papers." },
+            { key: "D", text: "Proper citations are mandatory to avoid plagiarism." },
+        ],
+    },
+    {
+        id: "q-6",
+        number: 6,
+        type: "SINGLE_CHOICE",
         subtestName: "Penalaran Matematika",
-        content: "Sebuah tangki air awal mula terisi 3/5 bagian dari total volumenya. Jika ke dalam tangki tersebut ditambahkan 12 liter air, tangki tersebut menjadi terisi 3/4 bagian.\n\nBerapakah kapasitas volume total dari tangki tersebut dalam satuan liter?",
+        content:
+            "Sebuah tangki air awal mula terisi 3/5 bagian dari total volumenya. Jika ke dalam tangki tersebut ditambahkan 12 liter air, tangki tersebut menjadi terisi 3/4 bagian.\n\nBerapakah kapasitas volume total dari tangki tersebut dalam satuan liter?",
         options: [
             { key: "A", text: "60 liter" },
             { key: "B", text: "80 liter" },
             { key: "C", text: "90 liter" },
             { key: "D", text: "120 liter" },
             { key: "E", text: "150 liter" },
-        ],
-    },
-    {
-        id: "q-4",
-        number: 4,
-        subtestName: "Literasi Bahasa Indonesia",
-        content: "Cermati kutipan teks berikut:\n\n'Peningkatan literasi digital di Indonesia merupakan langkah krusial dalam menghadapi era akselerasi teknologi informasi. Meskipun infrastruktur jaringan internet di berbagai pelosok daerah terus dibangun, pemanfaatan internet untuk kegiatan produktif dan edukatif masih tergolong rendah.'\n\nGagasan utama yang ingin disampaikan oleh penulis dalam paragraf di atas adalah...",
-        options: [
-            { key: "A", text: "Pengembangan infrastruktur jaringan di daerah pelosok" },
-            { key: "B", text: "Pentingnya literasi digital dan pemanfaatan internet yang edukatif" },
-            { key: "C", text: "Akselerasi teknologi informasi di kawasan Asia Tenggara" },
-            { key: "D", text: "Rendahnya harga paket kuota internet di sekolah dasar" },
-            { key: "E", text: "Integrasi sistem kecerdasan buatan dalam kurikulum nasional" },
-        ],
-    },
-    {
-        id: "q-5",
-        number: 5,
-        subtestName: "Pengetahuan Kuantitatif",
-        content: "Diberikan sekumpulan data statistik sebagai berikut: 4, 7, 2, 9, 12, 15, 8.\n\nBerapakah nilai median dari kumpulan data tersebut?",
-        options: [
-            { key: "A", text: "7" },
-            { key: "B", text: "8" },
-            { key: "C", text: "9" },
-            { key: "D", text: "10" },
-            { key: "E", text: "12" },
         ],
     },
 ];
@@ -107,7 +142,9 @@ export default function CBTPage() {
     const examId = params?.id as string;
 
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+
+    // Answers state can hold strings, string arrays (multiple choice), or record objects (matrices)
+    const [answers, setAnswers] = useState<Record<string, any>>({});
     const [flags, setFlags] = useState<Record<string, boolean>>({});
     const [secondsLeft, setSecondsLeft] = useState(195 * 60); // 195 mins timer
     const [autoSaveStatus, setAutoSaveStatus] = useState<"SAVED" | "SAVING">("SAVED");
@@ -137,12 +174,44 @@ export default function CBTPage() {
     };
 
     const currentQ = MOCK_QUESTIONS[currentIndex];
-    const selectedOption = answers[currentQ.id];
     const isFlagged = flags[currentQ.id];
 
-    const handleSelectOption = (key: string) => {
+    // Single Choice Handler
+    const handleSelectSingleOption = (key: string) => {
         setAutoSaveStatus("SAVING");
         setAnswers((prev) => ({ ...prev, [currentQ.id]: key }));
+        setTimeout(() => setAutoSaveStatus("SAVED"), 300);
+    };
+
+    // Multiple Choice (Checkbox) Handler
+    const handleToggleMultipleOption = (key: string) => {
+        setAutoSaveStatus("SAVING");
+        setAnswers((prev) => {
+            const existing: string[] = Array.isArray(prev[currentQ.id]) ? prev[currentQ.id] : [];
+            const updated = existing.includes(key)
+                ? existing.filter((k) => k !== key)
+                : [...existing, key];
+            return { ...prev, [currentQ.id]: updated };
+        });
+        setTimeout(() => setAutoSaveStatus("SAVED"), 300);
+    };
+
+    // Matrix Choice Handler (True/False or Suitability)
+    const handleSetMatrixValue = (rowId: string, val: string) => {
+        setAutoSaveStatus("SAVING");
+        setAnswers((prev) => {
+            const existingMatrix: Record<string, string> =
+                typeof prev[currentQ.id] === "object" && !Array.isArray(prev[currentQ.id])
+                    ? prev[currentQ.id]
+                    : {};
+            return {
+                ...prev,
+                [currentQ.id]: {
+                    ...existingMatrix,
+                    [rowId]: val,
+                },
+            };
+        });
         setTimeout(() => setAutoSaveStatus("SAVED"), 300);
     };
 
@@ -158,11 +227,19 @@ export default function CBTPage() {
         }
     };
 
-    const totalAnswered = Object.keys(answers).length;
+    const isQuestionAnswered = (qId: string) => {
+        const val = answers[qId];
+        if (!val) return false;
+        if (Array.isArray(val)) return val.length > 0;
+        if (typeof val === "object") return Object.keys(val).length > 0;
+        return typeof val === "string" && val.trim() !== "";
+    };
+
+    const totalAnswered = MOCK_QUESTIONS.filter((q) => isQuestionAnswered(q.id)).length;
     const totalFlagged = Object.keys(flags).filter((k) => flags[k]).length;
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col select-none overflow-hidden h-screen">
+        <div className="min-h-screen bg-background text-foreground flex flex-col select-none overflow-hidden h-screen font-sans">
             {/* CBT Header Bar */}
             <header className="sticky top-0 z-30 h-16 bg-card border-b border-border px-4 md:px-6 flex items-center justify-between shadow-xs shrink-0">
                 <div className="flex items-center gap-3">
@@ -171,7 +248,7 @@ export default function CBTPage() {
                     </div>
                     <div>
                         <h2 className="font-heading font-bold text-sm leading-tight text-foreground">
-                            Try Out UTBK SNBT 2026 #5
+                            Try Out UTBK Master - Semua Tipe Soal 2026
                         </h2>
                         <span className="text-[11px] text-muted-foreground font-medium">
                             Subtes: {currentQ.subtestName || "Penalaran Umum"}
@@ -211,7 +288,7 @@ export default function CBTPage() {
                 <section className="flex-1 border-b md:border-b-0 md:border-r border-border bg-background p-6 md:p-8 overflow-y-auto flex flex-col justify-between space-y-6">
                     <div className="space-y-6 max-w-3xl">
                         {/* Question Metadata Header */}
-                        <div className="flex items-center justify-between pb-4 border-b border-border/80">
+                        <div className="flex items-center justify-between pb-4 border-b border-border/80 flex-wrap gap-2">
                             <div className="flex items-center gap-3">
                                 <div className="h-8 px-3 rounded-xl bg-primary/10 border border-primary/20 text-primary font-bold text-xs flex items-center justify-center">
                                     Soal #{currentQ.number}
@@ -221,8 +298,22 @@ export default function CBTPage() {
                                 </span>
                             </div>
 
-                            <Badge variant="outline" className="text-[11px] gap-1 font-semibold">
-                                <FileText className="h-3.5 w-3.5 text-primary" /> Stimulus & Teks Ujian
+                            {/* Badge Type Indicator */}
+                            <Badge
+                                variant="outline"
+                                className={cn(
+                                    "text-[11px] font-bold gap-1 px-3 py-1 rounded-xl",
+                                    currentQ.type === "SINGLE_CHOICE" && "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                                    currentQ.type === "MULTIPLE_CHOICE" && "bg-purple-500/10 text-purple-600 border-purple-500/20",
+                                    currentQ.type === "TRUE_FALSE_MATRIX" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                                    currentQ.type === "SUITABILITY_MATRIX" && "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                )}
+                            >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                {currentQ.type === "SINGLE_CHOICE" && "Pilihan Ganda (1 Jawaban Benar)"}
+                                {currentQ.type === "MULTIPLE_CHOICE" && "Pilihan Ganda Kompleks (Bisa >1 Jawaban)"}
+                                {currentQ.type === "TRUE_FALSE_MATRIX" && "Matriks: | Benar | Salah |"}
+                                {currentQ.type === "SUITABILITY_MATRIX" && "Matriks: | Sesuai | Tidak Sesuai |"}
                             </Badge>
                         </div>
 
@@ -234,12 +325,12 @@ export default function CBTPage() {
                 </section>
 
                 {/* RIGHT PANEL: OPSI JAWABAN / ANSWER OPTIONS SECTION */}
-                <section className="w-full md:w-[480px] lg:w-[540px] shrink-0 bg-card/50 p-6 md:p-8 overflow-y-auto flex flex-col justify-between space-y-6 border-l border-border/60">
+                <section className="w-full md:w-[480px] lg:w-[560px] shrink-0 bg-card/50 p-6 md:p-8 overflow-y-auto flex flex-col justify-between space-y-6 border-l border-border/60">
                     <div className="space-y-5">
                         {/* Header for Answer Options & Ragu Toggle */}
                         <div className="flex items-center justify-between pb-3 border-b border-border/80">
                             <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-primary" /> Pilih Jawaban Kamu
+                                <BookOpen className="h-4 w-4 text-primary" /> Jawab Pernyataan / Opsi
                             </h3>
 
                             {/* Ragu-Ragu Checkbox Button */}
@@ -257,36 +348,186 @@ export default function CBTPage() {
                             </button>
                         </div>
 
-                        {/* Options A, B, C, D, E List */}
-                        <div className="space-y-3">
-                            {currentQ.options.map((opt) => {
-                                const isSelected = selectedOption === opt.key;
-                                return (
-                                    <button
-                                        key={opt.key}
-                                        onClick={() => handleSelectOption(opt.key)}
-                                        className={cn(
-                                            "w-full flex items-start gap-4 p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer shadow-2xs group",
-                                            isSelected
-                                                ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs ring-1 ring-primary/40"
-                                                : "border-border bg-card hover:bg-muted/60 text-foreground"
-                                        )}
-                                    >
-                                        <span
+                        {/* RENDERER 1: SINGLE CHOICE (Radio) */}
+                        {currentQ.type === "SINGLE_CHOICE" && currentQ.options && (
+                            <div className="space-y-3">
+                                {currentQ.options.map((opt) => {
+                                    const isSelected = answers[currentQ.id] === opt.key;
+                                    return (
+                                        <button
+                                            key={opt.key}
+                                            onClick={() => handleSelectSingleOption(opt.key)}
                                             className={cn(
-                                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs transition-colors",
+                                                "w-full flex items-start gap-4 p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer shadow-2xs group",
                                                 isSelected
-                                                    ? "bg-primary text-primary-foreground shadow-xs"
-                                                    : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                                                    ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs ring-1 ring-primary/40"
+                                                    : "border-border bg-card hover:bg-muted/60 text-foreground"
                                             )}
                                         >
-                                            {opt.key}
-                                        </span>
-                                        <span className="text-sm pt-1 leading-normal">{opt.text}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                            <span
+                                                className={cn(
+                                                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs transition-colors",
+                                                    isSelected
+                                                        ? "bg-primary text-primary-foreground shadow-xs"
+                                                        : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                                                )}
+                                            >
+                                                {opt.key}
+                                            </span>
+                                            <span className="text-sm pt-1 leading-normal">{opt.text}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* RENDERER 2: MULTIPLE CHOICE (Checkbox) */}
+                        {currentQ.type === "MULTIPLE_CHOICE" && currentQ.options && (
+                            <div className="space-y-3">
+                                <span className="text-xs text-purple-600 font-semibold block bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
+                                    💡 Petunjuk: Anda dapat mencentang lebih dari satu opsi jawaban di bawah ini.
+                                </span>
+                                {currentQ.options.map((opt) => {
+                                    const selectedArr: string[] = Array.isArray(answers[currentQ.id])
+                                        ? answers[currentQ.id]
+                                        : [];
+                                    const isSelected = selectedArr.includes(opt.key);
+
+                                    return (
+                                        <button
+                                            key={opt.key}
+                                            onClick={() => handleToggleMultipleOption(opt.key)}
+                                            className={cn(
+                                                "w-full flex items-start gap-4 p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer shadow-2xs group",
+                                                isSelected
+                                                    ? "border-purple-500 bg-purple-500/10 text-purple-950 dark:text-purple-300 font-semibold shadow-xs ring-1 ring-purple-500/40"
+                                                    : "border-border bg-card hover:bg-muted/60 text-foreground"
+                                            )}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs transition-colors",
+                                                    isSelected
+                                                        ? "bg-purple-600 text-white shadow-xs"
+                                                        : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                                                )}
+                                            >
+                                                {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                                            </div>
+                                            <span className="text-sm pt-1 leading-normal">
+                                                <strong className="mr-2 font-mono">{opt.key}.</strong> {opt.text}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* RENDERER 3: TRUE / FALSE MATRIX TABLE */}
+                        {currentQ.type === "TRUE_FALSE_MATRIX" && currentQ.statements && (
+                            <div className="space-y-4">
+                                <span className="text-xs text-emerald-600 font-semibold block bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                                    💡 Petunjuk: Pilih [ BENAR ] atau [ SALAH ] untuk setiap baris pernyataan di bawah.
+                                </span>
+
+                                <div className="space-y-3">
+                                    {currentQ.statements.map((st, idx) => {
+                                        const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
+                                        const val = currentObj?.[st.id];
+
+                                        return (
+                                            <div
+                                                key={st.id}
+                                                className="p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs"
+                                            >
+                                                <p className="text-xs sm:text-sm font-medium text-foreground leading-relaxed">
+                                                    <span className="font-bold text-primary mr-1">{idx + 1}.</span> {st.statement}
+                                                </p>
+
+                                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                                    <button
+                                                        onClick={() => handleSetMatrixValue(st.id, "BENAR")}
+                                                        className={cn(
+                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                                                            val === "BENAR"
+                                                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        <Check className="h-3.5 w-3.5" /> BENAR
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleSetMatrixValue(st.id, "SALAH")}
+                                                        className={cn(
+                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                                                            val === "SALAH"
+                                                                ? "bg-red-600 text-white border-red-600 shadow-xs"
+                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        <X className="h-3.5 w-3.5" /> SALAH
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* RENDERER 4: SUITABILITY MATRIX TABLE */}
+                        {currentQ.type === "SUITABILITY_MATRIX" && currentQ.statements && (
+                            <div className="space-y-4">
+                                <span className="text-xs text-amber-600 font-semibold block bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                                    💡 Petunjuk: Pilih [ SESUAI ] atau [ TIDAK SESUAI ] untuk setiap baris pernyataan di bawah.
+                                </span>
+
+                                <div className="space-y-3">
+                                    {currentQ.statements.map((st, idx) => {
+                                        const currentObj = typeof answers[currentQ.id] === "object" ? answers[currentQ.id] : {};
+                                        const val = currentObj?.[st.id];
+
+                                        return (
+                                            <div
+                                                key={st.id}
+                                                className="p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs"
+                                            >
+                                                <p className="text-xs sm:text-sm font-medium text-foreground leading-relaxed">
+                                                    <span className="font-bold text-primary mr-1">{idx + 1}.</span> {st.statement}
+                                                </p>
+
+                                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                                    <button
+                                                        onClick={() => handleSetMatrixValue(st.id, "SESUAI")}
+                                                        className={cn(
+                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                                                            val === "SESUAI"
+                                                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        <Check className="h-3.5 w-3.5" /> SESUAI
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleSetMatrixValue(st.id, "TIDAK_SESUAI")}
+                                                        className={cn(
+                                                            "py-2 px-3 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                                                            val === "TIDAK_SESUAI"
+                                                                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        <X className="h-3.5 w-3.5" /> TIDAK SESUAI
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Navigation Buttons Footer (Right Panel Bottom) */}
@@ -353,7 +594,7 @@ export default function CBTPage() {
                             {/* Numbers Grid */}
                             <div className="grid grid-cols-5 gap-2 max-h-52 overflow-y-auto pr-1">
                                 {MOCK_QUESTIONS.map((q, idx) => {
-                                    const answered = !!answers[q.id];
+                                    const answered = isQuestionAnswered(q.id);
                                     const flagged = !!flags[q.id];
                                     const active = idx === currentIndex;
 
