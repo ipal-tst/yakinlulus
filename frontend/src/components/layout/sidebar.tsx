@@ -65,6 +65,7 @@ const STAFF_NAV: NavItem[] = [
     { title: "Materi Pelajaran", href: "/admin/materials", icon: BookOpen },
     { title: "Bank Soal", href: "/admin/questions", icon: HelpCircle },
     { title: "Kelola Ujian", href: "/admin/exams", icon: FileCheck },
+    { title: "Kelola Pengguna", href: "/admin/users", icon: Users },
     { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Bell },
     { title: "Monitoring & Konfigurasi", href: "/admin/monitor-config", icon: Settings },
 ];
@@ -89,18 +90,19 @@ const SUPER_ADMIN_NAV: NavItem[] = [
     { title: "Materi Pelajaran", href: "/admin/materials", icon: BookOpen },
     { title: "Bank Soal", href: "/admin/questions", icon: HelpCircle },
     { title: "Kelola Ujian", href: "/admin/exams", icon: FileCheck },
+    { title: "Kelola Pengguna", href: "/admin/users", icon: Users },
     { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Bell },
     { title: "Monitoring & Konfigurasi", href: "/admin/monitor-config", icon: Settings },
 ];
 
-function SidebarContent({ 
-  collapsed = false, 
-  onCollapseToggle,
-  isMobile = false 
-}: { 
-  collapsed?: boolean; 
-  onCollapseToggle?: () => void;
-  isMobile?: boolean;
+function SidebarContent({
+    collapsed = false,
+    onCollapseToggle,
+    isMobile = false
+}: {
+    collapsed?: boolean;
+    onCollapseToggle?: () => void;
+    isMobile?: boolean;
 }) {
     const pathname = usePathname();
     const router = useRouter();
@@ -134,13 +136,13 @@ function SidebarContent({
             <div>
                 {/* Brand Header */}
                 <div className="h-[72px] flex items-center justify-between px-4 border-b border-sidebar-border">
-                    <Link 
-                        href={role === "SUPER_ADMIN" ? "/admin" : 
-                              role === "STAFF" ? "/staff" : 
-                              role === "GURU" ? "/guru" : 
-                              role === "FINANCE" ? "/finance" : 
-                              role === "INVESTOR" ? "/investor" : 
-                              role === "SISWA" ? "/siswa" : "/"} 
+                    <Link
+                        href={role === "SUPER_ADMIN" ? "/admin" :
+                            role === "STAFF" ? "/staff" :
+                                role === "GURU" ? "/guru" :
+                                    role === "FINANCE" ? "/finance" :
+                                        role === "INVESTOR" ? "/investor" :
+                                            role === "SISWA" ? "/siswa" : "/"}
                         className="flex items-center gap-3 overflow-hidden"
                     >
                         <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold font-heading text-xl shrink-0">
@@ -176,7 +178,10 @@ function SidebarContent({
                 {/* Navigation Items */}
                 <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
                     {navItems.map((item) => {
-                        const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+                        const isDashboardRoute = ["/admin", "/staff", "/guru", "/siswa", "/finance", "/investor", "/"].includes(item.href);
+                        const isActive = isDashboardRoute
+                            ? pathname === item.href
+                            : pathname === item.href || pathname.startsWith(`${item.href}/`);
                         const Icon = item.icon;
 
                         return (
@@ -254,12 +259,12 @@ function Sidebar() {
     );
 }
 
-export function MobileSidebar({ 
-    open, 
-    onOpenChange 
-}: { 
-    open: boolean; 
-    onOpenChange: (open: boolean) => void 
+export function MobileSidebar({
+    open,
+    onOpenChange
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void
 }) {
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
