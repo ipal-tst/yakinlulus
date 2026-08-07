@@ -4,15 +4,10 @@ import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import type { Grade } from "@/types/academic-master";
 
-interface GradeTableProps {
-  grades: { id: string; name: string; level_code: string; alias: string | null; is_active: boolean; display_order: number }[];
-  onSelect: (gradeId: string) => void;
-  selectedGrade: string | null;
-}
-
-export function GradeTable({ grades, onSelect, selectedGrade }: GradeTableProps) {
-  const columns: Column<{ id: string }>[] = [
+export function GradeTable({ grades, onSelect, selectedGrade }: { grades: (Grade & { alias: string | null | undefined })[]; onSelect: (gradeId: string) => void; selectedGrade: string | null }) {
+  const columns: Column<Grade & { alias: string | null | undefined }>[] = [
     {
       header: "Kelas",
       accessorKey: "name",

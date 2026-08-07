@@ -4,15 +4,10 @@ import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import type { Subject } from "@/types/academic-master";
 
-interface SubjectTableProps {
-  subjects: { id: string; name: string; code: string; level_name: string; grade_name: string | null; is_active: boolean; display_order: number }[];
-  onSelect: (subjectId: string) => void;
-  selectedSubject: string | null;
-}
-
-export function SubjectTable({ subjects, onSelect, selectedSubject }: SubjectTableProps) {
-  const columns: Column<{ id: string }>[] = [
+export function SubjectTable({ subjects, onSelect, selectedSubject }: { subjects: (Subject & { grade_name: string | null })[]; onSelect: (subjectId: string) => void; selectedSubject: string | null }) {
+  const columns: Column<Subject & { grade_name: string | null }>[] = [
     {
       header: "Mata Pelajaran",
       accessorKey: "name",

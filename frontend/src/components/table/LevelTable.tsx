@@ -25,7 +25,7 @@ interface LevelTableProps {
 }
 
 export function LevelTable({ levels, onToggleStatus, onDelete }: LevelTableProps) {
-  const columns: Column<{ id: string }>[] = [
+  const columns: Column<{ id: string; name: string; code: string; is_active: boolean; display_order: number }>[] = [
     {
       header: "Jenjang",
       accessorKey: "name",

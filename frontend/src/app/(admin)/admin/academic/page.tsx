@@ -16,11 +16,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { academicMasterService } from "@/services/academic-master.service";
 import type { EducationLevel, Grade, Subject } from "@/types/academic-master";
-
-// Import components - will need to create these
-import LevelTable from "@/components/table/LevelTable";
-import GradeTable from "@/components/table/GradeTable";
-import SubjectTable from "@/components/table/SubjectTable";
+import { LevelTable } from "@/components/table/LevelTable";
+import { GradeTable } from "@/components/table/GradeTable";
+import { SubjectTable } from "@/components/table/SubjectTable";
 import BabTable from "./bab/BabTable";
 import { LevelFormDialog } from "./forms/LevelFormDialog";
 import { GradeFormDialog } from "./forms/GradeFormDialog";
@@ -93,8 +91,7 @@ export default function AdminAcademicPage() {
     if (selectedGrade) {
       return (
         <SubjectTable
-          levelId={selectedLevel!}
-          gradeId={selectedGrade}
+          subjects={subjectsQuery.data || []}
           onSelect={handleSubjectSelect}
           selectedSubject={selectedSubject}
         />
@@ -104,7 +101,7 @@ export default function AdminAcademicPage() {
     if (selectedLevel) {
       return (
         <GradeTable
-          levelId={selectedLevel}
+          grades={gradesQuery.data?.map(g => ({ ...g, alias: g.alias ?? null })) || []}
           onSelect={handleGradeSelect}
           selectedGrade={selectedGrade}
         />
@@ -113,8 +110,9 @@ export default function AdminAcademicPage() {
 
     return (
       <LevelTable
-        onSelect={handleLevelSelect}
-        selectedLevel={selectedLevel}
+        levels={levelsQuery.data || []}
+        onToggleStatus={() => {}}
+        onDelete={() => {}}
       />
     );
   };
