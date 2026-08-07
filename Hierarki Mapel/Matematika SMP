@@ -1,0 +1,206 @@
+Berikut adalah **hierarki lengkap Mata Pelajaran Matematika SMP (Kelas 7–9)** berdasarkan **Kurikulum Merdeka (Fase D)**. Struktur disusun hingga level **Mata Pelajaran → Kelas → Bab → Subbab → Kompetensi → Topik**, siap digunakan untuk master kurikulum, bank materi, bank soal, CBT, dan blueprint TKA/TKAD.
+
+---
+
+# HIERARKI MATEMATIKA SMP
+
+```text
+Matematika SMP
+├── Fase D
+│   ├── Kelas 7
+│   ├── Kelas 8
+│   └── Kelas 9
+```
+
+---
+
+# KELAS 7
+
+## BAB 1. Bilangan Bulat dan Rasional
+
+### Subbab 1.1 Bilangan Bulat
+
+**Kompetensi**
+* Operasi hitung bilangan bulat
+* Garis bilangan dan urutan
+
+**Topik**
+* Bilangan positif dan negatif
+* Penjumlahan dan pengurangan
+* Perkalian dan pembagian
+* Sifat-sifat operasi
+
+---
+
+### Subbab 1.2 Bilangan Rasional
+
+**Kompetensi**
+* Memahami pecahan dan desimal
+
+**Topik**
+* Pecahan biasa dan campuran
+* Konversi desimal
+* Operasi hitung pecahan
+
+---
+
+## BAB 2. Aljabar dan Persamaan Linear
+
+### Subbab 2.1 Bentuk Aljabar
+
+**Topik**
+* Variabel, koefisien, konstanta
+* Penjumlahan dan pengurangan suku sejenis
+* Perkalian suku aljabar
+
+---
+
+### Subbab 2.2 Persamaan dan Pertidaksamaan Linear Satu Variabel (PLSV & PtLSV)
+
+**Topik**
+* Kesetaraan bentuk
+* Penyelesaian PLSV
+* Penyelesaian PtLSV
+* Soal cerita aljabar
+
+---
+
+## BAB 3. Rasio dan Perbandingan
+
+**Topik**
+* Konsep rasio
+* Perbandingan senilai
+* Perbandingan berbalik nilai
+* Skala dan peta
+
+---
+
+## BAB 4. Bangun Datar dan Geometri
+
+**Topik**
+* Segitiga dan segi empat
+* Sudut dan garis sejajar
+* Keliling dan luas bangun datar
+* Melukis sudut dan garis
+
+---
+
+## BAB 5. Data dan Statistika
+
+**Topik**
+* Pengumpulan data
+* Tabel frekuensi
+* Diagram batang dan garis
+* Diagram lingkaran
+
+---
+
+# KELAS 8
+
+## BAB 1. Bentuk Aljabar Lanjut
+
+**Topik**
+* Perkalian bentuk aljabar
+* Pemfaktoran aljabar
+* Operasi pecahan aljabar
+
+---
+
+## BAB 2. Sistem Persamaan Linear Dua Variabel (SPLDV)
+
+**Topik**
+* Metode grafik
+* Metode substitusi
+* Metode eliminasi
+* Model matematika & aplikasi
+
+---
+
+## BAB 3. Fungsi Linear
+
+**Topik**
+* Konsep relasi dan fungsi
+* Grafis fungsi linear
+* Kemiringan garis (Gradien)
+* Persamaan garis lurus
+
+---
+
+## BAB 4. Teorema Pythagoras
+
+**Topik**
+* Pembuktian Pythagoras
+* Triple Pythagoras
+* Segitiga siku-siku khusus
+* Penerapan Pythagoras
+
+---
+
+## BAB 5. Bangun Ruang Sisi Datar
+
+**Topik**
+* Kubus dan Balok
+* Prisma dan Limas
+* Luas permukaan
+* Volume bangun ruang
+
+---
+
+## BAB 6. Peluang dan Statistika Lanjut
+
+**Topik**
+* Mean, Median, Modus
+* Ukuran penyebaran data
+* Titik sampel dan ruang sampel
+* Peluang teoritis & empiris
+
+---
+
+# KELAS 9
+
+## BAB 1. Persamaan dan Fungsi Kuadrat
+
+**Topik**
+* Akar-akar persamaan kuadrat
+* Pemfaktoran & rumus ABC
+* Grafik fungsi kuadrat
+* Titik puncak & nilai optimum
+
+---
+
+## BAB 2. Bangun Ruang Sisi Lengkung
+
+**Topik**
+* Tabung
+* Kerucut
+* Bola
+* Luas permukaan & volume gabungan
+
+---
+
+## BAB 3. Transformasi Geometri
+
+**Topik**
+* Translasi (Pergeseran)
+* Refleksi (Pencerminan)
+* Rotasi (Perputaran)
+* Dilatasi (Perkalian)
+
+---
+
+## BAB 4. Kesebangunan dan Kekongruenan
+
+**Topik**
+* Syarat kekongruenan bangun datar
+* Syarat kesebangunan segitiga
+* Skala dan pemodelan
+* Aplikasi kesebangunan
+
+---
+
+## BAB 5. Analisis Data dan Peluang Lanjut
+
+**Topik**
+* Jangkauan dan jangkauan interkuartil
+* Diagram pencar (Scatter plot)
+* Peluang kejadian majemuk

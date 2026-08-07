@@ -27,9 +27,10 @@ type bab struct {
 }
 
 type mapel struct {
-	Code string
-	Name string
-	Bab  []bab
+	LevelCode string
+	Code      string
+	Name      string
+	Bab       []bab
 }
 
 func main() {
@@ -45,32 +46,56 @@ func main() {
 	}
 	defer pool.Close()
 
-	// 1. SD level
-	var levelID uuid.UUID
-	if err := pool.QueryRow(ctx, `SELECT id FROM academic.education_level WHERE code='SD'`).Scan(&levelID); err != nil {
-		log.Fatalf("level SD: %v", err)
-	}
-	log.Println("Education level SD:", levelID)
-
-	// 2. Grades 4,5,6 (idempotent)
-	for _, gc := range []string{"4", "5", "6"} {
-		var exists bool
-		if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM academic.grade WHERE education_level_id=$1 AND code=$2)`, levelID, gc).Scan(&exists); err != nil {
-			log.Fatalf("check grade %s: %v", gc, err)
-		}
-		if exists {
-			log.Println("grade exists:", gc)
-			continue
-		}
-		if _, err := pool.Exec(ctx,
-			`INSERT INTO academic.grade (id, education_level_id, code, name, sort_order) VALUES ($1,$2,$3,$4,$5)`,
-			uuid.New(), levelID, gc, "Kelas "+gc, atoi(gc)); err != nil {
-			log.Fatalf("grade %s: %v", gc, err)
-		}
-		log.Println("grade created:", gc)
+	// Education Level configs
+	levels := []struct {
+		Code      string
+		Name      string
+		SortOrder int
+		Grades    []string
+	}{
+		{Code: "SD", Name: "Sekolah Dasar", SortOrder: 1, Grades: []string{"1", "2", "3", "4", "5", "6"}},
+		{Code: "SMP", Name: "Sekolah Menengah Pertama", SortOrder: 2, Grades: []string{"7", "8", "9"}},
+		{Code: "SMA", Name: "Sekolah Menengah Atas", SortOrder: 3, Grades: []string{"10", "11", "12"}},
 	}
 
-	// 3. Active/default curriculum (left per your instruction; reused only as FK)
+	levelMap := make(map[string]uuid.UUID)
+
+	for _, l := range levels {
+		var levelID uuid.UUID
+		err := pool.QueryRow(ctx, `SELECT id FROM academic.education_level WHERE code=$1`, l.Code).Scan(&levelID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			levelID = uuid.New()
+			if _, err := pool.Exec(ctx,
+				`INSERT INTO academic.education_level (id, code, name, sort_order) VALUES ($1, $2, $3, $4)`,
+				levelID, l.Code, l.Name, l.SortOrder); err != nil {
+				log.Fatalf("create level %s: %v", l.Code, err)
+			}
+			log.Printf("level %s created: %s", l.Code, levelID)
+		} else if err != nil {
+			log.Fatalf("check level %s: %v", l.Code, err)
+		} else {
+			log.Printf("level %s exists: %s", l.Code, levelID)
+		}
+		levelMap[l.Code] = levelID
+
+		// Ensure grades exist
+		for _, gc := range l.Grades {
+			var exists bool
+			if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM academic.grade WHERE education_level_id=$1 AND code=$2)`, levelID, gc).Scan(&exists); err != nil {
+				log.Fatalf("check grade %s: %v", gc, err)
+			}
+			if !exists {
+				if _, err := pool.Exec(ctx,
+					`INSERT INTO academic.grade (id, education_level_id, code, name, sort_order) VALUES ($1,$2,$3,$4,$5)`,
+					uuid.New(), levelID, gc, "Kelas "+gc, atoi(gc)); err != nil {
+					log.Fatalf("grade %s: %v", gc, err)
+				}
+				log.Println("grade created:", gc)
+			}
+		}
+	}
+
+	// Active/default curriculum (reused only as FK)
 	var curID uuid.UUID
 	err = pool.QueryRow(ctx, `SELECT id FROM academic.curriculum WHERE is_active=true ORDER BY created_at LIMIT 1`).Scan(&curID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -82,7 +107,11 @@ func main() {
 	log.Println("curriculum:", curID)
 
 	for _, m := range allMapel() {
-		if err := seedMapel(ctx, pool, levelID, curID, m); err != nil {
+		lID, ok := levelMap[m.LevelCode]
+		if !ok {
+			log.Fatalf("unknown level code %s for mapel %s", m.LevelCode, m.Code)
+		}
+		if err := seedMapel(ctx, pool, lID, curID, m); err != nil {
 			log.Fatalf("seed %s: %v", m.Code, err)
 		}
 	}
