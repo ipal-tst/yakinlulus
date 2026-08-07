@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
 import { useUIStore } from "@/stores/ui.store";
 import { cn } from "@/lib/utils";
@@ -100,8 +100,14 @@ const SUPER_ADMIN_NAV: NavItem[] = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, logout } = useAuthStore();
     const { sidebarCollapsed, toggleSidebar } = useUIStore();
+
+    const handleLogout = () => {
+        logout();
+        router.push("/login");
+    };
 
     const role = user?.role || "SISWA";
 
@@ -122,7 +128,15 @@ export function Sidebar() {
             <div>
                 {/* Brand Header */}
                 <div className="h-[72px] flex items-center justify-between px-4 border-b border-sidebar-border">
-                    <Link href="/" className="flex items-center gap-3 overflow-hidden">
+                    <Link 
+                        href={role === "SUPER_ADMIN" ? "/admin" : 
+                              role === "STAFF" ? "/staff" : 
+                              role === "GURU" ? "/guru" : 
+                              role === "FINANCE" ? "/finance" : 
+                              role === "INVESTOR" ? "/investor" : 
+                              role === "SISWA" ? "/siswa" : "/"} 
+                        className="flex items-center gap-3 overflow-hidden"
+                    >
                         <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold font-heading text-xl shrink-0">
                             YL
                         </div>
@@ -198,7 +212,7 @@ export function Sidebar() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={logout}
+                            onClick={handleLogout}
                             className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                             title="Keluar"
                         >
@@ -209,7 +223,7 @@ export function Sidebar() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={logout}
+                            onClick={handleLogout}
                         className="w-full h-10 text-muted-foreground hover:text-destructive"
                         title="Keluar"
                     >
