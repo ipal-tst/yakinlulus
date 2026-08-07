@@ -125,9 +125,10 @@ function SidebarContent({
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 z-30 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col justify-between hidden md:flex",
+                "fixed left-0 top-0 z-30 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col justify-between",
+                !isMobile && "hidden md:flex",
                 !isMobile && sidebarWidth,
-                isMobile && "w-[280px]"
+                isMobile && "w-full"
             )}
         >
             <div>
