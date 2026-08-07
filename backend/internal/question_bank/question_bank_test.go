@@ -456,3 +456,120 @@ func TestQuestionBankStatusTransitions(t *testing.T) {
 		t.Errorf("wrong-state publish wrote history: before=%d after=%d, want unchanged", before, after)
 	}
 }
+
+func TestQuestionBankCreateWithBlocks(t *testing.T) {
+	p := testPool(t)
+	r := NewRepository(p)
+	ctx := context.Background()
+
+	owner := uuid.New()
+	if _, err := p.Exec(ctx, `
+		INSERT INTO identity.user (id, username, password_hash, status, email_verified, phone_verified, created_at, updated_at)
+		VALUES ($1, $2, 'x', 'ACTIVE', false, false, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING`, owner, "qb_blocks_"+owner.String()[:8]); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	qWithBlocks := &Question{
+		SubjectID:    uuid.Nil,
+		Content:      "",
+		Difficulty:   "MEDIUM",
+		QuestionType: QuestionTypeSingleChoice,
+		Language:     "id",
+		Score:        1.0,
+		CreatedBy:    owner,
+		Status:       "",
+		Blocks: []QuestionBlock{
+			{BlockType: "PARAGRAPH", Content: "Stimulus teks"},
+			{BlockType: "IMAGE", Content: "asset-abc-123"},
+			{BlockType: "PARAGRAPH", Content: "Pertanyaan inti"},
+		},
+	}
+	qLegacy := &Question{
+		SubjectID:    uuid.Nil,
+		Content:      "Soal tanpa blok eksplisit",
+		Difficulty:   "EASY",
+		QuestionType: QuestionTypeTrueFalse,
+		Language:     "id",
+		Score:        1.0,
+		CreatedBy:    owner,
+		Status:       "",
+	}
+
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM question.question_history WHERE question_id = $1`, qWithBlocks.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM question.question WHERE id = $1`, qWithBlocks.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM question.question_history WHERE question_id = $1`, qLegacy.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM question.question WHERE id = $1`, qLegacy.ID)
+		_, _ = p.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, owner)
+	})
+
+	if err := r.Create(ctx, qWithBlocks, nil); err != nil {
+		t.Fatalf("Create (blocks): %v", err)
+	}
+
+	blockRows := func(qid uuid.UUID) []struct {
+		order    int
+		bt       string
+		content  string
+		assetNil bool
+	} {
+		rows, err := p.Query(ctx, `
+			SELECT qb.block_order, qb.block_type, qb.content, qb.asset_id IS NULL
+			FROM question.question_block qb
+			JOIN question.question_version v ON v.id = qb.question_version_id
+			JOIN question.question q ON q.current_version_id = v.id
+			WHERE q.id = $1
+			ORDER BY qb.block_order ASC`, qid)
+		if err != nil {
+			t.Fatalf("read blocks: %v", err)
+		}
+		defer rows.Close()
+		var out []struct {
+			order    int
+			bt       string
+			content  string
+			assetNil bool
+		}
+		for rows.Next() {
+			var r0 struct {
+				order    int
+				bt       string
+				content  string
+				assetNil bool
+			}
+			if err := rows.Scan(&r0.order, &r0.bt, &r0.content, &r0.assetNil); err != nil {
+				t.Fatalf("scan block: %v", err)
+			}
+			out = append(out, r0)
+		}
+		return out
+	}
+
+	got := blockRows(qWithBlocks.ID)
+	if len(got) != 3 {
+		t.Fatalf("blocks len = %d, want 3", len(got))
+	}
+	want := []struct {
+		bt      string
+		content string
+	}{
+		{"PARAGRAPH", "Stimulus teks"},
+		{"IMAGE", "asset-abc-123"},
+		{"PARAGRAPH", "Pertanyaan inti"},
+	}
+	for i, w := range want {
+		if got[i].bt != w.bt || got[i].content != w.content {
+			t.Errorf("block[%d] = (%s, %q), want (%s, %q)", i, got[i].bt, got[i].content, w.bt, w.content)
+		}
+	}
+
+	// Legacy path: Content only must still write a single PARAGRAPH block.
+	if err := r.Create(ctx, qLegacy, nil); err != nil {
+		t.Fatalf("Create (legacy): %v", err)
+	}
+	lg := blockRows(qLegacy.ID)
+	if len(lg) != 1 || lg[0].bt != "PARAGRAPH" || lg[0].content != "Soal tanpa blok eksplisit" {
+		t.Errorf("legacy blocks = %+v, want single PARAGRAPH block with content", lg)
+	}
+}

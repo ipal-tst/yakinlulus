@@ -60,6 +60,13 @@ type Question struct {
 	LevelCode     string           `json:"level_code,omitempty"`
 	ChapterName   string           `json:"chapter_name,omitempty"`
 	Options       []QuestionOption `json:"options,omitempty"`
+	Blocks        []QuestionBlock  `json:"blocks,omitempty"`
+}
+
+type QuestionBlock struct {
+	BlockType string     `json:"block_type"`
+	Content   string     `json:"content"`
+	AssetID   *uuid.UUID `json:"asset_id,omitempty"`
 }
 
 type QuestionOption struct {
@@ -331,10 +338,20 @@ func (r *Repository) Create(ctx context.Context, q *Question, opts []QuestionOpt
 		return err
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
-		VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, q.Content); err != nil {
-		return err
+	if len(q.Blocks) > 0 {
+		for i, b := range q.Blocks {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO question.question_block (question_version_id, block_order, block_type, content, asset_id)
+				VALUES ($1,$2,$3,$4,$5)`, versionID, i, b.BlockType, b.Content, b.AssetID); err != nil {
+				return err
+			}
+		}
+	} else if q.Content != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, versionID, q.Content); err != nil {
+			return err
+		}
 	}
 
 	if err := insertOptions(ctx, tx, versionID, opts, score); err != nil {
@@ -759,13 +776,6 @@ func (r *Repository) ListRevisions(ctx context.Context, questionID uuid.UUID) ([
 	return revs, nil
 }
 
-func ptrStr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
 // --- Import Job Logging ---
 
 // CreateImportJob keeps its legacy signature; filename/totalRows/createdBy
@@ -906,6 +916,7 @@ type CreateQuestionReq struct {
 	ThinkingLevel *string           `json:"thinking_level,omitempty"`
 	Explanation   string            `json:"explanation,omitempty"`
 	Options       []CreateOptionReq `json:"options,omitempty"`
+	Blocks        []QuestionBlock   `json:"blocks,omitempty"`
 }
 
 type CreateOptionReq struct {
@@ -996,6 +1007,10 @@ func (s *Service) Create(ctx context.Context, req CreateQuestionReq, createdBy u
 			IsCorrect:    o.Correct,
 			DisplayOrder: i,
 		})
+	}
+
+	for _, b := range req.Blocks {
+		q.Blocks = append(q.Blocks, QuestionBlock{BlockType: b.BlockType, Content: b.Content, AssetID: b.AssetID})
 	}
 
 	if err := s.repo.Create(ctx, q, opts); err != nil {
@@ -1178,6 +1193,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r.Post("/", auth, write, h.Create)
 	r.Get("/export", auth, write, h.Export)
 	r.Post("/import", auth, write, h.Import)
+	r.Get("/import/template", auth, write, h.QuestionImportTemplate)
+	r.Post("/import/xlsx", auth, write, h.ImportQuestionsXLSX)
 	r.Put("/:id", auth, write, h.Update)
 	r.Post("/:id/publish", auth, write, h.Publish)
 	r.Post("/:id/archive", auth, write, h.ArchiveQuestion)
@@ -1500,6 +1517,7 @@ type ImportRow struct {
 	Explanation   string           `json:"explanation,omitempty"`
 	QuestionsType string           `json:"question_type,omitempty"`
 	Options       []QuestionOption `json:"options"`
+	Blocks        []QuestionBlock  `json:"blocks,omitempty"`
 }
 
 func (h *Handler) Import(c *fiber.Ctx) error {
@@ -1581,6 +1599,7 @@ func (h *Handler) Import(c *fiber.Ctx) error {
 			ThinkingLevel: row.ThinkingLevel,
 			Explanation:   row.Explanation,
 			Options:       opts,
+			Blocks:        row.Blocks,
 		}
 		if chID != nil {
 			s := chID.String()

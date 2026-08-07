@@ -22,13 +22,13 @@ const (
 type ContentStatus string
 
 const (
-	StatusDraft      ContentStatus = "DRAFT"
-	StatusReview     ContentStatus = "REVIEW"
-	StatusApproved   ContentStatus = "APPROVED"
-	StatusPublished  ContentStatus = "PUBLISHED"
-	StatusArchived   ContentStatus = "ARCHIVED"
-	StatusOngoing    ContentStatus = "ONGOING"
-	StatusCompleted  ContentStatus = "COMPLETED"
+	StatusDraft     ContentStatus = "DRAFT"
+	StatusReview    ContentStatus = "REVIEW"
+	StatusApproved  ContentStatus = "APPROVED"
+	StatusPublished ContentStatus = "PUBLISHED"
+	StatusArchived  ContentStatus = "ARCHIVED"
+	StatusOngoing   ContentStatus = "ONGOING"
+	StatusCompleted ContentStatus = "COMPLETED"
 )
 
 type Content struct {
@@ -123,19 +123,19 @@ const (
 )
 
 type Question struct {
-	ContentID      uuid.UUID      `json:"content_id"`
-	QuestionType   QuestionType   `json:"question_type"`
-	Difficulty     Difficulty     `json:"difficulty"`
-	BloomLevel     *BloomLevel    `json:"bloom_level,omitempty"`
-	ThinkingLevel  *ThinkingLevel `json:"thinking_level,omitempty"`
-	Language       string         `json:"language"`
-	Source         QuestionSource `json:"source"`
-	SubTopicID     *uuid.UUID     `json:"subtopic_id,omitempty"`
-	StimulusID     *uuid.UUID     `json:"stimulus_id,omitempty"`
-	Score          float64        `json:"score"`
-	NegativeScore  float64        `json:"negative_score"`
-	EstimatedTime  int            `json:"estimated_time"`
-	Explanation    string         `json:"explanation"`
+	ContentID     uuid.UUID      `json:"content_id"`
+	QuestionType  QuestionType   `json:"question_type"`
+	Difficulty    Difficulty     `json:"difficulty"`
+	BloomLevel    *BloomLevel    `json:"bloom_level,omitempty"`
+	ThinkingLevel *ThinkingLevel `json:"thinking_level,omitempty"`
+	Language      string         `json:"language"`
+	Source        QuestionSource `json:"source"`
+	SubTopicID    *uuid.UUID     `json:"subtopic_id,omitempty"`
+	StimulusID    *uuid.UUID     `json:"stimulus_id,omitempty"`
+	Score         float64        `json:"score"`
+	NegativeScore float64        `json:"negative_score"`
+	EstimatedTime int            `json:"estimated_time"`
+	Explanation   string         `json:"explanation"`
 }
 
 type QuestionOption struct {
@@ -151,19 +151,19 @@ type QuestionOption struct {
 
 type CreateQuestionReq struct {
 	CreateContentReq
-	QuestionType   QuestionType   `json:"question_type" validate:"required"`
-	Difficulty     Difficulty     `json:"difficulty" validate:"required"`
-	BloomLevel     *BloomLevel    `json:"bloom_level,omitempty"`
-	ThinkingLevel  *ThinkingLevel `json:"thinking_level,omitempty"`
-	Language       string         `json:"language" validate:"required,len=2"`
-	Source         QuestionSource `json:"source" validate:"required"`
-	SubTopicID     *uuid.UUID     `json:"subtopic_id,omitempty"`
-	StimulusID     *uuid.UUID     `json:"stimulus_id,omitempty"`
-	Score          float64        `json:"score" validate:"required,min=0"`
-	NegativeScore  float64        `json:"negative_score" validate:"min=0"`
-	EstimatedTime  int            `json:"estimated_time" validate:"required,min=1"`
-	Explanation    string         `json:"explanation"`
-	Options        []CreateQuestionOptionReq `json:"options" validate:"required,min=2,max=6,dive"`
+	QuestionType  QuestionType              `json:"question_type" validate:"required"`
+	Difficulty    Difficulty                `json:"difficulty" validate:"required"`
+	BloomLevel    *BloomLevel               `json:"bloom_level,omitempty"`
+	ThinkingLevel *ThinkingLevel            `json:"thinking_level,omitempty"`
+	Language      string                    `json:"language" validate:"required,len=2"`
+	Source        QuestionSource            `json:"source" validate:"required"`
+	SubTopicID    *uuid.UUID                `json:"subtopic_id,omitempty"`
+	StimulusID    *uuid.UUID                `json:"stimulus_id,omitempty"`
+	Score         float64                   `json:"score" validate:"required,min=0"`
+	NegativeScore float64                   `json:"negative_score" validate:"min=0"`
+	EstimatedTime int                       `json:"estimated_time" validate:"required,min=1"`
+	Explanation   string                    `json:"explanation"`
+	Options       []CreateQuestionOptionReq `json:"options" validate:"required,min=2,max=6,dive"`
 }
 
 type CreateQuestionOptionReq struct {
@@ -220,14 +220,14 @@ type MaterialFull struct {
 
 // LearningProgress for material tracking
 type LearningProgress struct {
-	ID            uuid.UUID  `json:"id"`
-	UserID        uuid.UUID  `json:"user_id"`
-	MaterialID    uuid.UUID  `json:"material_id"`
-	Progress      float64    `json:"progress"`
-	Completed     bool       `json:"completed"`
-	LastPosition  *string    `json:"last_position,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	MaterialID   uuid.UUID `json:"material_id"`
+	Progress     float64   `json:"progress"`
+	Completed    bool      `json:"completed"`
+	LastPosition *string   `json:"last_position,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // ========== EXAM SUBTYPE ==========
@@ -248,15 +248,15 @@ type Exam struct {
 
 type CreateExamReq struct {
 	CreateContentReq
-	Description       string                 `json:"description"`
-	DurationMinutes   int                    `json:"duration_minutes" validate:"required,min=1"`
-	PassingScore      float64                `json:"passing_score" validate:"min=0,max=100"`
-	ShuffleQuestions  bool                   `json:"shuffle_questions"`
-	ShuffleOptions    bool                   `json:"shuffle_options"`
-	MaxAttempts       int                    `json:"max_attempts" validate:"min=1"`
-	StartTime         *time.Time             `json:"start_time,omitempty"`
-	EndTime           *time.Time             `json:"end_time,omitempty"`
-	Blueprint         map[string]interface{} `json:"blueprint,omitempty"`
+	Description      string                 `json:"description"`
+	DurationMinutes  int                    `json:"duration_minutes" validate:"required,min=1"`
+	PassingScore     float64                `json:"passing_score" validate:"min=0,max=100"`
+	ShuffleQuestions bool                   `json:"shuffle_questions"`
+	ShuffleOptions   bool                   `json:"shuffle_options"`
+	MaxAttempts      int                    `json:"max_attempts" validate:"min=1"`
+	StartTime        *time.Time             `json:"start_time,omitempty"`
+	EndTime          *time.Time             `json:"end_time,omitempty"`
+	Blueprint        map[string]interface{} `json:"blueprint,omitempty"`
 }
 
 type ExamQuestion struct {
@@ -280,10 +280,10 @@ type ExamBlueprint struct {
 }
 
 type ExamParticipant struct {
-	ID             uuid.UUID `json:"id"`
-	ExamContentID  uuid.UUID `json:"exam_content_id"`
-	UserID         uuid.UUID `json:"user_id"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	ExamContentID uuid.UUID `json:"exam_content_id"`
+	UserID        uuid.UUID `json:"user_id"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type ExamAttemptStatus string
@@ -296,31 +296,31 @@ const (
 )
 
 type ExamAttempt struct {
-	ID                uuid.UUID           `json:"id"`
-	ExamContentID     uuid.UUID           `json:"exam_content_id"`
-	UserID            uuid.UUID           `json:"user_id"`
-	AttemptNumber     int                 `json:"attempt_number"`
-	Status            ExamAttemptStatus   `json:"status"`
-	StartedAt         time.Time           `json:"started_at"`
-	SubmittedAt       *time.Time          `json:"submitted_at,omitempty"`
-	GradedAt          *time.Time          `json:"graded_at,omitempty"`
-	TotalScore        *float64            `json:"total_score,omitempty"`
-	MaxScore          *float64            `json:"max_score,omitempty"`
-	TimeSpentSeconds  *int                `json:"time_spent_seconds,omitempty"`
-	CreatedAt         time.Time           `json:"created_at"`
+	ID               uuid.UUID         `json:"id"`
+	ExamContentID    uuid.UUID         `json:"exam_content_id"`
+	UserID           uuid.UUID         `json:"user_id"`
+	AttemptNumber    int               `json:"attempt_number"`
+	Status           ExamAttemptStatus `json:"status"`
+	StartedAt        time.Time         `json:"started_at"`
+	SubmittedAt      *time.Time        `json:"submitted_at,omitempty"`
+	GradedAt         *time.Time        `json:"graded_at,omitempty"`
+	TotalScore       *float64          `json:"total_score,omitempty"`
+	MaxScore         *float64          `json:"max_score,omitempty"`
+	TimeSpentSeconds *int              `json:"time_spent_seconds,omitempty"`
+	CreatedAt        time.Time         `json:"created_at"`
 }
 
 type ExamAnswer struct {
-	ID                  uuid.UUID   `json:"id"`
-	AttemptID           uuid.UUID   `json:"attempt_id"`
-	QuestionContentID   uuid.UUID   `json:"question_content_id"`
-	SelectedOptions     []uuid.UUID `json:"selected_options,omitempty"`
-	TextAnswer          string      `json:"text_answer"`
-	IsCorrect           *bool       `json:"is_correct,omitempty"`
-	PointsEarned        *float64    `json:"points_earned,omitempty"`
-	GradedBy            *uuid.UUID  `json:"graded_by,omitempty"`
-	GradedAt            *time.Time  `json:"graded_at,omitempty"`
-	CreatedAt           time.Time   `json:"created_at"`
+	ID                uuid.UUID   `json:"id"`
+	AttemptID         uuid.UUID   `json:"attempt_id"`
+	QuestionContentID uuid.UUID   `json:"question_content_id"`
+	SelectedOptions   []uuid.UUID `json:"selected_options,omitempty"`
+	TextAnswer        string      `json:"text_answer"`
+	IsCorrect         *bool       `json:"is_correct,omitempty"`
+	PointsEarned      *float64    `json:"points_earned,omitempty"`
+	GradedBy          *uuid.UUID  `json:"graded_by,omitempty"`
+	GradedAt          *time.Time  `json:"graded_at,omitempty"`
+	CreatedAt         time.Time   `json:"created_at"`
 }
 
 type ExamFull struct {
@@ -335,45 +335,45 @@ type ExamFull struct {
 // ========== QUESTION POOL ==========
 
 type QuestionPool struct {
-	ID                  uuid.UUID  `json:"id"`
-	ExamContentID       *uuid.UUID `json:"exam_content_id,omitempty"`
-	SubjectID           uuid.UUID  `json:"subject_id"`
-	GradeIDs            []uuid.UUID `json:"grade_ids,omitempty"`
-	ChapterIDs          []uuid.UUID `json:"chapter_ids,omitempty"`
-	EasyPct             int        `json:"easy_pct"`
-	MediumPct           int        `json:"medium_pct"`
-	HardPct             int        `json:"hard_pct"`
-	TotalPoolSize       int        `json:"total_pool_size"`
-	QuestionsPerStudent int        `json:"questions_per_student"`
-	ShuffleQuestions    bool       `json:"shuffle_questions"`
-	ShuffleOptions      bool       `json:"shuffle_options"`
+	ID                  uuid.UUID              `json:"id"`
+	ExamContentID       *uuid.UUID             `json:"exam_content_id,omitempty"`
+	SubjectID           uuid.UUID              `json:"subject_id"`
+	GradeIDs            []uuid.UUID            `json:"grade_ids,omitempty"`
+	ChapterIDs          []uuid.UUID            `json:"chapter_ids,omitempty"`
+	EasyPct             int                    `json:"easy_pct"`
+	MediumPct           int                    `json:"medium_pct"`
+	HardPct             int                    `json:"hard_pct"`
+	TotalPoolSize       int                    `json:"total_pool_size"`
+	QuestionsPerStudent int                    `json:"questions_per_student"`
+	ShuffleQuestions    bool                   `json:"shuffle_questions"`
+	ShuffleOptions      bool                   `json:"shuffle_options"`
 	TagFilters          map[string]interface{} `json:"tag_filters,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	CreatedAt           time.Time              `json:"created_at"`
+	UpdatedAt           time.Time              `json:"updated_at"`
 }
 
 // ========== SUBJECT BLUEPRINT (for mixed-subject exams) ==========
 
 type ExamSubjectBlueprint struct {
-	ID               uuid.UUID `json:"id"`
-	ExamContentID    uuid.UUID `json:"exam_content_id"`
-	SubjectID        uuid.UUID `json:"subject_id"`
-	EasyCount        int       `json:"easy_count"`
-	MediumCount      int       `json:"medium_count"`
-	HardCount        int       `json:"hard_count"`
-	TotalQuestions   int       `json:"total_questions"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID             uuid.UUID `json:"id"`
+	ExamContentID  uuid.UUID `json:"exam_content_id"`
+	SubjectID      uuid.UUID `json:"subject_id"`
+	EasyCount      int       `json:"easy_count"`
+	MediumCount    int       `json:"medium_count"`
+	HardCount      int       `json:"hard_count"`
+	TotalQuestions int       `json:"total_questions"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // ========== PRACTICE SETS (Post-material practice) ==========
 
 type PracticeSet struct {
-	ID                 uuid.UUID `json:"id"`
-	ContentID          uuid.UUID `json:"content_id"`           // The material content
-	PracticeContentID  uuid.UUID `json:"practice_content_id"`  // Practice exam content
-	QuestionsCount     int       `json:"questions_count"`
-	TimeLimitSeconds   int       `json:"time_limit_seconds"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                uuid.UUID `json:"id"`
+	ContentID         uuid.UUID `json:"content_id"`          // The material content
+	PracticeContentID uuid.UUID `json:"practice_content_id"` // Practice exam content
+	QuestionsCount    int       `json:"questions_count"`
+	TimeLimitSeconds  int       `json:"time_limit_seconds"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type CreatePracticeSetReq struct {
@@ -393,31 +393,31 @@ const (
 )
 
 type SubjectBreakdown struct {
-	SubjectID     uuid.UUID `json:"subject_id"`
-	SubjectName   string    `json:"subject_name"`
-	QuestionsCount int      `json:"questions_count"`
-	CorrectCount  int       `json:"correct_count"`
-	TotalScore    float64   `json:"total_score"`
-	MaxScore      float64   `json:"max_score"`
-	Percentage    float64   `json:"percentage"`
+	SubjectID      uuid.UUID `json:"subject_id"`
+	SubjectName    string    `json:"subject_name"`
+	QuestionsCount int       `json:"questions_count"`
+	CorrectCount   int       `json:"correct_count"`
+	TotalScore     float64   `json:"total_score"`
+	MaxScore       float64   `json:"max_score"`
+	Percentage     float64   `json:"percentage"`
 }
 
 type PracticeSession struct {
-	ID                uuid.UUID              `json:"id"`
-	UserID            uuid.UUID              `json:"user_id"`
-	PracticeSetID     *uuid.UUID             `json:"practice_set_id,omitempty"`
-	SubjectID         *uuid.UUID             `json:"subject_id,omitempty"`
-	GradeID           *uuid.UUID             `json:"grade_id,omitempty"`
-	TagFilter         map[string]interface{} `json:"tag_filter,omitempty"`
-	Status            PracticeSessionStatus  `json:"status"`
-	StartedAt         time.Time              `json:"started_at"`
-	SubmittedAt       *time.Time             `json:"submitted_at,omitempty"`
-	GradedAt          *time.Time             `json:"graded_at,omitempty"`
-	TotalScore        *float64               `json:"total_score,omitempty"`
-	MaxScore          *float64               `json:"max_score,omitempty"`
-	TimeSpentSeconds  *int                   `json:"time_spent_seconds,omitempty"`
-	SubjectBreakdown  []SubjectBreakdown     `json:"subject_breakdown,omitempty"`
-	CreatedAt         time.Time              `json:"created_at"`
+	ID               uuid.UUID              `json:"id"`
+	UserID           uuid.UUID              `json:"user_id"`
+	PracticeSetID    *uuid.UUID             `json:"practice_set_id,omitempty"`
+	SubjectID        *uuid.UUID             `json:"subject_id,omitempty"`
+	GradeID          *uuid.UUID             `json:"grade_id,omitempty"`
+	TagFilter        map[string]interface{} `json:"tag_filter,omitempty"`
+	Status           PracticeSessionStatus  `json:"status"`
+	StartedAt        time.Time              `json:"started_at"`
+	SubmittedAt      *time.Time             `json:"submitted_at,omitempty"`
+	GradedAt         *time.Time             `json:"graded_at,omitempty"`
+	TotalScore       *float64               `json:"total_score,omitempty"`
+	MaxScore         *float64               `json:"max_score,omitempty"`
+	TimeSpentSeconds *int                   `json:"time_spent_seconds,omitempty"`
+	SubjectBreakdown []SubjectBreakdown     `json:"subject_breakdown,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
 }
 
 // ========== EXAM ANALYTICS ==========
@@ -504,58 +504,62 @@ type Repository interface {
 	UpdateExamAnswer(ctx context.Context, ea *ExamAnswer) error
 
 	// Question pools
-		CreateQuestionPool(ctx context.Context, qp *QuestionPool) error
-		GetQuestionPool(ctx context.Context, examContentID uuid.UUID) (*QuestionPool, error)
-		UpdateQuestionPool(ctx context.Context, qp *QuestionPool) error
-		DeleteQuestionPool(ctx context.Context, id uuid.UUID) error
-		GetQuestionsForPool(ctx context.Context, pool *QuestionPool) ([]uuid.UUID, error)
+	CreateQuestionPool(ctx context.Context, qp *QuestionPool) error
+	GetQuestionPool(ctx context.Context, examContentID uuid.UUID) (*QuestionPool, error)
+	UpdateQuestionPool(ctx context.Context, qp *QuestionPool) error
+	DeleteQuestionPool(ctx context.Context, id uuid.UUID) error
+	GetQuestionsForPool(ctx context.Context, pool *QuestionPool) ([]uuid.UUID, error)
 
-		// Exam session questions
-		AddSessionQuestions(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error
+	// Exam session questions
+	AddSessionQuestions(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error
 
-		// Exam analytics
-		GetExamAnalytics(ctx context.Context, examContentID uuid.UUID) (*ExamAnalytics, error)
+	// Exam analytics
+	GetExamAnalytics(ctx context.Context, examContentID uuid.UUID) (*ExamAnalytics, error)
 
-		// Practice sets
-		CreatePracticeSet(ctx context.Context, ps *PracticeSet) error
-		GetPracticeSet(ctx context.Context, contentID uuid.UUID) (*PracticeSet, error)
-		GetPracticeSetByPracticeContent(ctx context.Context, practiceContentID uuid.UUID) (*PracticeSet, error)
-		DeletePracticeSet(ctx context.Context, contentID uuid.UUID) error
+	// Practice sets
+	CreatePracticeSet(ctx context.Context, ps *PracticeSet) error
+	GetPracticeSet(ctx context.Context, contentID uuid.UUID) (*PracticeSet, error)
+	GetPracticeSetByPracticeContent(ctx context.Context, practiceContentID uuid.UUID) (*PracticeSet, error)
+	DeletePracticeSet(ctx context.Context, contentID uuid.UUID) error
 
-		// Practice sessions
-		CreatePracticeSession(ctx context.Context, ps *PracticeSession) error
-		GetPracticeSession(ctx context.Context, sessionID uuid.UUID) (*PracticeSession, error)
-		UpdatePracticeSession(ctx context.Context, ps *PracticeSession) error
-		GetUserPracticeSessions(ctx context.Context, userID uuid.UUID, limit, offset int) ([]PracticeSession, int, error)
+	// Practice sessions
+	CreatePracticeSession(ctx context.Context, ps *PracticeSession) error
+	GetPracticeSession(ctx context.Context, sessionID uuid.UUID) (*PracticeSession, error)
+	UpdatePracticeSession(ctx context.Context, ps *PracticeSession) error
+	GetUserPracticeSessions(ctx context.Context, userID uuid.UUID, limit, offset int) ([]PracticeSession, int, error)
 
-		// Practice question selection
-		GetQuestionsForPractice(ctx context.Context, subjectID, gradeID *uuid.UUID, tagFilter map[string]interface{}, count int) ([]uuid.UUID, error)
-		GetQuestionsForMaterialPractice(ctx context.Context, materialContentID uuid.UUID, count int) ([]uuid.UUID, error)
+	// Practice question selection
+	GetQuestionsForPractice(ctx context.Context, subjectID, gradeID *uuid.UUID, tagFilter map[string]interface{}, count int) ([]uuid.UUID, error)
+	GetQuestionsForMaterialPractice(ctx context.Context, materialContentID uuid.UUID, count int) ([]uuid.UUID, error)
 
-		// Session questions with subject (for per-subject scoring)
-		AddSessionQuestionsWithSubject(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error
+	// Session questions with subject (for per-subject scoring)
+	AddSessionQuestionsWithSubject(ctx context.Context, sessionID uuid.UUID, questionIDs []uuid.UUID, shuffleQuestions, shuffleOptions bool) error
 
-		// Get subject name by ID (for practice scoring)
-		GetSubjectName(ctx context.Context, subjectID uuid.UUID) (string, error)
+	// Get subject name by ID (for practice scoring)
+	GetSubjectName(ctx context.Context, subjectID uuid.UUID) (string, error)
 
-		// Get question's subject ID
-		GetQuestionSubject(ctx context.Context, questionContentID uuid.UUID) (uuid.UUID, error)
+	// Get question's subject ID
+	GetQuestionSubject(ctx context.Context, questionContentID uuid.UUID) (uuid.UUID, error)
 
-		// User helpers
-		GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
-	}
+	// User helpers
+	GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
+
+	// Name-based resolvers for bulk import
+	FindSubjectIDByName(ctx context.Context, name string) (*uuid.UUID, error)
+	FindGradeIDByName(ctx context.Context, name string) (*uuid.UUID, error)
+}
 
 // ========== FILTERS ==========
 
 type ContentFilter struct {
-	ContentType *ContentType `json:"content_type,omitempty"`
-	GradeID     *uuid.UUID   `json:"grade_id,omitempty"`
-	SubjectID   *uuid.UUID   `json:"subject_id,omitempty"`
+	ContentType *ContentType   `json:"content_type,omitempty"`
+	GradeID     *uuid.UUID     `json:"grade_id,omitempty"`
+	SubjectID   *uuid.UUID     `json:"subject_id,omitempty"`
 	Status      *ContentStatus `json:"status,omitempty"`
-	CreatedBy   *uuid.UUID   `json:"created_by,omitempty"`
-	Search      string       `json:"search,omitempty"`
-	Limit       int          `json:"limit"`
-	Offset      int          `json:"offset"`
+	CreatedBy   *uuid.UUID     `json:"created_by,omitempty"`
+	Search      string         `json:"search,omitempty"`
+	Limit       int            `json:"limit"`
+	Offset      int            `json:"offset"`
 }
 
 type QuestionFilter struct {

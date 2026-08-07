@@ -560,7 +560,7 @@ func (r *repository) updateQuestionContent(ctx context.Context, id uuid.UUID, re
 			SubjectID: ptrUUIDOrNil(req.SubjectID),
 			GradeID:   curGrade,
 			ChapterID: req.ChapterID,
-			TopicID: req.TopicID,
+			TopicID:   req.TopicID,
 		}); err != nil {
 			return err
 		}
@@ -2966,8 +2966,8 @@ func (r *repository) GetQuestionsForPool(ctx context.Context, pool *QuestionPool
 	hardCount := pool.TotalPoolSize - easyCount - mediumCount
 
 	buckets := []struct {
-		diff     string
-		count    int
+		diff  string
+		count int
 	}{
 		{"EASY", easyCount},
 		{"MEDIUM", mediumCount},
@@ -3512,6 +3512,24 @@ func (r *repository) GetSubjectName(ctx context.Context, subjectID uuid.UUID) (s
 		return "", err
 	}
 	return name, nil
+}
+
+func (r *repository) FindSubjectIDByName(ctx context.Context, name string) (*uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM academic.subject WHERE name ILIKE $1 OR code ILIKE $1 LIMIT 1`, strings.TrimSpace(name)).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
+func (r *repository) FindGradeIDByName(ctx context.Context, name string) (*uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM academic.grade WHERE name ILIKE $1 OR code ILIKE $1 LIMIT 1`, strings.TrimSpace(name)).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
 }
 
 func (r *repository) GetQuestionSubject(ctx context.Context, questionContentID uuid.UUID) (uuid.UUID, error) {

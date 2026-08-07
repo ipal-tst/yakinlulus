@@ -170,6 +170,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r.Get("/progress", read, h.ListProgress)
 	r.Get("/", read, h.List)
 	r.Post("/", write, h.Create)
+	r.Get("/import/template", write, h.MaterialImportTemplate)
+	r.Post("/import/xlsx", write, h.ImportMaterialsXLSX)
 	r.Get("/:id", read, h.GetByID)
 	r.Put("/:id", write, h.Update)
 	r.Delete("/:id", write, h.Delete)
