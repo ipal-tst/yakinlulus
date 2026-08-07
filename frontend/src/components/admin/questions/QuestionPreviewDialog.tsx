@@ -22,7 +22,7 @@ export function QuestionPreviewDialog({ item, isOpen, onClose }: QuestionPreview
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-6xl w-[92vw] max-h-[92vh] overflow-y-auto rounded-2xl border-border p-6 shadow-2xl">
+            <DialogContent className="sm:max-w-[92vw] max-w-6xl w-[92vw] max-h-[92vh] overflow-y-auto rounded-2xl border-border p-6 shadow-2xl">
                 <DialogHeader className="space-y-2 pb-3 border-b border-border">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

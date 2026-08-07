@@ -307,10 +307,10 @@ export default function QuestionImportPage() {
                                         if (!file) fileInputRef.current?.click();
                                     }}
                                     className={`border-2 border-dashed rounded-2xl p-8 text-center space-y-4 transition-all duration-200 cursor-pointer ${dragOver
-                                            ? "border-primary bg-primary/5 scale-[0.99]"
-                                            : file
-                                                ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
-                                                : "border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/30"
+                                        ? "border-primary bg-primary/5 scale-[0.99]"
+                                        : file
+                                            ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
+                                            : "border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/30"
                                         }`}
                                 >
                                     {file ? (
@@ -760,8 +760,8 @@ export default function QuestionImportPage() {
                             </div>
 
                             <div className={`p-4 rounded-xl border text-center ${result.failed > 0
-                                    ? "border-destructive/20 bg-destructive/10 text-destructive"
-                                    : "border-border bg-muted/20 text-muted-foreground"
+                                ? "border-destructive/20 bg-destructive/10 text-destructive"
+                                : "border-border bg-muted/20 text-muted-foreground"
                                 }`}>
                                 <span className="text-xs font-semibold block">Gagal Diproses</span>
                                 <span className="text-2xl font-bold font-mono mt-1 block">
@@ -804,7 +804,7 @@ export default function QuestionImportPage() {
                 {/* WIDE SPLIT-SCREEN EDIT DIALOG WITH LIVE STUDENT POV PREVIEW */}
                 {editingRow && (
                     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                        <DialogContent className="max-w-[94vw] w-[1380px] max-h-[92vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
+                        <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-[95vw] max-h-[92vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
                             <DialogHeader className="pb-3 border-b border-border">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -827,8 +827,8 @@ export default function QuestionImportPage() {
                                             type="button"
                                             onClick={() => setSimulatorDevice("desktop")}
                                             className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "desktop"
-                                                    ? "bg-background text-foreground shadow-2xs"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                ? "bg-background text-foreground shadow-2xs"
+                                                : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             <Monitor className="h-3.5 w-3.5" /> Desktop
@@ -837,8 +837,8 @@ export default function QuestionImportPage() {
                                             type="button"
                                             onClick={() => setSimulatorDevice("mobile")}
                                             className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "mobile"
-                                                    ? "bg-background text-foreground shadow-2xs"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                ? "bg-background text-foreground shadow-2xs"
+                                                : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             <Smartphone className="h-3.5 w-3.5" /> Mobile
@@ -1089,18 +1089,18 @@ export default function QuestionImportPage() {
                                                                 type="button"
                                                                 onClick={() => setSimulatorSelectedOpt(opt.label)}
                                                                 className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 text-xs ${simulatorShowSolution && isCorrectKey
-                                                                        ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
-                                                                        : isSelected
-                                                                            ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-medium"
-                                                                            : "border-border hover:bg-muted/40"
+                                                                    ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
+                                                                    : isSelected
+                                                                        ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-medium"
+                                                                        : "border-border hover:bg-muted/40"
                                                                     }`}
                                                             >
                                                                 <span
                                                                     className={`w-5 h-5 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${simulatorShowSolution && isCorrectKey
-                                                                            ? "bg-emerald-500 text-white"
-                                                                            : isSelected
-                                                                                ? "bg-primary text-white"
-                                                                                : "bg-muted text-muted-foreground"
+                                                                        ? "bg-emerald-500 text-white"
+                                                                        : isSelected
+                                                                            ? "bg-primary text-white"
+                                                                            : "bg-muted text-muted-foreground"
                                                                         }`}
                                                                 >
                                                                     {opt.label}
@@ -1151,7 +1151,7 @@ export default function QuestionImportPage() {
                 {/* STANDALONE STUDENT POV PREVIEW MODAL */}
                 {previewPovRow && (
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-                        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
+                        <DialogContent className="sm:max-w-[90vw] lg:max-w-[1000px] w-[90vw] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
                             <DialogHeader className="pb-3 border-b border-border">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -1173,8 +1173,8 @@ export default function QuestionImportPage() {
                                             type="button"
                                             onClick={() => setSimulatorDevice("desktop")}
                                             className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "desktop"
-                                                    ? "bg-background text-foreground shadow-2xs"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                ? "bg-background text-foreground shadow-2xs"
+                                                : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             <Monitor className="h-3.5 w-3.5" /> Desktop
@@ -1183,8 +1183,8 @@ export default function QuestionImportPage() {
                                             type="button"
                                             onClick={() => setSimulatorDevice("mobile")}
                                             className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "mobile"
-                                                    ? "bg-background text-foreground shadow-2xs"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                ? "bg-background text-foreground shadow-2xs"
+                                                : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             <Smartphone className="h-3.5 w-3.5" /> Mobile
@@ -1238,8 +1238,8 @@ export default function QuestionImportPage() {
                                                     <div
                                                         key={opt.label}
                                                         className={`w-full p-3.5 rounded-xl border flex items-start gap-3 text-xs ${isCorrectKey
-                                                                ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
-                                                                : "border-border bg-card"
+                                                            ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
+                                                            : "border-border bg-card"
                                                             }`}
                                                     >
                                                         <span
