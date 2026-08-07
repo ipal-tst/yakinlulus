@@ -42,7 +42,12 @@ import {
     Plus,
     Search,
     Eye,
-    Filter,
+    Monitor,
+    Smartphone,
+    Lightbulb,
+    Clock,
+    Layers,
+    Sparkles,
 } from "lucide-react";
 
 type View = "upload" | "preview" | "processing" | "result";
@@ -64,6 +69,15 @@ export default function QuestionImportPage() {
     // Edit Modal State
     const [editingRow, setEditingRow] = useState<ParsedQuestionRow | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    // Standalone Student POV Preview Modal State
+    const [previewPovRow, setPreviewPovRow] = useState<ParsedQuestionRow | null>(null);
+    const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+
+    // POV Live Simulator Controls
+    const [simulatorDevice, setSimulatorDevice] = useState<"desktop" | "mobile">("desktop");
+    const [simulatorShowSolution, setSimulatorShowSolution] = useState(true);
+    const [simulatorSelectedOpt, setSimulatorSelectedOpt] = useState<string | null>(null);
 
     const reset = () => {
         setFile(null);
@@ -205,9 +219,23 @@ export default function QuestionImportPage() {
     const validCount = parsedRows.filter((r) => r.validationErrors.length === 0).length;
     const invalidCount = parsedRows.filter((r) => r.validationErrors.length > 0).length;
 
+    // Helper to collect non-empty options for Student POV Simulator
+    const getOptionsList = (row: ParsedQuestionRow) => {
+        const opts: { label: string; text: string }[] = [];
+        if (row.optionA) opts.push({ label: "A", text: row.optionA });
+        if (row.optionB) opts.push({ label: "B", text: row.optionB });
+        if (row.optionC) opts.push({ label: "C", text: row.optionC });
+        if (row.optionD) opts.push({ label: "D", text: row.optionD });
+        if (row.optionE) opts.push({ label: "E", text: row.optionE });
+        if (row.optionF) opts.push({ label: "F", text: row.optionF });
+        if (row.optionG) opts.push({ label: "G", text: row.optionG });
+        if (row.optionH) opts.push({ label: "H", text: row.optionH });
+        return opts;
+    };
+
     return (
         <AppShell>
-            <div className="space-y-6 max-w-6xl mx-auto pb-12">
+            <div className="space-y-6 max-w-7xl mx-auto pb-12">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -225,7 +253,7 @@ export default function QuestionImportPage() {
                                 Import Bank Soal (Excel)
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                Unggah file .xlsx, pratinjau &amp; edit data soal sebelum disimpan ke database.
+                                Unggah file .xlsx, pratinjau POV siswa &amp; edit data soal sebelum disimpan ke database.
                             </p>
                         </div>
                     </div>
@@ -279,10 +307,10 @@ export default function QuestionImportPage() {
                                         if (!file) fileInputRef.current?.click();
                                     }}
                                     className={`border-2 border-dashed rounded-2xl p-8 text-center space-y-4 transition-all duration-200 cursor-pointer ${dragOver
-                                        ? "border-primary bg-primary/5 scale-[0.99]"
-                                        : file
-                                            ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
-                                            : "border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/30"
+                                            ? "border-primary bg-primary/5 scale-[0.99]"
+                                            : file
+                                                ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
+                                                : "border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/30"
                                         }`}
                                 >
                                     {file ? (
@@ -398,7 +426,7 @@ export default function QuestionImportPage() {
                                         <strong>Pilih File Template</strong> hasil unduhan resmi (`.xlsx`).
                                     </li>
                                     <li>
-                                        <strong>Pratinjau &amp; Edit</strong>: Lihat semua baris soal, perbaiki typo, ubah opsi jawaban atau tambahkan soal baru di browser.
+                                        <strong>Pratinjau POV Siswa &amp; Editor Lebar</strong>: Lihat simulasi tampilan ujian siswa dan edit soal dengan nyaman di editor split-screen.
                                     </li>
                                     <li>
                                         <strong>Eksekusi Database</strong>: Setelah data dipastikan benar, klik tombol eksekusi untuk menyimpan ke database.
@@ -541,7 +569,7 @@ export default function QuestionImportPage() {
                                             <th className="p-3 min-w-[240px]">Teks Soal (Blok 1)</th>
                                             <th className="p-3 w-24 text-center">Kunci</th>
                                             <th className="p-3 w-32">Status</th>
-                                            <th className="p-3 w-24 text-right">Aksi</th>
+                                            <th className="p-3 w-40 text-right">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/60">
@@ -604,7 +632,22 @@ export default function QuestionImportPage() {
                                                             )}
                                                         </td>
                                                         <td className="p-3 text-right">
-                                                            <div className="flex items-center justify-end gap-1">
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                {/* Student POV Quick Button */}
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setPreviewPovRow(row);
+                                                                        setIsPreviewDialogOpen(true);
+                                                                    }}
+                                                                    className="rounded-lg text-[11px] gap-1 border-border bg-card hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                                                                    title="Pratinjau POV Siswa"
+                                                                >
+                                                                    <Eye className="h-3 w-3 text-primary" />
+                                                                    POV Siswa
+                                                                </Button>
+
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon-sm"
@@ -613,10 +656,11 @@ export default function QuestionImportPage() {
                                                                         setIsEditDialogOpen(true);
                                                                     }}
                                                                     className="rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                                    title="Edit Detail Soal"
+                                                                    title="Edit Detail & Live POV Editor"
                                                                 >
                                                                     <Pencil className="h-3.5 w-3.5" />
                                                                 </Button>
+
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon-sm"
@@ -716,8 +760,8 @@ export default function QuestionImportPage() {
                             </div>
 
                             <div className={`p-4 rounded-xl border text-center ${result.failed > 0
-                                ? "border-destructive/20 bg-destructive/10 text-destructive"
-                                : "border-border bg-muted/20 text-muted-foreground"
+                                    ? "border-destructive/20 bg-destructive/10 text-destructive"
+                                    : "border-border bg-muted/20 text-muted-foreground"
                                 }`}>
                                 <span className="text-xs font-semibold block">Gagal Diproses</span>
                                 <span className="text-2xl font-bold font-mono mt-1 block">
@@ -757,146 +801,494 @@ export default function QuestionImportPage() {
                     </Card>
                 )}
 
-                {/* EDIT ROW DIALOG */}
+                {/* WIDE SPLIT-SCREEN EDIT DIALOG WITH LIVE STUDENT POV PREVIEW */}
                 {editingRow && (
                     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-6 rounded-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                                    <Pencil className="h-4 w-4 text-primary" />
-                                    Edit Detail Soal #{editingRow.no}
-                                </DialogTitle>
+                        <DialogContent className="max-w-[94vw] w-[1380px] max-h-[92vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
+                            <DialogHeader className="pb-3 border-b border-border">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                            <Pencil className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <DialogTitle className="text-lg font-bold font-heading">
+                                                Editor Soal #{editingRow.no} (Fitur Split-Screen Live POV)
+                                            </DialogTitle>
+                                            <p className="text-xs text-muted-foreground">
+                                                Ubah data soal di panel kiri. Layar kanan otomatis mensimulasikan pratinjau real-time tampilan CBT siswa.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Simulator Device Mode Switcher */}
+                                    <div className="flex items-center gap-1.5 p-1 bg-muted rounded-xl border border-border">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSimulatorDevice("desktop")}
+                                            className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "desktop"
+                                                    ? "bg-background text-foreground shadow-2xs"
+                                                    : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            <Monitor className="h-3.5 w-3.5" /> Desktop
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSimulatorDevice("mobile")}
+                                            className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "mobile"
+                                                    ? "bg-background text-foreground shadow-2xs"
+                                                    : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            <Smartphone className="h-3.5 w-3.5" /> Mobile
+                                        </button>
+                                    </div>
+                                </div>
                             </DialogHeader>
 
-                            <div className="space-y-4 py-2 text-xs">
-                                {/* Row 1: Mapel & Bab */}
-                                <div className="grid grid-cols-2 gap-4">
+                            {/* Split-Screen Container */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-4">
+                                {/* LEFT PANEL (7/12 width): EDIT FORM */}
+                                <div className="lg:col-span-7 space-y-4 text-xs pr-0 lg:pr-2">
+                                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-primary/5 border border-primary/20 text-primary font-semibold">
+                                        <span className="flex items-center gap-1.5">
+                                            <Sparkles className="h-4 w-4" /> Form Pengisian Parameter Soal
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px]">
+                                            Kolom Lebar &amp; Ergonomis
+                                        </Badge>
+                                    </div>
+
+                                    {/* Row 1: Mapel & Bab */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="font-semibold text-foreground">Mata Pelajaran</label>
+                                            <Input
+                                                value={editingRow.mapel}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                    setEditingRow({ ...editingRow, mapel: e.target.value })
+                                                }
+                                                placeholder="Contoh: Matematika SD"
+                                                className="rounded-xl text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="font-semibold text-foreground">Materi / Bab</label>
+                                            <Input
+                                                value={editingRow.bab}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                    setEditingRow({ ...editingRow, bab: e.target.value })
+                                                }
+                                                placeholder="Contoh: Pecahan &amp; Desimal"
+                                                className="rounded-xl text-xs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Row 2: Tipe Soal & Kunci Jawaban & Skor */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="font-semibold text-foreground">Tipe Soal</label>
+                                            <select
+                                                value={editingRow.tipeSoal}
+                                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                                                    setEditingRow({ ...editingRow, tipeSoal: e.target.value })
+                                                }
+                                                className="w-full rounded-xl border border-input bg-background p-2 text-xs"
+                                            >
+                                                <option value="SINGLE_CHOICE">SINGLE_CHOICE (Pilihan Ganda)</option>
+                                                <option value="MULTIPLE_CHOICE">MULTIPLE_CHOICE (PG Kompleks)</option>
+                                                <option value="TRUE_FALSE">TRUE_FALSE (Benar / Salah)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="font-semibold text-foreground">Kunci Jawaban</label>
+                                            <Input
+                                                value={editingRow.kunciJawaban}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                    setEditingRow({ ...editingRow, kunciJawaban: e.target.value.toUpperCase() })
+                                                }
+                                                placeholder="A / B / C / D / A,B"
+                                                className="rounded-xl font-mono font-bold text-xs"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="font-semibold text-foreground">Skor Soal</label>
+                                            <Input
+                                                value={editingRow.skor}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                    setEditingRow({ ...editingRow, skor: e.target.value })
+                                                }
+                                                placeholder="5"
+                                                className="rounded-xl text-xs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Question Text */}
                                     <div className="space-y-1.5">
-                                        <label className="font-semibold text-foreground">Mata Pelajaran</label>
-                                        <Input
-                                            value={editingRow.mapel}
-                                            onChange={(e) => setEditingRow({ ...editingRow, mapel: e.target.value })}
-                                            placeholder="Contoh: Matematika SD"
-                                            className="rounded-xl text-xs"
+                                        <label className="font-semibold text-foreground">Pertanyaan / Teks Soal (Blok 1 Isi)</label>
+                                        <textarea
+                                            rows={5}
+                                            value={editingRow.block1Isi}
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                                                setEditingRow({ ...editingRow, block1Isi: e.target.value })
+                                            }
+                                            placeholder="Tulis pertanyaan soal di sini..."
+                                            className="w-full min-h-[100px] rounded-xl border border-input bg-background p-3 text-xs shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring leading-relaxed"
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="font-semibold text-foreground">Materi / Bab</label>
-                                        <Input
-                                            value={editingRow.bab}
-                                            onChange={(e) => setEditingRow({ ...editingRow, bab: e.target.value })}
-                                            placeholder="Contoh: Pecahan & Desimal"
-                                            className="rounded-xl text-xs"
+
+                                    {/* Options Grid */}
+                                    <div className="space-y-2 border-t border-border pt-3">
+                                        <label className="font-semibold text-foreground block">Pilihan Jawaban (Opsi A - E)</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi A</span>
+                                                <Input
+                                                    value={editingRow.optionA}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                        setEditingRow({ ...editingRow, optionA: e.target.value })
+                                                    }
+                                                    className="rounded-xl text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi B</span>
+                                                <Input
+                                                    value={editingRow.optionB}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                        setEditingRow({ ...editingRow, optionB: e.target.value })
+                                                    }
+                                                    className="rounded-xl text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi C</span>
+                                                <Input
+                                                    value={editingRow.optionC}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                        setEditingRow({ ...editingRow, optionC: e.target.value })
+                                                    }
+                                                    className="rounded-xl text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi D</span>
+                                                <Input
+                                                    value={editingRow.optionD}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                        setEditingRow({ ...editingRow, optionD: e.target.value })
+                                                    }
+                                                    className="rounded-xl text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1 col-span-2">
+                                                <span className="text-[10px] font-bold text-muted-foreground">Opsi E (Opsional)</span>
+                                                <Input
+                                                    value={editingRow.optionE}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                        setEditingRow({ ...editingRow, optionE: e.target.value })
+                                                    }
+                                                    className="rounded-xl text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Explanation */}
+                                    <div className="space-y-1.5 border-t border-border pt-3">
+                                        <label className="font-semibold text-foreground">Pembahasan Soal (Opsional)</label>
+                                        <textarea
+                                            rows={3}
+                                            value={editingRow.pembahasan}
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                                                setEditingRow({ ...editingRow, pembahasan: e.target.value })
+                                            }
+                                            placeholder="Penjelasan langkah penyelesaian soal..."
+                                            className="w-full min-h-[70px] rounded-xl border border-input bg-background p-3 text-xs shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Row 2: Tipe Soal & Kunci Jawaban & Skor */}
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="font-semibold text-foreground">Tipe Soal</label>
-                                        <select
-                                            value={editingRow.tipeSoal}
-                                            onChange={(e) => setEditingRow({ ...editingRow, tipeSoal: e.target.value })}
-                                            className="w-full rounded-xl border border-input bg-background p-2 text-xs"
+                                {/* RIGHT PANEL (5/12 width): LIVE STUDENT POV SIMULATOR */}
+                                <div className="lg:col-span-5 space-y-4 border-l border-border pl-0 lg:pl-6">
+                                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold text-xs">
+                                        <span className="flex items-center gap-1.5">
+                                            <Eye className="h-4 w-4" /> Live POV Siswa (Real-Time CBT)
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setSimulatorShowSolution(!simulatorShowSolution)}
+                                            className="h-6 text-[10px] px-2 rounded-lg hover:bg-emerald-500/20"
                                         >
-                                            <option value="SINGLE_CHOICE">SINGLE_CHOICE (Pilihan Ganda)</option>
-                                            <option value="MULTIPLE_CHOICE">MULTIPLE_CHOICE (PG Kompleks)</option>
-                                            <option value="TRUE_FALSE">TRUE_FALSE (Benar / Salah)</option>
-                                        </select>
+                                            <Lightbulb className="h-3 w-3 mr-1" />
+                                            {simulatorShowSolution ? "Sembunyikan Kunci" : "Tampilkan Kunci"}
+                                        </Button>
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="font-semibold text-foreground">Kunci Jawaban</label>
-                                        <Input
-                                            value={editingRow.kunciJawaban}
-                                            onChange={(e) => setEditingRow({ ...editingRow, kunciJawaban: e.target.value.toUpperCase() })}
-                                            placeholder="A / B / C / D / A,B"
-                                            className="rounded-xl font-mono font-bold text-xs"
-                                        />
-                                    </div>
+                                    {/* Simulated CBT Screen Frame */}
+                                    <div className="flex justify-center bg-slate-900/5 dark:bg-slate-950 p-4 rounded-2xl border border-border">
+                                        <div
+                                            className={`bg-background border border-border rounded-2xl p-5 shadow-lg transition-all space-y-4 ${simulatorDevice === "mobile" ? "max-w-xs w-full" : "w-full"
+                                                }`}
+                                        >
+                                            {/* Exam Top Bar */}
+                                            <div className="flex items-center justify-between pb-2.5 border-b border-border text-xs">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5">
+                                                        Soal #{editingRow.no}
+                                                    </Badge>
+                                                    <Badge variant="secondary" className="text-[10px]">
+                                                        {editingRow.mapel || "Mata Pelajaran"}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-1 text-muted-foreground text-[10px]">
+                                                    <Clock className="h-3 w-3" /> {editingRow.skor || 5} Poin
+                                                </div>
+                                            </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="font-semibold text-foreground">Skor Soal</label>
-                                        <Input
-                                            value={editingRow.skor}
-                                            onChange={(e) => setEditingRow({ ...editingRow, skor: e.target.value })}
-                                            placeholder="5"
-                                            className="rounded-xl text-xs"
-                                        />
+                                            {/* Question Badges */}
+                                            <div className="flex flex-wrap gap-1.5">
+                                                <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                                                    {editingRow.tipeSoal}
+                                                </Badge>
+                                                <Badge variant="outline" className="text-[10px]">
+                                                    {editingRow.kesulitan}
+                                                </Badge>
+                                                {editingRow.bab && (
+                                                    <Badge variant="outline" className="text-[10px] truncate max-w-[150px]">
+                                                        {editingRow.bab}
+                                                    </Badge>
+                                                )}
+                                            </div>
+
+                                            {/* Live Question Text */}
+                                            <div className="text-xs font-medium leading-relaxed text-foreground whitespace-pre-wrap min-h-[50px] p-3 rounded-xl bg-muted/20 border border-border/50">
+                                                {editingRow.block1Isi || <span className="italic text-muted-foreground">Tulis pertanyaan soal di form sebelah kiri...</span>}
+                                            </div>
+
+                                            {/* Live Options List */}
+                                            <div className="space-y-2 pt-1">
+                                                {getOptionsList(editingRow).length === 0 ? (
+                                                    <div className="p-3 rounded-xl border border-dashed text-center text-[11px] text-muted-foreground">
+                                                        Belum ada opsi jawaban diisi
+                                                    </div>
+                                                ) : (
+                                                    getOptionsList(editingRow).map((opt) => {
+                                                        const isSelected = simulatorSelectedOpt === opt.label;
+                                                        const isCorrectKey = editingRow.kunciJawaban.includes(opt.label);
+
+                                                        return (
+                                                            <button
+                                                                key={opt.label}
+                                                                type="button"
+                                                                onClick={() => setSimulatorSelectedOpt(opt.label)}
+                                                                className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 text-xs ${simulatorShowSolution && isCorrectKey
+                                                                        ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
+                                                                        : isSelected
+                                                                            ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-medium"
+                                                                            : "border-border hover:bg-muted/40"
+                                                                    }`}
+                                                            >
+                                                                <span
+                                                                    className={`w-5 h-5 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${simulatorShowSolution && isCorrectKey
+                                                                            ? "bg-emerald-500 text-white"
+                                                                            : isSelected
+                                                                                ? "bg-primary text-white"
+                                                                                : "bg-muted text-muted-foreground"
+                                                                        }`}
+                                                                >
+                                                                    {opt.label}
+                                                                </span>
+                                                                <span className="mt-0.5 text-foreground leading-snug flex-1 text-[11px]">
+                                                                    {opt.text}
+                                                                </span>
+                                                                {simulatorShowSolution && isCorrectKey && (
+                                                                    <Badge className="bg-emerald-500 text-white text-[9px] shrink-0 gap-1 px-1.5 py-0">
+                                                                        <CheckCircle2 className="h-2.5 w-2.5" /> Kunci
+                                                                    </Badge>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+
+                                            {/* Live Explanation Box */}
+                                            {simulatorShowSolution && (
+                                                <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] space-y-1.5">
+                                                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+                                                        <Lightbulb className="h-3.5 w-3.5" />
+                                                        <span>Pembahasan Kunci</span>
+                                                    </div>
+                                                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                                        {editingRow.pembahasan || "Belum ada pembahasan yang dicantumkan."}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Question Text */}
-                                <div className="space-y-1.5">
-                                    <label className="font-semibold text-foreground">Pertanyaan / Teks Soal (Blok 1 Isi)</label>
-                                    <textarea
-                                        rows={4}
-                                        value={editingRow.block1Isi}
-                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingRow({ ...editingRow, block1Isi: e.target.value })}
-                                        placeholder="Tulis pertanyaan soal..."
-                                        className="w-full min-h-[80px] rounded-xl border border-input bg-background p-3 text-xs shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                                    />
-                                </div>
+                            <DialogFooter className="gap-2 border-t border-border pt-3">
+                                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl text-xs">
+                                    Batal
+                                </Button>
+                                <Button onClick={handleSaveRow} className="rounded-xl text-xs font-bold bg-primary text-primary-foreground gap-1.5">
+                                    <Check className="h-4 w-4" /> Simpan Perubahan Soal
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
 
-                                {/* Options Grid */}
-                                <div className="space-y-2 border-t border-border pt-3">
-                                    <label className="font-semibold text-foreground block">Pilihan Jawaban (Opsi A - D)</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-muted-foreground">Opsi A</span>
-                                            <Input
-                                                value={editingRow.optionA}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingRow({ ...editingRow, optionA: e.target.value })}
-                                                className="rounded-xl text-xs"
-                                            />
+                {/* STANDALONE STUDENT POV PREVIEW MODAL */}
+                {previewPovRow && (
+                    <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+                        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border-border bg-card shadow-2xl">
+                            <DialogHeader className="pb-3 border-b border-border">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                            <Eye className="h-4 w-4" />
                                         </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-muted-foreground">Opsi B</span>
-                                            <Input
-                                                value={editingRow.optionB}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingRow({ ...editingRow, optionB: e.target.value })}
-                                                className="rounded-xl text-xs"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-muted-foreground">Opsi C</span>
-                                            <Input
-                                                value={editingRow.optionC}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingRow({ ...editingRow, optionC: e.target.value })}
-                                                className="rounded-xl text-xs"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-muted-foreground">Opsi D</span>
-                                            <Input
-                                                value={editingRow.optionD}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingRow({ ...editingRow, optionD: e.target.value })}
-                                                className="rounded-xl text-xs"
-                                            />
+                                        <div>
+                                            <DialogTitle className="text-lg font-bold font-heading">
+                                                Pratinjau POV Siswa - Soal #{previewPovRow.no}
+                                            </DialogTitle>
+                                            <p className="text-xs text-muted-foreground">
+                                                Simulasi penuh layar ujian CBT siswa untuk mata pelajaran {previewPovRow.mapel}.
+                                            </p>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Explanation */}
-                                <div className="space-y-1.5">
-                                    <label className="font-semibold text-foreground">Pembahasan Soal (Opsional)</label>
-                                    <textarea
-                                        rows={2}
-                                        value={editingRow.pembahasan}
-                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingRow({ ...editingRow, pembahasan: e.target.value })}
-                                        placeholder="Penjelasan langkah penyelesaian soal..."
-                                        className="w-full min-h-[60px] rounded-xl border border-input bg-background p-3 text-xs shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                                    />
+                                    <div className="flex items-center gap-1.5 p-1 bg-muted rounded-xl border border-border">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSimulatorDevice("desktop")}
+                                            className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "desktop"
+                                                    ? "bg-background text-foreground shadow-2xs"
+                                                    : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            <Monitor className="h-3.5 w-3.5" /> Desktop
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSimulatorDevice("mobile")}
+                                            className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all ${simulatorDevice === "mobile"
+                                                    ? "bg-background text-foreground shadow-2xs"
+                                                    : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            <Smartphone className="h-3.5 w-3.5" /> Mobile
+                                        </button>
+                                    </div>
+                                </div>
+                            </DialogHeader>
+
+                            <div className="py-4 space-y-4">
+                                <div className="flex justify-center bg-slate-900/5 dark:bg-slate-950 p-6 rounded-2xl border border-border">
+                                    <div
+                                        className={`bg-background border border-border rounded-2xl p-6 shadow-lg transition-all space-y-5 ${simulatorDevice === "mobile" ? "max-w-xs w-full" : "max-w-3xl w-full"
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between pb-3 border-b border-border text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5">
+                                                    Soal #{previewPovRow.no}
+                                                </Badge>
+                                                <Badge variant="secondary" className="text-xs">
+                                                    {previewPovRow.mapel}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                                                <Clock className="h-3.5 w-3.5" /> Skor: {previewPovRow.skor || 5} Poin
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1.5">
+                                            <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                                                {previewPovRow.tipeSoal}
+                                            </Badge>
+                                            <Badge variant="outline" className="text-[10px]">
+                                                Kesulitan: {previewPovRow.kesulitan}
+                                            </Badge>
+                                            {previewPovRow.bab && (
+                                                <Badge variant="outline" className="text-[10px]">
+                                                    Bab: {previewPovRow.bab}
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="text-sm font-medium leading-relaxed text-foreground whitespace-pre-wrap p-4 rounded-xl bg-muted/20 border border-border/60">
+                                            {previewPovRow.block1Isi}
+                                        </div>
+
+                                        <div className="space-y-2.5 pt-2">
+                                            {getOptionsList(previewPovRow).map((opt) => {
+                                                const isCorrectKey = previewPovRow.kunciJawaban.includes(opt.label);
+                                                return (
+                                                    <div
+                                                        key={opt.label}
+                                                        className={`w-full p-3.5 rounded-xl border flex items-start gap-3 text-xs ${isCorrectKey
+                                                                ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 font-medium"
+                                                                : "border-border bg-card"
+                                                            }`}
+                                                    >
+                                                        <span
+                                                            className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${isCorrectKey ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                                                                }`}
+                                                        >
+                                                            {opt.label}
+                                                        </span>
+                                                        <span className="mt-0.5 text-foreground leading-snug flex-1">
+                                                            {opt.text}
+                                                        </span>
+                                                        {isCorrectKey && (
+                                                            <Badge className="bg-emerald-500 text-white text-[10px] shrink-0 gap-1">
+                                                                <CheckCircle2 className="h-3 w-3" /> Kunci Jawaban
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {previewPovRow.pembahasan && (
+                                            <div className="mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-2">
+                                                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+                                                    <Lightbulb className="h-4 w-4" />
+                                                    <span>Pembahasan &amp; Solusi Kunci</span>
+                                                </div>
+                                                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                                    {previewPovRow.pembahasan}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl text-xs">
-                                    Batal
+                                <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)} className="rounded-xl text-xs">
+                                    Tutup
                                 </Button>
-                                <Button onClick={handleSaveRow} className="rounded-xl text-xs font-bold bg-primary text-primary-foreground">
-                                    Simpan Perubahan
+                                <Button
+                                    onClick={() => {
+                                        setIsPreviewDialogOpen(false);
+                                        setEditingRow({ ...previewPovRow });
+                                        setIsEditDialogOpen(true);
+                                    }}
+                                    className="rounded-xl text-xs font-bold bg-primary text-primary-foreground gap-1.5"
+                                >
+                                    <Pencil className="h-3.5 w-3.5" /> Edit Soal Ini
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
