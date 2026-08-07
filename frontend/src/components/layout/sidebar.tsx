@@ -30,6 +30,7 @@ import {
     LogOut,
     Activity,
     BarChart3,
+    GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -62,6 +63,7 @@ const GURU_NAV: NavItem[] = [
 
 const STAFF_NAV: NavItem[] = [
     { title: "Dashboard Staff", href: "/staff", icon: LayoutDashboard },
+    { title: "Master Akademik", href: "/admin/academic", icon: GraduationCap },
     { title: "Kelola User", href: "/staff/users", icon: Users },
     { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2 },
     { title: "Target Sekolah", href: "/staff/target-schools", icon: Target },
