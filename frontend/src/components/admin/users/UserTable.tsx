@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { User } from "@/types/admin";
 import { UserRoleBadge } from "./UserRoleBadge";
-import { MoreHorizontal, Power, Trash2 } from "lucide-react";
+import { MoreHorizontal, Power, Trash2, Pencil } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -19,9 +19,10 @@ interface UserTableProps {
     loading?: boolean;
     onToggleActivate: (user: User) => void;
     onDelete: (user: User) => void;
+    onEdit: (user: User) => void;
 }
 
-export function UserTable({ users, onToggleActivate, onDelete }: UserTableProps) {
+export function UserTable({ users, onToggleActivate, onDelete, onEdit }: UserTableProps) {
     const columns: Column<User>[] = [
         {
             header: "Nama",
@@ -53,6 +54,10 @@ export function UserTable({ users, onToggleActivate, onDelete }: UserTableProps)
                         <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onToggleActivate(row)} className="gap-2">
                             <Power className="h-4 w-4" />
                             {row.is_active ? "Nonaktifkan" : "Aktifkan"}

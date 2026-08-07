@@ -6,6 +6,9 @@ export type UserRole =
     | "SISWA"
     | "INVESTOR";
 
+export type EducationLevel = "SD" | "SMP" | "SMA" | "GapYear";
+export type MembershipStatus = "ACTIVE" | "INACTIVE" | "TRIAL";
+
 export interface User {
     id: string;
     email: string;
@@ -18,6 +21,9 @@ export interface User {
     gender?: string;
     phone?: string;
     major?: string;
+    education_level?: EducationLevel;
+    grade?: string;
+    membership_status?: MembershipStatus;
     created_at: string;
     updated_at: string;
 }

@@ -18,6 +18,7 @@ export default function UserManagementPage() {
     const qc = useQueryClient();
     const [formOpen, setFormOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const { data, isLoading, error, refetch } = useQuery({
@@ -28,10 +29,21 @@ export default function UserManagementPage() {
     const users = Array.isArray(data) ? data : data?.items || [];
 
     const createMutation = useMutation({
-        mutationFn: userService.createUser,
+        mutationFn: (values: { full_name: string; email: string; password: string; role: "SUPER_ADMIN" | "STAFF" | "FINANCE" | "GURU" | "SISWA" | "INVESTOR"; phone?: string; school_name?: string; education_level?: string; grade?: string; membership_status?: "ACTIVE" | "INACTIVE" | "TRIAL" }) => userService.createUser(values as any),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["admin-users"] });
             setFormOpen(false);
+            setSubmitting(false);
+        },
+        onError: () => setSubmitting(false),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, payload }: { id: string; payload: Partial<User> }) => userService.updateUser(id, payload),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["admin-users"] });
+            setFormOpen(false);
+            setEditingUser(null);
             setSubmitting(false);
         },
         onError: () => setSubmitting(false),
@@ -84,14 +96,23 @@ export default function UserManagementPage() {
                         users={users}
                         onToggleActivate={(u) => toggleMutation.mutate({ id: u.id, active: !u.is_active })}
                         onDelete={(u) => setDeleteTarget(u)}
+                        onEdit={(u) => { setEditingUser(u); setFormOpen(true); }}
                     />
                 )}
 
                 <UserFormDialog
                     open={formOpen}
-                    loading={createMutation.isPending}
-                    onClose={() => setFormOpen(false)}
-                    onSubmit={(v) => { setSubmitting(true); createMutation.mutate(v); }}
+                    loading={editingUser ? updateMutation.isPending : createMutation.isPending}
+                    editing={editingUser || undefined}
+                    onClose={() => { setFormOpen(false); setEditingUser(null); }}
+                    onSubmit={(v) => {
+                        setSubmitting(true);
+                        if (editingUser) {
+                            updateMutation.mutate({ id: editingUser.id, payload: v as any });
+                        } else {
+                            createMutation.mutate(v as any);
+                        }
+                    }}
                 />
 
                 <ConfirmDialog
