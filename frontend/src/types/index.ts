@@ -18,6 +18,8 @@ export interface User {
     gender?: string;
     phone?: string;
     major?: string;
+    education_level?: string;
+    grade?: string;
     created_at: string;
     updated_at: string;
 }
@@ -141,19 +143,26 @@ export interface QuestionItem {
 // Material / Content
 export interface Material {
     id: string;
+    content_id?: string;
     title: string;
-    subject_name?: string;
-    category?: string;
-    reading_time_minutes?: number;
-    content_type?: string;
-    description?: string;
+    body?: string;
     content?: string;
-    is_completed?: boolean;
-    video_url?: string;
-    pdf_url?: string;
+    subject_name?: string;
     subject_id?: string;
     grade_id?: string;
     chapter_id?: string;
+    topic_id?: string;
+    category?: string;
+    content_format?: "TEXT" | "MARKDOWN" | "PDF" | "VIDEO";
+    estimated_duration?: number;
+    reading_time_minutes?: number;
+    read_count?: number;
+    is_preview?: boolean;
+    video_url?: string;
+    pdf_url?: string;
+    description?: string;
+    is_completed?: boolean;
+    progress?: number;
     status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
     created_at?: string;
     updated_at?: string;
@@ -167,15 +176,40 @@ export interface LearningProgress {
 }
 
 // CBT / Exams
+export type ExamCategory =
+    | "UTBK_SNBT"
+    | "UM_PTN"
+    | "TRYOUT_NASIONAL"
+    | "PTS_UAS"
+    | "UJIAN_HARIAN"
+    | "UJIAN_BAB";
+
+export type ScoringSystem = "IRT" | "STANDARD_POINTS" | "NEGATIVE_MARKING";
+
+export interface ExamSubtestRule {
+    id: string;
+    subtest_name: string;
+    subject_id?: string;
+    duration_minutes: number;
+    pool_question_ids: string[];
+    sample_question_count: number;
+    shuffle_questions?: boolean;
+    shuffle_options?: boolean;
+}
+
 export interface Exam {
     id: string;
     title: string;
     description?: string;
+    category?: ExamCategory;
+    scoring_system?: ScoringSystem;
     duration_minutes: number;
     total_questions: number;
     passing_score?: number;
     is_active?: boolean;
     status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+    grade_level?: string;
+    subtests?: ExamSubtestRule[];
     start_time?: string;
     end_time?: string;
     created_at: string;

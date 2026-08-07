@@ -13,7 +13,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { academicService } from "@/services/academic.service";
 import { Material } from "@/types";
 import { GradeBadge } from "@/components/siswa/GradeBadge";
-import { BookOpen, Search, Clock, ArrowRight, CheckCircle2, Sparkles, Layers, Zap } from "lucide-react";
+import { BookOpen, Search, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
 
 interface SubjectSummary {
     name: string;
@@ -22,7 +22,7 @@ interface SubjectSummary {
     iconColor: string;
 }
 
-const SUBJECT_SUMMARIES: SubjectSummary[] = [
+const DEFAULT_SUBJECT_SUMMARIES: SubjectSummary[] = [
     { name: "Penalaran Matematika", total: 12, completed: 8, iconColor: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
     { name: "Literasi Bahasa Indonesia", total: 10, completed: 6, iconColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
     { name: "Penalaran Umum", total: 15, completed: 11, iconColor: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
@@ -41,7 +41,11 @@ export default function MaterialsPage() {
         async function load() {
             try {
                 const res = await academicService.getMaterials();
-                setMaterials(res);
+                if (res && Array.isArray(res) && res.length > 0) {
+                    setMaterials(res);
+                } else {
+                    throw new Error("No materials returned from API");
+                }
             } catch {
                 setMaterials([
                     {
@@ -49,9 +53,10 @@ export default function MaterialsPage() {
                         title: "Konsep Dasar Penalaran Matematika UTBK",
                         subject_name: "Penalaran Matematika",
                         category: "TEORI",
-                        reading_time_minutes: 15,
+                        content_format: "TEXT",
+                        estimated_duration: 15,
                         description: "Penalaran matematika menguji kemampuan logika kuantitatif dan analisis pola data.",
-                        content: "Penalaran matematika menguji kemampuan logika kuantitatif...",
+                        body: "Penalaran matematika menguji kemampuan logika kuantitatif...",
                         is_completed: true,
                     },
                     {
@@ -59,9 +64,10 @@ export default function MaterialsPage() {
                         title: "Strategi Memahami Teks Bahasa Indonesia SNBT",
                         subject_name: "Literasi Bahasa Indonesia",
                         category: "STRATEGI",
-                        reading_time_minutes: 20,
+                        content_format: "MARKDOWN",
+                        estimated_duration: 20,
                         description: "Trik cepat menganalisis ide pokok wacana dan kesimpulan paragraf.",
-                        content: "Ide pokok paragraf merupakan inti dari sebuah wacana...",
+                        body: "Ide pokok paragraf merupakan inti dari sebuah wacana...",
                         is_completed: false,
                     },
                     {
@@ -69,9 +75,10 @@ export default function MaterialsPage() {
                         title: "Trik Cepat Soal Penalaran Umum (Kuantitatif)",
                         subject_name: "Penalaran Umum",
                         category: "TRIK_CEPAT",
-                        reading_time_minutes: 10,
+                        content_format: "TEXT",
+                        estimated_duration: 10,
                         description: "Pola deret angka, kecukupan data, dan logika penarikan kesimpulan.",
-                        content: "Pola deret angka dan hubungan antar kuantitas...",
+                        body: "Pola deret angka dan hubungan antar kuantitas...",
                         is_completed: false,
                     },
                     {
@@ -79,9 +86,10 @@ export default function MaterialsPage() {
                         title: "Rangkuman Rumus Cepat Pengetahuan Kuantitatif",
                         subject_name: "Pengetahuan Kuantitatif",
                         category: "RANGKUMAN",
-                        reading_time_minutes: 25,
+                        content_format: "MARKDOWN",
+                        estimated_duration: 25,
                         description: "Rangkuman lengkap ALJABAR, GEOMETRI, dan STATISTIKA UTBK 2026.",
-                        content: "Matriks dasar, trigonometri sederhana, dan kombinatorika...",
+                        body: "Matriks dasar, trigonometri sederhana, dan kombinatorika...",
                         is_completed: true,
                     },
                 ]);
@@ -93,13 +101,16 @@ export default function MaterialsPage() {
     }, []);
 
     const filtered = materials.filter((m) => {
-        const subName = m.subject_name || "";
-        const catName = m.category || "TEORI";
+        const subName = m.subject_name || "Materi Umum";
+        const catName = m.category || m.content_format || "TEORI";
+        const bodyContent = m.body || m.content || "";
+        const descContent = m.description || "";
 
         const matchSearch =
             m.title.toLowerCase().includes(search.toLowerCase()) ||
             subName.toLowerCase().includes(search.toLowerCase()) ||
-            (m.description && m.description.toLowerCase().includes(search.toLowerCase()));
+            descContent.toLowerCase().includes(search.toLowerCase()) ||
+            bodyContent.toLowerCase().includes(search.toLowerCase());
 
         const matchSubject = selectedSubject === "ALL" || subName === selectedSubject;
         const matchCategory = selectedCategory === "ALL" || catName === selectedCategory;
@@ -125,7 +136,7 @@ export default function MaterialsPage() {
 
                 {/* Subject Summary Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {SUBJECT_SUMMARIES.map((sub) => {
+                    {DEFAULT_SUBJECT_SUMMARIES.map((sub) => {
                         const pct = Math.round((sub.completed / sub.total) * 100);
                         const isSelected = selectedSubject === sub.name;
 
@@ -195,44 +206,49 @@ export default function MaterialsPage() {
 
                 {/* Material Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filtered.map((m) => (
-                        <Card key={m.id} className="flex flex-col justify-between hover:border-primary transition-all group">
-                            <CardHeader className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Badge variant="secondary" className="text-[10px] font-semibold">
-                                        {m.subject_name}
-                                    </Badge>
-                                    {m.is_completed ? (
-                                        <Badge variant="success" className="gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                                            <CheckCircle2 className="h-3 w-3" /> Selesai
+                    {filtered.map((m) => {
+                        const duration = m.estimated_duration || m.reading_time_minutes || 15;
+                        const cardText = m.description || m.body || m.content || "";
+
+                        return (
+                            <Card key={m.id} className="flex flex-col justify-between hover:border-primary transition-all group">
+                                <CardHeader className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Badge variant="secondary" className="text-[10px] font-semibold">
+                                            {m.subject_name || "General"}
                                         </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-[10px] text-amber-600 dark:text-amber-400 border-amber-500/20">
-                                            Belum Dibaca
-                                        </Badge>
-                                    )}
-                                </div>
-                                <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                                    {m.title}
-                                </CardTitle>
-                                <CardDescription className="line-clamp-2 text-xs">
-                                    {m.description || m.content}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="pt-0 space-y-4">
-                                <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
-                                    <span className="flex items-center gap-1.5 font-medium">
-                                        <Clock className="h-3.5 w-3.5 text-primary" /> {m.reading_time_minutes} menit baca
-                                    </span>
-                                    <Button asChild size="sm" variant="default" className="rounded-xl text-xs gap-1 font-medium shadow-xs">
-                                        <Link href={`/materials/${m.id}`}>
-                                            Baca Materi <ArrowRight className="h-3.5 w-3.5" />
-                                        </Link>
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                        {m.is_completed ? (
+                                            <Badge variant="success" className="gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                                <CheckCircle2 className="h-3 w-3" /> Selesai
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="text-[10px] text-amber-600 dark:text-amber-400 border-amber-500/20">
+                                                Belum Dibaca
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                                        {m.title}
+                                    </CardTitle>
+                                    <CardDescription className="line-clamp-2 text-xs">
+                                        {cardText}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="pt-0 space-y-4">
+                                    <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1.5 font-medium">
+                                            <Clock className="h-3.5 w-3.5 text-primary" /> {duration} menit baca
+                                        </span>
+                                        <Button asChild size="sm" variant="default" className="rounded-xl text-xs gap-1 font-medium shadow-xs">
+                                            <Link href={`/materials/${m.id}`}>
+                                                Baca Materi <ArrowRight className="h-3.5 w-3.5" />
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             </div>
         </AppShell>

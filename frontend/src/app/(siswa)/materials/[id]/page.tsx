@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { academicService } from "@/services/academic.service";
@@ -14,7 +14,6 @@ import {
     ArrowLeft,
     Clock,
     CheckCircle2,
-    BookOpen,
     Lightbulb,
     PenTool,
     ArrowRight,
@@ -27,22 +26,34 @@ export default function MaterialDetailPage() {
     const id = params?.id as string;
     const [material, setMaterial] = useState<Material | null>(null);
     const [completed, setCompleted] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         async function load() {
             try {
                 const res = await academicService.getMaterialById(id);
                 setMaterial(res);
-                setCompleted(res.is_completed || false);
+                setCompleted(res.is_completed || res.progress === 100);
+
+                // Fetch real user progress if API is connected
+                try {
+                    const prog = await academicService.getMaterialProgress(id);
+                    if (prog && prog.completed) {
+                        setCompleted(true);
+                    }
+                } catch {
+                    // Ignore progress check errors
+                }
             } catch {
                 setMaterial({
                     id,
                     title: "Konsep Dasar Penalaran Matematika UTBK",
                     subject_name: "Penalaran Matematika",
                     category: "TEORI",
-                    reading_time_minutes: 15,
+                    content_format: "TEXT",
+                    estimated_duration: 15,
                     description: "Panduan lengkap memahami prinsip logika kuantitatif, analisis data grafik, dan penyelesaian soal matematika cerita.",
-                    content: `
+                    body: `
 # 1. Pendahuluan Penalaran Matematika
 
 Penalaran matematika pada UTBK SNBT tidak sekadar menguji kemampuan berhitung kuantitatif biasa, melainkan kemampuan menganalisis informasi, pola, dan hubungan antar variabel.
@@ -65,6 +76,22 @@ Nilai pasangan (x, y) yang memenuhi bilangan bulat positif adalah **(3, 2)**. Ma
         }
         load();
     }, [id]);
+
+    const handleToggleComplete = async () => {
+        const nextState = !completed;
+        setCompleted(nextState);
+        setSaving(true);
+        try {
+            await academicService.saveMaterialProgress(id, nextState ? 100 : 0);
+        } catch {
+            // Graceful fallback for mock mode
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const duration = material?.estimated_duration || material?.reading_time_minutes || 15;
+    const bodyText = material?.body || material?.content || "";
 
     return (
         <AppShell>
@@ -96,10 +123,10 @@ Nilai pasangan (x, y) yang memenuhi bilangan bulat positif adalah **(3, 2)**. Ma
                                     {material.subject_name || "Materi Pelajaran"}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
-                                    {material.category || "TEORI DASAR"}
+                                    {material.category || material.content_format || "TEORI DASAR"}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto font-medium">
-                                    <Clock className="h-3.5 w-3.5 text-primary" /> {material.reading_time_minutes} Menit Baca
+                                    <Clock className="h-3.5 w-3.5 text-primary" /> {duration} Menit Baca
                                 </span>
                             </div>
 
@@ -127,13 +154,14 @@ Nilai pasangan (x, y) yang memenuhi bilangan bulat positif adalah **(3, 2)**. Ma
 
                         {/* Article Content Body */}
                         <div className="prose dark:prose-invert max-w-none text-sm md:text-base leading-relaxed space-y-4 whitespace-pre-line text-foreground/90 font-sans">
-                            {material.content}
+                            {bodyText}
                         </div>
 
                         {/* Bottom Actions Section: Completion & Practice CTA */}
                         <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                             <Button
-                                onClick={() => setCompleted(!completed)}
+                                onClick={handleToggleComplete}
+                                disabled={saving}
                                 variant={completed ? "outline" : "secondary"}
                                 className="w-full sm:w-auto rounded-xl gap-2 font-semibold text-xs"
                             >

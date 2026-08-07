@@ -19,6 +19,37 @@ export const academicService = {
         return api<Material>(`/academic/materials/${id}`);
     },
 
+    async createMaterial(payload: Partial<Material>): Promise<Material> {
+        return api<Material>("/academic/materials", {
+            method: "POST",
+            body: payload,
+        });
+    },
+
+    async updateMaterial(id: string, payload: Partial<Material>): Promise<Material> {
+        return api<Material>(`/academic/materials/${id}`, {
+            method: "PUT",
+            body: payload,
+        });
+    },
+
+    async deleteMaterial(id: string): Promise<{ success: boolean }> {
+        return api<{ success: boolean }>(`/academic/materials/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    async saveMaterialProgress(material_id: string, progress: number): Promise<{ progress: number; completed: boolean }> {
+        return api<{ progress: number; completed: boolean }>(`/materials/${material_id}/progress`, {
+            method: "POST",
+            body: { progress },
+        });
+    },
+
+    async getMaterialProgress(material_id: string): Promise<{ progress: number; completed: boolean }> {
+        return api<{ progress: number; completed: boolean }>(`/materials/${material_id}/progress`);
+    },
+
     // Exams / Tryouts
     async getExams(params?: { type?: string }): Promise<Exam[]> {
         return api<Exam[]>("/academic/exams", { params });
@@ -26,6 +57,26 @@ export const academicService = {
 
     async getExamById(id: string): Promise<Exam> {
         return api<Exam>(`/academic/exams/${id}`);
+    },
+
+    async createExam(payload: Partial<Exam>): Promise<Exam> {
+        return api<Exam>("/academic/exams", {
+            method: "POST",
+            body: payload,
+        });
+    },
+
+    async updateExam(id: string, payload: Partial<Exam>): Promise<Exam> {
+        return api<Exam>(`/academic/exams/${id}`, {
+            method: "PUT",
+            body: payload,
+        });
+    },
+
+    async deleteExam(id: string): Promise<{ success: boolean }> {
+        return api<{ success: boolean }>(`/academic/exams/${id}`, {
+            method: "DELETE",
+        });
     },
 
     // CBT Engine Sessions
