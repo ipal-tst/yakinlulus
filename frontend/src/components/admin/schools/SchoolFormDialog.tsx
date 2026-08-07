@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { School, SchoolPayload } from "@/services/school.service";
 
 const schema = z.object({
     name: z.string().min(1, "Nama sekolah wajib diisi"),
@@ -17,6 +18,8 @@ const schema = z.object({
     education_level: z.string().optional(),
     province: z.string().optional(),
     regency: z.string().optional(),
+    address: z.string().optional(),
+    phone: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -25,26 +28,55 @@ interface SchoolFormDialogProps {
     open: boolean;
     loading?: boolean;
     onClose: () => void;
-    onSubmit: (values: FormValues) => void;
+    onSubmit: (values: SchoolPayload) => void;
+    school?: School | null;
 }
 
-export function SchoolFormDialog({ open, loading = false, onClose, onSubmit }: SchoolFormDialogProps) {
+export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, school }: SchoolFormDialogProps) {
     const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: { education_level: "SMA" },
     });
 
+    const isEditing = Boolean(school);
+
     React.useEffect(() => {
-        if (open) reset();
-    }, [open, reset]);
+        if (open) {
+            reset({
+                name: school?.name ?? "",
+                code: school?.code ?? "",
+                npsn: school?.npsn ?? "",
+                education_level: school?.education_level ?? "SMA",
+                province: school?.province ?? "",
+                regency: school?.regency ?? "",
+                address: school?.address ?? "",
+                phone: school?.phone ?? "",
+            });
+        }
+    }, [open, school, reset]);
+
+    const handleFormSubmit = (data: FormValues) => {
+        onSubmit({
+            name: data.name,
+            code: data.code,
+            npsn: data.npsn,
+            education_level: data.education_level,
+            province: data.province,
+            regency: data.regency,
+            address: data.address,
+            phone: data.phone,
+        });
+    };
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
             <DialogContent className="sm:max-w-md rounded-2xl">
                 <DialogHeader>
-                    <DialogTitle className="font-heading text-lg font-bold">Daftarkan Sekolah Baru</DialogTitle>
+                    <DialogTitle className="font-heading text-lg font-bold">
+                        {isEditing ? "Edit Sekolah" : "Daftarkan Sekolah Baru"}
+                    </DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-foreground">Nama Sekolah</label>
                         <Input {...register("name")} className="h-11" placeholder="cth: SMA Negeri 1 Jakarta" />
@@ -85,12 +117,20 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit }: S
                             <Input {...register("regency")} className="h-11" />
                         </div>
                     </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Alamat</label>
+                        <Input {...register("address")} className="h-11" placeholder="Alamat lengkap sekolah" />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Nomor Telepon</label>
+                        <Input {...register("phone")} className="h-11" placeholder="08xx-xxxx-xxxx" />
+                    </div>
                     <DialogFooter className="gap-2 sm:justify-end mt-4">
                         <Button type="button" variant="outline" onClick={onClose} disabled={loading} className="rounded-xl">
                             Batal
                         </Button>
                         <Button type="submit" disabled={loading} className="rounded-xl">
-                            {loading ? "Menyimpan..." : "Simpan"}
+                            {loading ? "Menyimpan..." : isEditing ? "Perbarui" : "Simpan"}
                         </Button>
                     </DialogFooter>
                 </form>

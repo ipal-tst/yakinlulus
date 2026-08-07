@@ -9,14 +9,17 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { SchoolTable } from "@/components/admin/schools/SchoolTable";
 import { SchoolFormDialog } from "@/components/admin/schools/SchoolFormDialog";
 import { schoolService, School } from "@/services/school.service";
+import { TargetSchoolTab } from "./TargetSchoolTab";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, AlertCircle } from "lucide-react";
 
 export default function StaffSchoolsPage() {
     const qc = useQueryClient();
     const [formOpen, setFormOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<School | null>(null);
+    const [editingSchool, setEditingSchool] = useState<School | null>(null);
 
     const { data: schools = [], isLoading, error, refetch } = useQuery({
         queryKey: ["admin-schools"],
@@ -27,6 +30,15 @@ export default function StaffSchoolsPage() {
         mutationFn: schoolService.createSchool,
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["admin-schools"] });
+            setFormOpen(false);
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, payload }: { id: string; payload: any }) => schoolService.updateSchool(id, payload),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["admin-schools"] });
+            setEditingSchool(null);
             setFormOpen(false);
         },
     });
@@ -43,6 +55,16 @@ export default function StaffSchoolsPage() {
             setDeleteTarget(null);
         },
     });
+
+    const handleEdit = (school: School) => {
+        setEditingSchool(school);
+        setFormOpen(true);
+    };
+
+    const handleFormClose = () => {
+        setFormOpen(false);
+        setEditingSchool(null);
+    };
 
     return (
         <AppShell>
@@ -67,30 +89,51 @@ export default function StaffSchoolsPage() {
                     </div>
                 )}
 
-                {isLoading ? (
-                    <div className="space-y-3">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-                        ))}
-                    </div>
-                ) : (
-                    <SchoolTable
-                        schools={schools}
-                        onToggleStatus={(s) =>
-                            toggleMutation.mutate({
-                                id: s.id,
-                                status: s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-                            })
-                        }
-                        onDelete={(s) => setDeleteTarget(s)}
-                    />
-                )}
+                <Tabs defaultValue="schools" className="space-y-6">
+                    <TabsList className="rounded-xl">
+                        <TabsTrigger value="schools" className="rounded-lg">Daftar Sekolah</TabsTrigger>
+                        <TabsTrigger value="target-ptn" className="rounded-lg">Target PTN</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="schools">
+                        {isLoading ? (
+                            <div className="space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                                ))}
+                            </div>
+                        ) : (
+                            <SchoolTable
+                                schools={schools}
+                                onToggleStatus={(s) =>
+                                    toggleMutation.mutate({
+                                        id: s.id,
+                                        status: s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                                    })
+                                }
+                                onDelete={(s) => setDeleteTarget(s)}
+                                onEdit={handleEdit}
+                            />
+                        )}
+                    </TabsContent>
+                    
+                    <TabsContent value="target-ptn">
+                        <TargetSchoolTab />
+                    </TabsContent>
+                </Tabs>
 
                 <SchoolFormDialog
                     open={formOpen}
-                    loading={createMutation.isPending}
-                    onClose={() => setFormOpen(false)}
-                    onSubmit={(v) => createMutation.mutate(v)}
+                    loading={createMutation.isPending || updateMutation.isPending}
+                    onClose={handleFormClose}
+                    onSubmit={(v) => {
+                        if (editingSchool) {
+                            updateMutation.mutate({ id: editingSchool.id, payload: v });
+                        } else {
+                            createMutation.mutate(v);
+                        }
+                    }}
+                    school={editingSchool}
                 />
 
                 <ConfirmDialog

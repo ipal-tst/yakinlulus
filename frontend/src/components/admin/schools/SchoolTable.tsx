@@ -5,7 +5,7 @@ import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { School } from "@/services/school.service";
-import { MoreHorizontal, Power, Trash2, Users } from "lucide-react";
+import { MoreHorizontal, Pen, Power, Trash2, Users } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,9 +17,10 @@ interface SchoolTableProps {
     schools: School[];
     onToggleStatus: (school: School) => void;
     onDelete: (school: School) => void;
+    onEdit: (school: School) => void;
 }
 
-export function SchoolTable({ schools, onToggleStatus, onDelete }: SchoolTableProps) {
+export function SchoolTable({ schools, onToggleStatus, onDelete, onEdit }: SchoolTableProps) {
     const columns: Column<School>[] = [
         {
             header: "Nama Sekolah",
@@ -60,6 +61,10 @@ export function SchoolTable({ schools, onToggleStatus, onDelete }: SchoolTablePr
                         <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
+                            <Pen className="h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onToggleStatus(row)} className="gap-2">
                             <Power className="h-4 w-4" />
                             {row.status === "ACTIVE" ? "Nonaktifkan" : "Aktifkan"}
