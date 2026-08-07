@@ -443,8 +443,10 @@ func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UU
 	var rows pgx.Rows
 	var err error
 	switch {
+	case levelID != nil && gradeID != nil:
+		rows, err = r.pool.Query(ctx, query+` WHERE cs.education_level_id=$1 AND (cs.grade_id=$2 OR cs.grade_id IS NULL)`+groupBy+orderBy, *levelID, *gradeID)
 	case gradeID != nil:
-		rows, err = r.pool.Query(ctx, query+` WHERE (cs.grade_id=$1 OR cs.grade_id IS NULL)`+groupBy+orderBy, *gradeID)
+		rows, err = r.pool.Query(ctx, query+` WHERE (cs.grade_id=$1 OR cs.education_level_id = (SELECT education_level_id FROM academic.grade WHERE id=$1))`+groupBy+orderBy, *gradeID)
 	case levelID != nil:
 		rows, err = r.pool.Query(ctx, query+` WHERE cs.education_level_id=$1`+groupBy+orderBy, *levelID)
 	default:
