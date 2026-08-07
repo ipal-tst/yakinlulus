@@ -61,13 +61,15 @@ const features = tableFeatures({
 
 export function DataTable<T extends Record<string, any>>({
     columns,
-    data,
+    data = [],
     searchPlaceholder = "Cari data...",
     pageSize = 10,
     enableExport = true,
 }: DataTableProps<T>) {
     const [globalFilter, setGlobalFilter] = useState("");
     const [sorting, setSorting] = useState<SortingState>([]);
+
+    const safeData = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
     const tableColumns = useMemo(() => {
         return columns.map((col, i) => ({
@@ -88,7 +90,7 @@ export function DataTable<T extends Record<string, any>>({
     const table = useTable({
         features,
         columns: tableColumns,
-        data,
+        data: safeData,
         state: { globalFilter, sorting },
         onGlobalFilterChange: setGlobalFilter,
         onSortingChange: setSorting,
@@ -99,6 +101,8 @@ export function DataTable<T extends Record<string, any>>({
             },
         },
     });
+
+    const rows = table.getRowModel()?.rows || [];
 
     const exportKeys = columns
         .map((c) => (typeof c.accessorKey === "string" ? c.accessorKey : undefined))
@@ -172,8 +176,8 @@ export function DataTable<T extends Record<string, any>>({
                             ))}
                         </thead>
                         <tbody className="divide-y divide-border/60">
-                            {table.getRowModel().rows.length > 0 ? (
-                                table.getRowModel().rows.map((row: any) => (
+                            {rows.length > 0 ? (
+                                rows.map((row: any) => (
                                     <tr key={row.id} className="hover:bg-muted/40 transition-colors">
                                         {row.getVisibleCells ? row.getVisibleCells().map((cell: any) => (
                                             <td key={cell.id} className="px-4 py-3.5 align-middle">

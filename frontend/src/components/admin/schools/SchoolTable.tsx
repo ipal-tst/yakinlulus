@@ -20,7 +20,8 @@ interface SchoolTableProps {
     onEdit: (school: School) => void;
 }
 
-export function SchoolTable({ schools, onToggleStatus, onDelete, onEdit }: SchoolTableProps) {
+export function SchoolTable({ schools = [], onToggleStatus, onDelete, onEdit }: SchoolTableProps) {
+    const safeSchools = Array.isArray(schools) ? schools : (schools as any)?.items || [];
     const columns: Column<School>[] = [
         {
             header: "Nama Sekolah",
@@ -79,5 +80,5 @@ export function SchoolTable({ schools, onToggleStatus, onDelete, onEdit }: Schoo
         },
     ];
 
-    return <DataTable columns={columns} data={schools} searchPlaceholder="Cari nama sekolah..." />;
+    return <DataTable columns={columns} data={safeSchools} searchPlaceholder="Cari nama sekolah..." />;
 }

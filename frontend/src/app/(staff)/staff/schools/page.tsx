@@ -104,7 +104,7 @@ export default function StaffSchoolsPage() {
                             </div>
                         ) : (
                             <SchoolTable
-                                schools={schools}
+                                schools={Array.isArray(schools) ? schools : (schools as any)?.items || []}
                                 onToggleStatus={(s) =>
                                     toggleMutation.mutate({
                                         id: s.id,
