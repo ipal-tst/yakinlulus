@@ -43,7 +43,7 @@ export const academicMasterService = {
   updateSubject: (id: string, data: UpdateSubjectReq): Promise<Subject> => api(`/academic/subjects/${id}`, { method: "PUT", body: data }),
   deleteSubject: (id: string): Promise<{ message: string }> => api(`/academic/subjects/${id}`, { method: "DELETE" }),
 
-  getChapters: (subjectId: string): Promise<Chapter[]> => api(`/academic/chapters?subject_id=${subjectId}`),
+  getChapters: (subjectId: string): Promise<Chapter[]> => api(`/academic/subjects/${subjectId}/chapters`),
   createChapter: (data: CreateChapterReq): Promise<Chapter> => api("/academic/chapters", { method: "POST", body: data }),
   updateChapter: (id: string, data: UpdateChapterReq): Promise<Chapter> => api(`/academic/chapters/${id}`, { method: "PUT", body: data }),
   deleteChapter: (id: string): Promise<{ message: string }> => api(`/academic/chapters/${id}`, { method: "DELETE" }),

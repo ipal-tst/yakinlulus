@@ -83,7 +83,7 @@ func TestAcademicDeleteCascade(t *testing.T) {
 		if err != nil || len(chapters) != 1 || chapters[0].ID != chapter.ID {
 			t.Errorf("ListChapters: %+v err=%v", chapters, err)
 		}
-		topics, err := repo.ListAllTopics(ctx)
+		topics, err := repo.ListAllTopics(ctx, nil)
 		if err != nil {
 			t.Fatalf("ListAllTopics: %v", err)
 		}

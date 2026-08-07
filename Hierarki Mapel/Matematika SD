@@ -1,0 +1,467 @@
+Berikut adalah **Master Akademik Matematika SD (Kelas 4–6/Fase B–C)** yang dirancang untuk **TKA Nasional SD** dan dapat digunakan sebagai dasar **Bank Soal, Materi Pembelajaran, CBT Engine, AI Recommendation, dan Analytics** pada YakinLulus.id.
+
+> **Hierarki Database**
+>
+> `Jenjang → Kelas → Mata Pelajaran → Bab → Subbab → Kompetensi → Topik`
+
+---
+
+# Mata Pelajaran
+
+```text
+Jenjang     : SD
+Fase        : B, C
+Kelas       : 4, 5, 6
+Mapel       : Matematika
+Kode Mapel  : MTK
+```
+
+---
+
+# BAB 01. Bilangan
+
+**Kode:** `SD.MTK.01`
+
+## 1.1 Bilangan Bulat
+
+**Kode:** `SD.MTK.01.01`
+
+### Kompetensi
+
+* Membaca dan menulis bilangan bulat
+* Membandingkan bilangan
+* Mengurutkan bilangan
+* Menggunakan garis bilangan
+
+### Topik
+
+| Kode             | Topik                  |
+| ---------------- | ---------------------- |
+| SD.MTK.01.01.001 | Nilai tempat           |
+| SD.MTK.01.01.002 | Bilangan cacah         |
+| SD.MTK.01.01.003 | Bilangan bulat positif |
+| SD.MTK.01.01.004 | Bilangan bulat negatif |
+| SD.MTK.01.01.005 | Membandingkan bilangan |
+| SD.MTK.01.01.006 | Mengurutkan bilangan   |
+| SD.MTK.01.01.007 | Garis bilangan         |
+
+---
+
+## 1.2 Operasi Bilangan
+
+**Kode:** `SD.MTK.01.02`
+
+### Kompetensi
+
+* Melakukan operasi hitung
+* Menyelesaikan soal cerita
+
+### Topik
+
+| Kode             | Topik            |
+| ---------------- | ---------------- |
+| SD.MTK.01.02.001 | Penjumlahan      |
+| SD.MTK.01.02.002 | Pengurangan      |
+| SD.MTK.01.02.003 | Perkalian        |
+| SD.MTK.01.02.004 | Pembagian        |
+| SD.MTK.01.02.005 | Operasi campuran |
+| SD.MTK.01.02.006 | Soal cerita      |
+
+---
+
+## 1.3 Faktor dan Kelipatan
+
+### Kompetensi
+
+* Menentukan faktor
+* Menentukan kelipatan
+
+### Topik
+
+* Faktor
+* Faktor prima
+* Kelipatan
+* FPB
+* KPK
+* Pohon faktor
+
+---
+
+## 1.4 Pecahan
+
+### Kompetensi
+
+* Memahami berbagai bentuk pecahan
+* Mengoperasikan pecahan
+
+### Topik
+
+* Pecahan biasa
+* Pecahan campuran
+* Pecahan senilai
+* Menyederhanakan pecahan
+* Membandingkan pecahan
+* Penjumlahan pecahan
+* Pengurangan pecahan
+* Perkalian pecahan
+* Pembagian pecahan
+
+---
+
+## 1.5 Desimal
+
+### Kompetensi
+
+* Mengubah bentuk bilangan
+
+### Topik
+
+* Nilai tempat desimal
+* Operasi desimal
+* Pecahan ke desimal
+* Desimal ke pecahan
+
+---
+
+## 1.6 Persen
+
+### Kompetensi
+
+* Menggunakan persen
+
+### Topik
+
+* Persen
+* Persen ke pecahan
+* Pecahan ke persen
+* Diskon sederhana
+
+---
+
+## 1.7 Rasio dan Perbandingan
+
+### Kompetensi
+
+* Menentukan perbandingan
+
+### Topik
+
+* Rasio
+* Perbandingan senilai
+* Skala sederhana
+
+---
+
+# BAB 02. Aljabar Dasar
+
+**Kode:** `SD.MTK.02`
+
+## 2.1 Pola Bilangan
+
+### Kompetensi
+
+* Menentukan pola
+
+### Topik
+
+* Pola gambar
+* Pola bilangan
+* Melanjutkan pola
+* Aturan pola
+
+---
+
+## 2.2 Kalimat Matematika
+
+### Kompetensi
+
+* Membuat model matematika
+
+### Topik
+
+* Simbol
+* Variabel sederhana
+* Persamaan sederhana
+
+---
+
+# BAB 03. Pengukuran
+
+**Kode:** `SD.MTK.03`
+
+## 3.1 Panjang
+
+### Kompetensi
+
+* Mengukur panjang
+
+### Topik
+
+* Milimeter
+* Sentimeter
+* Meter
+* Kilometer
+* Konversi satuan
+
+---
+
+## 3.2 Berat
+
+### Topik
+
+* Gram
+* Kilogram
+* Ons
+* Ton
+* Konversi berat
+
+---
+
+## 3.3 Waktu
+
+### Topik
+
+* Jam
+* Menit
+* Detik
+* Hari
+* Minggu
+* Bulan
+* Tahun
+* Kalender
+* Lama waktu
+
+---
+
+## 3.4 Volume
+
+### Topik
+
+* Liter
+* Mililiter
+* Volume kubus
+* Volume balok
+
+---
+
+## 3.5 Luas
+
+### Topik
+
+* Luas persegi
+* Luas persegi panjang
+* Luas segitiga
+* Luas jajargenjang
+
+---
+
+## 3.6 Keliling
+
+### Topik
+
+* Keliling persegi
+* Keliling persegi panjang
+* Keliling segitiga
+
+---
+
+# BAB 04. Geometri
+
+**Kode:** `SD.MTK.04`
+
+## 4.1 Bangun Datar
+
+### Kompetensi
+
+* Mengidentifikasi bangun datar
+
+### Topik
+
+* Persegi
+* Persegi panjang
+* Segitiga
+* Trapesium
+* Jajargenjang
+* Belah ketupat
+* Layang-layang
+* Lingkaran
+
+---
+
+## 4.2 Sifat Bangun Datar
+
+### Topik
+
+* Sisi
+* Sudut
+* Diagonal
+* Simetri lipat
+* Simetri putar
+
+---
+
+## 4.3 Bangun Ruang
+
+### Kompetensi
+
+* Mengenal bangun ruang
+
+### Topik
+
+* Kubus
+* Balok
+* Prisma
+* Limas
+* Tabung
+* Kerucut
+* Bola
+
+---
+
+## 4.4 Jaring-jaring
+
+### Topik
+
+* Kubus
+* Balok
+
+---
+
+## 4.5 Titik Garis Bidang
+
+### Topik
+
+* Titik
+* Garis
+* Ruas garis
+* Bidang
+
+---
+
+## 4.6 Sudut
+
+### Topik
+
+* Sudut lancip
+* Sudut siku-siku
+* Sudut tumpul
+* Mengukur sudut
+
+---
+
+## 4.7 Koordinat
+
+### Topik
+
+* Koordinat sederhana
+* Posisi titik
+
+---
+
+# BAB 05. Statistika
+
+**Kode:** `SD.MTK.05`
+
+## 5.1 Penyajian Data
+
+### Kompetensi
+
+* Menyajikan data
+
+### Topik
+
+* Tabel
+* Turus
+* Diagram batang
+* Diagram garis
+* Diagram lingkaran sederhana
+* Piktogram
+
+---
+
+## 5.2 Analisis Data
+
+### Kompetensi
+
+* Menafsirkan data
+
+### Topik
+
+* Nilai terbesar
+* Nilai terkecil
+* Frekuensi
+* Membaca grafik
+* Perbandingan data
+
+---
+
+## 5.3 Ukuran Pemusatan
+
+### Kompetensi
+
+* Menentukan ukuran pemusatan data
+
+### Topik
+
+* Mean (rata-rata)
+* Median
+* Modus
+
+---
+
+# BAB 06. Peluang Dasar
+
+**Kode:** `SD.MTK.06`
+
+## 6.1 Kejadian
+
+### Kompetensi
+
+* Memahami peluang sederhana
+
+### Topik
+
+* Kejadian pasti
+* Kejadian mungkin
+* Kejadian mustahil
+* Peluang sederhana
+
+---
+
+# Struktur Relasional Database
+
+## Tabel `academic_topics`
+
+| Kolom             | Contoh                 |
+| ----------------- | ---------------------- |
+| curriculum_code   | TKA-SD-2026            |
+| jenjang           | SD                     |
+| fase              | C                      |
+| kelas             | 6                      |
+| mapel_code        | MTK                    |
+| mapel             | Matematika             |
+| bab_code          | SD.MTK.01              |
+| bab               | Bilangan               |
+| subbab_code       | SD.MTK.01.04           |
+| subbab            | Pecahan                |
+| competency_code   | SD.MTK.01.04.001       |
+| kompetensi        | Mengoperasikan pecahan |
+| topic_code        | SD.MTK.01.04.001.003   |
+| topic             | Pecahan Senilai        |
+| level_kognitif    | L1/L2/L3               |
+| tingkat_kesulitan | Mudah/Sedang/Sulit     |
+| status            | Active                 |
+| sort_order        | 1                      |
+
+## Estimasi Cakupan
+
+Dengan rincian di atas, domain Matematika SD mencakup sekitar:
+
+| Komponen   | Jumlah |
+| ---------- | -----: |
+| Bab        |      6 |
+| Subbab     |     24 |
+| Kompetensi |    ±65 |
+| Topik      |    ±95 |
+
+Struktur ini sudah dinormalisasi sehingga setiap soal cukup mereferensikan `topic_code` atau `topic_id`. Semua informasi mengenai bab, subbab, kompetensi, fase, kelas, dan mata pelajaran dapat diperoleh melalui relasi ke master akademik, sehingga cocok untuk kebutuhan Bank Soal, Materi Pembelajaran, CBT Engine, Analytics, dan Recommendation Engine.

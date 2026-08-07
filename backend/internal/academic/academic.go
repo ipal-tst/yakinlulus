@@ -169,14 +169,24 @@ func (r *Repository) ListLevels(ctx context.Context) ([]EducationLevel, error) {
 	return scanLevels(rows)
 }
 
-func (r *Repository) ListGrades(ctx context.Context) ([]Grade, error) {
-	rows, err := r.pool.Query(ctx, `
+func (r *Repository) ListGrades(ctx context.Context, levelID *uuid.UUID) ([]Grade, error) {
+	query := `
 		SELECT g.id, g.education_level_id, COALESCE(el.code, '') AS level_code, g.name, NULL::text AS alias,
 		       g.sort_order, true AS is_active, g.created_at, NOW()
 		FROM academic.grade g
-		JOIN academic.education_level el ON el.id = g.education_level_id
-		ORDER BY el.sort_order, g.sort_order
-	`)
+		JOIN academic.education_level el ON el.id = g.education_level_id`
+	if levelID != nil {
+		query += ` WHERE g.education_level_id=$1`
+	}
+	query += `
+		ORDER BY el.sort_order, g.sort_order`
+	var rows pgx.Rows
+	var err error
+	if levelID != nil {
+		rows, err = r.pool.Query(ctx, query, *levelID)
+	} else {
+		rows, err = r.pool.Query(ctx, query)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +444,7 @@ func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UU
 	var err error
 	switch {
 	case gradeID != nil:
-		rows, err = r.pool.Query(ctx, query+` WHERE cs.grade_id=$1`+groupBy+orderBy, *gradeID)
+		rows, err = r.pool.Query(ctx, query+` WHERE (cs.grade_id=$1 OR cs.grade_id IS NULL)`+groupBy+orderBy, *gradeID)
 	case levelID != nil:
 		rows, err = r.pool.Query(ctx, query+` WHERE cs.education_level_id=$1`+groupBy+orderBy, *levelID)
 	default:
@@ -643,16 +653,26 @@ func (r *Repository) DeleteChapter(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (r *Repository) ListAllTopics(ctx context.Context) ([]Topic, error) {
-	rows, err := r.pool.Query(ctx, `SELECT t.id, sc.chapter_id AS chapter_id, t.name AS title, t.order_no AS sequence,
+func (r *Repository) ListAllTopics(ctx context.Context, chapterID *uuid.UUID) ([]Topic, error) {
+	query := `SELECT t.id, sc.chapter_id AS chapter_id, t.name AS title, t.order_no AS sequence,
 		t.description, true AS is_active, t.created_at, NOW(),
 		COALESCE(ch.title, '')::text AS chapter_name, COALESCE(s.name, '')::text AS subject_name
 		FROM academic.topic t
 		JOIN academic.subchapter sc ON sc.id = t.subchapter_id
 		JOIN academic.chapter ch ON ch.id = sc.chapter_id
 		JOIN academic.curriculum_subject cs ON cs.id = ch.curriculum_subject_id
-		JOIN academic.subject s ON s.id = cs.subject_id
-		ORDER BY ch.order_no, sc.order_no, t.order_no`)
+		JOIN academic.subject s ON s.id = cs.subject_id`
+	if chapterID != nil {
+		query += ` WHERE sc.chapter_id=$1`
+	}
+	query += ` ORDER BY ch.order_no, sc.order_no, t.order_no`
+	var rows pgx.Rows
+	var err error
+	if chapterID != nil {
+		rows, err = r.pool.Query(ctx, query, *chapterID)
+	} else {
+		rows, err = r.pool.Query(ctx, query)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -975,8 +995,8 @@ func (s *Service) ListLevels(ctx context.Context) ([]EducationLevel, error) {
 	return s.repo.ListLevels(ctx)
 }
 
-func (s *Service) ListGrades(ctx context.Context) ([]Grade, error) {
-	return s.repo.ListGrades(ctx)
+func (s *Service) ListGrades(ctx context.Context, levelID *uuid.UUID) ([]Grade, error) {
+	return s.repo.ListGrades(ctx, levelID)
 }
 
 func (s *Service) CreateGrade(ctx context.Context, req CreateGradeReq) (*Grade, error) {
@@ -1229,8 +1249,8 @@ func (s *Service) DeleteChapter(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteChapter(ctx, id)
 }
 
-func (s *Service) ListAllTopics(ctx context.Context) ([]Topic, error) {
-	return s.repo.ListAllTopics(ctx)
+func (s *Service) ListAllTopics(ctx context.Context, chapterID *uuid.UUID) ([]Topic, error) {
+	return s.repo.ListAllTopics(ctx, chapterID)
 }
 
 func (s *Service) CreateTopic(ctx context.Context, req CreateTopicReq) (*Topic, error) {
@@ -1480,7 +1500,19 @@ func (h *Handler) ListLevels(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListGrades(c *fiber.Ctx) error {
-	grades, err := h.svc.ListGrades(c.Context())
+	var levelID *uuid.UUID
+	levelIDStr := c.Query("level_id")
+	if levelIDStr == "" || levelIDStr == "all" || levelIDStr == "undefined" || levelIDStr == "null" {
+		levelIDStr = c.Query("education_level_id")
+	}
+	if levelIDStr != "" && levelIDStr != "all" && levelIDStr != "undefined" && levelIDStr != "null" {
+		id, err := uuid.Parse(levelIDStr)
+		if err != nil {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid level_id"))
+		}
+		levelID = &id
+	}
+	grades, err := h.svc.ListGrades(c.Context(), levelID)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list grades"))
 	}
@@ -1588,6 +1620,9 @@ func (h *Handler) DeleteLevel(c *fiber.Ctx) error {
 
 func (h *Handler) ListSubjects(c *fiber.Ctx) error {
 	levelIDStr := c.Query("level_id")
+	if levelIDStr == "" || levelIDStr == "all" || levelIDStr == "undefined" || levelIDStr == "null" {
+		levelIDStr = c.Query("education_level_id")
+	}
 	var levelID *uuid.UUID
 	if levelIDStr != "" && levelIDStr != "all" && levelIDStr != "undefined" && levelIDStr != "null" {
 		id, err := uuid.Parse(levelIDStr)
@@ -1607,6 +1642,12 @@ func (h *Handler) ListSubjects(c *fiber.Ctx) error {
 				levelID = nil // grade filter takes precedence for students
 			}
 		}
+	} else if gradeIDStr := c.Query("grade_id"); gradeIDStr != "" && gradeIDStr != "undefined" && gradeIDStr != "null" {
+		id, err := uuid.Parse(gradeIDStr)
+		if err != nil {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid grade_id"))
+		}
+		gradeID = &id
 	}
 
 	subjects, err := h.svc.ListSubjects(c.Context(), levelID, gradeID)
@@ -1752,7 +1793,15 @@ func (h *Handler) DeleteChapter(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListAllTopics(c *fiber.Ctx) error {
-	topics, err := h.svc.ListAllTopics(c.Context())
+	var chapterID *uuid.UUID
+	if cid := c.Query("chapter_id"); cid != "" && cid != "undefined" && cid != "null" {
+		id, err := uuid.Parse(cid)
+		if err != nil {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid chapter_id"))
+		}
+		chapterID = &id
+	}
+	topics, err := h.svc.ListAllTopics(c.Context(), chapterID)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list topics"))
 	}
