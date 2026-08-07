@@ -42,7 +42,7 @@ interface NavItem {
 }
 
 const SISWA_NAV: NavItem[] = [
-    { title: "Beranda", href: "/", icon: LayoutDashboard },
+    { title: "Beranda", href: "/siswa", icon: LayoutDashboard },
     { title: "Belajar", href: "/materials", icon: BookOpen },
     { title: "Latihan", href: "/practice", icon: PenTool },
     { title: "Try Out", href: "/exams", icon: FileCheck },
