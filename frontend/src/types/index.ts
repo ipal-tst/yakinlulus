@@ -203,6 +203,11 @@ export interface Exam {
     description?: string;
     category?: ExamCategory;
     scoring_system?: ScoringSystem;
+    subject_id?: string;
+    subject_name?: string;
+    chapter_id?: string;
+    difficulty?: "EASY" | "MEDIUM" | "HARD" | "HOTS";
+    default_mode?: "SANTAI" | "SIMULASI";
     duration_minutes: number;
     total_questions: number;
     passing_score?: number;
