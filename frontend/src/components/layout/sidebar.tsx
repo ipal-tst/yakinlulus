@@ -86,8 +86,16 @@ const INVESTOR_NAV: NavItem[] = [
 ];
 
 const SUPER_ADMIN_NAV: NavItem[] = [
-    { title: "System Health", href: "/admin/health", icon: Activity, roles: ["SUPER_ADMIN"] },
-    { title: "Analitik & Laporan", href: "/admin/analytics", icon: BarChart3, roles: ["SUPER_ADMIN"] },
+    { title: "Dashboard Admin", href: "/admin", icon: LayoutDashboard },
+    { title: "Master Akademik", href: "/admin/academic", icon: GraduationCap },
+    { title: "Kelola User", href: "/staff/users", icon: Users },
+    { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2 },
+    { title: "Target Sekolah", href: "/staff/target-schools", icon: Target },
+    { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Bell },
+    { title: "Audit Log", href: "/staff/audit", icon: ShieldAlert },
+    { title: "Konfigurasi AI", href: "/staff/ai", icon: Settings },
+    { title: "Analitik & Laporan", href: "/admin/analytics", icon: BarChart3 },
+    { title: "System Health", href: "/admin/health", icon: Activity },
 ];
 
 export function Sidebar() {
@@ -99,11 +107,10 @@ export function Sidebar() {
 
     let navItems: NavItem[] = SISWA_NAV;
     if (role === "GURU") navItems = GURU_NAV;
-    if (role === "STAFF" || role === "SUPER_ADMIN") navItems = [...STAFF_NAV, ...GURU_NAV.slice(1)];
+    if (role === "STAFF") navItems = STAFF_NAV;
+    if (role === "SUPER_ADMIN") navItems = SUPER_ADMIN_NAV;
     if (role === "FINANCE") navItems = FINANCE_NAV;
     if (role === "INVESTOR") navItems = INVESTOR_NAV;
-    if (role === "SUPER_ADMIN") navItems = [...navItems, ...SUPER_ADMIN_NAV];
-    navItems = navItems.filter((item) => !item.roles || item.roles.includes(role));
 
     return (
         <aside
