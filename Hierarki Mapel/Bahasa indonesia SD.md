@@ -1,480 +1,568 @@
-Berikut adalah **Master Akademik Bahasa Indonesia SD (Kelas 4–6, Fase B–C)** yang dirancang untuk **TKA Nasional SD**. Struktur ini menggunakan pendekatan **domain kompetensi**, bukan urutan buku, sehingga stabil terhadap perubahan kurikulum dan siap digunakan sebagai referensi untuk **Bank Soal, Materi Pembelajaran, CBT Engine, AI Question Generator, OCR/Import, Analytics, dan Recommendation Engine**.
-
-> **Hierarki Database**
->
-> `Jenjang → Kelas → Mata Pelajaran → Bab → Subbab → Kompetensi → Topik`
+Berikut adalah **hierarki lengkap Mata Pelajaran Bahasa Indonesia SD** berdasarkan **Kurikulum Merdeka**, disusun hingga level **Mata Pelajaran → Fase → Kelas → Bab → Subbab → Kompetensi → Topik**, sehingga dapat langsung digunakan sebagai **master kurikulum, bank materi, bank soal, maupun blueprint TKA/TKAD**.
 
 ---
 
-# Mata Pelajaran
+# HIERARKI BAHASA INDONESIA SD
 
 ```text
-Jenjang     : SD
-Fase        : B, C
-Kelas       : 4, 5, 6
-Mapel       : Bahasa Indonesia
-Kode Mapel  : BIN
-Curriculum  : TKA-SD-2026
+Bahasa Indonesia SD
+├── Fase A
+│   ├── Kelas 1
+│   └── Kelas 2
+├── Fase B
+│   ├── Kelas 3
+│   └── Kelas 4
+└── Fase C
+    ├── Kelas 5
+    └── Kelas 6
 ```
 
 ---
 
-# BAB 01. Membaca Pemahaman
+# DOMAIN KOMPETENSI
 
-**Kode:** `SD.BIN.01`
+Seluruh materi Bahasa Indonesia SD dikembangkan melalui empat keterampilan berbahasa.
 
-## 1.1 Menemukan Informasi Tersurat
+1. Menyimak
+2. Berbicara dan Mempresentasikan
+3. Membaca dan Memirsa
+4. Menulis
 
-**Kode:** `SD.BIN.01.01`
-
-### Kompetensi
-
-* Mengidentifikasi informasi tersurat
-* Menemukan fakta dalam teks
-* Menentukan rincian informasi
-
-### Topik
-
-| Kode             | Topik            |
-| ---------------- | ---------------- |
-| SD.BIN.01.01.001 | Ide pokok        |
-| SD.BIN.01.01.002 | Kalimat utama    |
-| SD.BIN.01.01.003 | Kalimat penjelas |
-| SD.BIN.01.01.004 | Informasi rinci  |
-| SD.BIN.01.01.005 | Fakta dalam teks |
-| SD.BIN.01.01.006 | Tokoh            |
-| SD.BIN.01.01.007 | Latar            |
-| SD.BIN.01.01.008 | Urutan peristiwa |
+Setiap bab mengintegrasikan keempat kompetensi tersebut.
 
 ---
 
-## 1.2 Menafsirkan Informasi
+# KELAS 1
 
-**Kode:** `SD.BIN.01.02`
+## BAB 1. Mengenal Bunyi, Huruf, dan Kata
+
+### Subbab 1.1 Huruf Alfabet
+
+**Kompetensi**
+
+* Mengenal huruf
+* Menghubungkan bunyi dan huruf
+
+**Topik**
+
+* Huruf vokal
+* Huruf konsonan
+* Urutan alfabet
+* Huruf kapital
+* Huruf kecil
+
+---
+
+### Subbab 1.2 Suku Kata
+
+Kompetensi
+
+* Membaca suku kata sederhana
+
+Topik
+
+* ba-bi-bu-be-bo
+* ca-ci-cu-ce-co
+* Penggabungan suku kata
+
+---
+
+### Subbab 1.3 Kata
+
+Topik
+
+* Membaca kata
+* Menyalin kata
+* Menulis kata
+
+---
+
+## BAB 2. Kalimat Sederhana
 
 ### Kompetensi
 
-* Menarik kesimpulan
-* Menafsirkan makna
-* Menentukan pesan
+* Memahami kalimat sederhana
 
-### Topik
+Topik
 
-* Inferensi
-* Simpulan
+* Subjek
+* Predikat
+* Kalimat berita
+* Kalimat tanya
+* Kalimat perintah
+
+---
+
+## BAB 3. Membaca Nyaring
+
+Topik
+
+* Lafal
+* Intonasi
+* Kelancaran membaca
+
+---
+
+## BAB 4. Menulis Permulaan
+
+Topik
+
+* Menebalkan huruf
+* Menyalin kalimat
+* Menulis nama sendiri
+* Menulis benda sekitar
+
+---
+
+## BAB 5. Kosakata Sehari-hari
+
+Topik
+
+* Keluarga
+* Sekolah
+* Rumah
+* Hewan
+* Tumbuhan
+* Warna
+* Anggota tubuh
+
+---
+
+# KELAS 2
+
+## BAB 1. Membaca Lancar
+
+Topik
+
+* Membaca paragraf
+* Membaca dialog
+* Membaca nyaring
+
+---
+
+## BAB 2. Kalimat dan Paragraf
+
+Topik
+
+* Kalimat efektif sederhana
+* Paragraf pendek
+* Ide pokok sederhana
+
+---
+
+## BAB 3. Kosakata
+
+Topik
+
+* Sinonim sederhana
+* Antonim sederhana
+* Kata sifat
+* Kata kerja
+
+---
+
+## BAB 4. Teks Deskripsi Sederhana
+
+Topik
+
+* Mendeskripsikan benda
+* Mendeskripsikan orang
+* Mendeskripsikan tempat
+
+---
+
+## BAB 5. Menulis
+
+Topik
+
+* Menulis pengalaman
+* Menulis kalimat
+* Melengkapi cerita
+
+---
+
+## BAB 6. Berbicara
+
+Topik
+
+* Bercerita
+* Bertanya
+* Menjawab pertanyaan
+* Percakapan sederhana
+
+---
+
+# KELAS 3
+
+## BAB 1. Membaca Pemahaman
+
+Topik
+
+* Ide pokok
+* Informasi rinci
+* Simpulan sederhana
+
+---
+
+## BAB 2. Teks Narasi
+
+Topik
+
+* Tokoh
+* Latar
+* Alur sederhana
 * Amanat
-* Pesan moral
-* Tujuan penulis
-* Prediksi isi
-* Hubungan sebab akibat
-* Hubungan masalah dan solusi
 
 ---
 
-## 1.3 Analisis Isi Teks
+## BAB 3. Teks Deskripsi
 
-### Kompetensi
+Topik
 
-* Mengevaluasi isi bacaan
-* Membandingkan informasi
-
-### Topik
-
-* Fakta dan opini sederhana
-* Informasi relevan
-* Informasi tidak relevan
-* Ringkasan
-* Parafrasa sederhana
+* Objek
+* Ciri-ciri
+* Kalimat deskriptif
 
 ---
 
-# BAB 02. Jenis Teks
+## BAB 4. Teks Prosedur Sederhana
 
-**Kode:** `SD.BIN.02`
+Topik
 
-## 2.1 Teks Narasi
+* Langkah-langkah
+* Urutan kegiatan
+* Kata penghubung
 
-### Kompetensi
+---
 
-* Mengidentifikasi struktur narasi
+## BAB 5. Menulis
 
-### Topik
+Topik
+
+* Menulis paragraf
+* Menulis cerita pendek
+* Menulis pengalaman
+
+---
+
+## BAB 6. Bahasa dan Ejaan
+
+Topik
+
+* Huruf kapital
+* Tanda titik
+* Tanda koma
+* Tanda tanya
+* Tanda seru
+
+---
+
+# KELAS 4
+
+## BAB 1. Teks Informasi
+
+Topik
+
+* Fakta
+* Informasi penting
+* Ide pokok
+* Ide pendukung
+
+---
+
+## BAB 2. Teks Narasi
+
+Topik
 
 * Cerita rakyat
 * Dongeng
 * Fabel
 * Legenda
-* Cerpen anak
-* Cerita pengalaman
 
 ---
 
-## 2.2 Teks Deskripsi
+## BAB 3. Teks Deskripsi
 
-### Kompetensi
+Topik
 
-* Mengidentifikasi objek
-
-### Topik
-
-* Deskripsi orang
-* Deskripsi hewan
-* Deskripsi tumbuhan
-* Deskripsi tempat
-* Deskripsi benda
+* Objek
+* Tempat
+* Suasana
+* Orang
 
 ---
 
-## 2.3 Teks Prosedur
+## BAB 4. Teks Prosedur
 
-### Kompetensi
+Topik
 
-* Memahami langkah kerja
-
-### Topik
-
-* Tujuan
-* Alat dan bahan
-* Langkah-langkah
-* Kalimat perintah
+* Petunjuk
+* Resep sederhana
+* Langkah kerja
 
 ---
 
-## 2.4 Teks Informasi
+## BAB 5. Menulis
 
-### Kompetensi
+Topik
 
-* Memahami isi teks informatif
-
-### Topik
-
-* Artikel sederhana
-* Berita anak
-* Ensiklopedia
-* Poster informasi
+* Ringkasan
+* Laporan sederhana
+* Surat pribadi
 
 ---
 
-## 2.5 Teks Eksplanasi Sederhana
+## BAB 6. Kebahasaan
 
-### Kompetensi
+Topik
 
-* Menjelaskan proses atau peristiwa
+* Imbuhan sederhana
+* Kata baku
+* Kalimat efektif
+* Konjungsi
 
-### Topik
+---
 
+## BAB 7. Berbicara
+
+Topik
+
+* Presentasi sederhana
+* Diskusi
+* Wawancara sederhana
+
+---
+
+# KELAS 5
+
+## BAB 1. Teks Eksplanasi
+
+Topik
+
+* Sebab-akibat
 * Fenomena alam
-* Perubahan lingkungan
-* Siklus sederhana
+* Fenomena sosial
 
 ---
 
-# BAB 03. Kosakata
+## BAB 2. Teks Eksposisi
 
-**Kode:** `SD.BIN.03`
+Topik
 
-## 3.1 Makna Kata
-
-### Kompetensi
-
-* Menentukan arti kata
-
-### Topik
-
-* Makna kata
-* Makna dalam konteks
-* Kata umum
-* Kata khusus
+* Pendapat
+* Fakta
+* Argumentasi sederhana
 
 ---
 
-## 3.2 Hubungan Makna
+## BAB 3. Teks Persuasi
 
-### Kompetensi
+Topik
 
-* Membedakan hubungan antarkata
+* Ajakan
+* Iklan
+* Poster
+* Slogan
 
-### Topik
+---
 
+## BAB 4. Teks Cerita
+
+Topik
+
+* Cerpen
+* Fabel
+* Mitos
+* Legenda
+
+---
+
+## BAB 5. Menulis
+
+Topik
+
+* Ringkasan
+* Resensi sederhana
+* Karangan
+* Laporan
+
+---
+
+## BAB 6. Kebahasaan
+
+Topik
+
+* Kata baku
+* Kata tidak baku
 * Sinonim
 * Antonim
 * Homonim
-* Homofon
-* Homograf
+* Majas sederhana
 
 ---
 
-## 3.3 Pembentukan Kata
+## BAB 7. Presentasi
 
-### Kompetensi
+Topik
 
-* Memahami bentuk kata
-
-### Topik
-
-* Kata dasar
-* Kata berimbuhan
-* Awalan
-* Sisipan
-* Akhiran
-* Gabungan imbuhan
-* Kata ulang
-* Kata majemuk
+* Berpidato
+* Diskusi
+* Menyampaikan pendapat
 
 ---
 
-# BAB 04. Tata Bahasa
+# KELAS 6
 
-**Kode:** `SD.BIN.04`
+## BAB 1. Teks Informasi
 
-## 4.1 Jenis Kata
+Topik
 
-### Kompetensi
-
-* Mengidentifikasi kelas kata
-
-### Topik
-
-* Kata benda
-* Kata kerja
-* Kata sifat
-* Kata bilangan
-* Kata ganti
-* Kata depan
-* Kata hubung
-* Kata keterangan
+* Fakta
+* Opini
+* Gagasan utama
+* Simpulan
 
 ---
 
-## 4.2 Struktur Kalimat
+## BAB 2. Teks Eksplanasi
 
-### Kompetensi
+Topik
 
-* Menyusun kalimat yang benar
+* Hubungan sebab-akibat
+* Struktur teks
+* Informasi penting
 
-### Topik
+---
 
-* Subjek
-* Predikat
-* Objek
-* Pelengkap
-* Keterangan
-* Kalimat tunggal
-* Kalimat majemuk sederhana
+## BAB 3. Teks Persuasi
+
+Topik
+
+* Argumentasi
+* Kalimat ajakan
+* Poster
+* Iklan layanan masyarakat
+
+---
+
+## BAB 4. Sastra Anak
+
+Topik
+
+* Puisi
+* Pantun
+* Syair
+* Cerpen
+* Drama sederhana
+
+---
+
+## BAB 5. Menulis
+
+Topik
+
+* Menulis laporan
+* Menulis pidato
+* Menulis teks informasi
+* Menulis surat resmi sederhana
+
+---
+
+## BAB 6. Kebahasaan
+
+Topik
+
 * Kalimat efektif
-
----
-
-## 4.3 Hubungan Antarkalimat
-
-### Kompetensi
-
-* Menyusun paragraf
-
-### Topik
-
+* Kata baku
+* EYD/PUEBI dasar
+* Imbuhan
 * Konjungsi
-* Kohesi
-* Koherensi
-* Rujukan kata
+* Pronomina
+* Kata hubung
+* Kalimat langsung
+* Kalimat tidak langsung
 
 ---
 
-# BAB 05. Ejaan dan Tanda Baca
+## BAB 7. Literasi Informasi
 
-**Kode:** `SD.BIN.05`
+Topik
 
-## 5.1 Penulisan Kata
+* Menemukan informasi
+* Membandingkan informasi
+* Menilai keakuratan informasi
+* Membuat simpulan
+* Menyajikan informasi
 
-### Kompetensi
+---
 
+# Kompetensi Lulusan SD
+
+Pada akhir jenjang SD, peserta didik diharapkan mampu menguasai kompetensi berikut:
+
+## A. Menyimak
+
+* Memahami informasi lisan
+* Mengidentifikasi informasi penting
+* Menyimpulkan isi pembicaraan
+
+## B. Berbicara dan Mempresentasikan
+
+* Menceritakan pengalaman
+* Menyampaikan pendapat
+* Berdiskusi
+* Presentasi sederhana
+* Bertanya dan menjawab
+
+## C. Membaca dan Memirsa
+
+* Membaca lancar
+* Membaca pemahaman
+* Menentukan ide pokok
+* Menentukan informasi rinci
+* Menyimpulkan bacaan
+* Menafsirkan gambar, tabel, dan ilustrasi
+* Membandingkan informasi dari berbagai sumber
+
+## D. Menulis
+
+* Menulis kata dan kalimat
+* Menulis paragraf
+* Menulis berbagai jenis teks
+* Menulis ringkasan
+* Menulis laporan
 * Menggunakan ejaan yang benar
 
-### Topik
+## E. Kebahasaan
 
 * Huruf kapital
-* Huruf miring
-* Penulisan kata depan
-* Penulisan imbuhan
+* Tanda baca
 * Kata baku
-* Kata tidak baku
-
----
-
-## 5.2 Tanda Baca
-
-### Kompetensi
-
-* Menggunakan tanda baca
-
-### Topik
-
-* Titik
-* Koma
-* Titik dua
-* Titik koma
-* Tanda tanya
-* Tanda seru
-* Tanda petik
-* Tanda hubung
-
----
-
-# BAB 06. Menulis
-
-**Kode:** `SD.BIN.06`
-
-## 6.1 Menulis Kalimat
-
-### Kompetensi
-
-* Menulis kalimat sesuai kaidah
-
-### Topik
-
-* Kalimat sederhana
+* Sinonim
+* Antonim
+* Homonim
+* Imbuhan
+* Konjungsi
+* Pronomina
 * Kalimat efektif
-* Pilihan kata
-* Variasi kalimat
+* Kosakata
+* Makna kata
+* Struktur kalimat
+
+## F. Sastra
+
+* Dongeng
+* Fabel
+* Legenda
+* Cerita rakyat
+* Puisi
+* Pantun
+* Syair
+* Cerpen
+* Drama sederhana
+* Amanat karya sastra
+* Unsur intrinsik cerita
 
 ---
 
-## 6.2 Menulis Paragraf
-
-### Kompetensi
-
-* Menyusun paragraf
-
-### Topik
-
-* Kalimat utama
-* Kalimat penjelas
-* Paragraf deduktif
-* Paragraf induktif
-
----
-
-## 6.3 Menulis Berbagai Jenis Teks
-
-### Kompetensi
-
-* Menulis sesuai tujuan komunikasi
-
-### Topik
-
-* Cerita pendek
-* Deskripsi
-* Prosedur
-* Ringkasan
-* Surat pribadi
-* Pengumuman
-* Laporan sederhana
-
----
-
-# BAB 07. Menyunting
-
-**Kode:** `SD.BIN.07`
-
-## 7.1 Perbaikan Bahasa
-
-### Kompetensi
-
-* Mengidentifikasi dan memperbaiki kesalahan
-
-### Topik
-
-* Kesalahan ejaan
-* Kesalahan tanda baca
-* Kesalahan pilihan kata
-* Kesalahan struktur kalimat
-* Kesalahan paragraf
-
----
-
-## 7.2 Penyempurnaan Tulisan
-
-### Kompetensi
-
-* Menyunting naskah sederhana
-
-### Topik
-
-* Konsistensi istilah
-* Kejelasan informasi
-* Efektivitas kalimat
-* Keterpaduan paragraf
-
----
-
-# BAB 08. Literasi
-
-**Kode:** `SD.BIN.08`
-
-## 8.1 Literasi Informasi
-
-### Kompetensi
-
-* Mengolah informasi dari berbagai sumber
-
-### Topik
-
-* Tabel
-* Grafik sederhana
-* Diagram
-* Infografik
-* Jadwal
-* Denah
-
----
-
-## 8.2 Literasi Visual
-
-### Kompetensi
-
-* Memahami informasi visual
-
-### Topik
-
-* Poster
-* Komik
-* Ilustrasi
-* Gambar berseri
-* Simbol
-* Ikon
-
----
-
-## Struktur Relasional Database
-
-| Kolom             | Contoh                         |
-| ----------------- | ------------------------------ |
-| curriculum_code   | TKA-SD-2026                    |
-| jenjang           | SD                             |
-| fase              | C                              |
-| kelas             | 6                              |
-| mapel_code        | BIN                            |
-| mapel             | Bahasa Indonesia               |
-| bab_code          | SD.BIN.01                      |
-| bab               | Membaca Pemahaman              |
-| subbab_code       | SD.BIN.01.02                   |
-| subbab            | Menafsirkan Informasi          |
-| competency_code   | SD.BIN.01.02.001               |
-| kompetensi        | Menarik kesimpulan dari bacaan |
-| topic_code        | SD.BIN.01.02.001.003           |
-| topic             | Amanat                         |
-| level_kognitif    | L1 / L2 / L3                   |
-| tingkat_kesulitan | Mudah / Sedang / Sulit         |
-| status            | Active                         |
-| sort_order        | 1                              |
-
-## Ringkasan Cakupan
-
-| Komponen   | Estimasi |
-| ---------- | -------: |
-| Bab        |        8 |
-| Subbab     |       18 |
-| Kompetensi |      ±50 |
-| Topik      |      ±90 |
-
-Struktur ini telah dinormalisasi sehingga setiap soal cukup mereferensikan `topic_id` atau `topic_code`. Seluruh metadata akademik—bab, subbab, kompetensi, kelas, fase, dan mata pelajaran—dapat diperoleh melalui relasi ke master akademik, sehingga konsisten untuk seluruh modul YakinLulus.id.
+Struktur di atas berada pada level **Mata Pelajaran → Fase → Kelas → Bab → Subbab → Kompetensi → Topik** dan siap dipetakan ke database. Untuk implementasi pada platform seperti **YakinLulus.id**, hierarki ini dapat diperluas hingga level **Subtopik → Capaian Pembelajaran (CP) → Tujuan Pembelajaran (TP) → Indikator Pembelajaran → Indikator Soal → Level Kognitif (C1–C6) → Tingkat Kesulitan → Blueprint TKA/TKAD**, sehingga menghasilkan sekitar **2.000–3.000 node** yang siap digunakan untuk bank materi, bank soal, dan sistem pembelajaran adaptif.

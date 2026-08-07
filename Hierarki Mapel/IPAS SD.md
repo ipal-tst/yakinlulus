@@ -1,588 +1,572 @@
-Berikut adalah **Master Akademik IPAS SD (Kelas 4–6, Fase B–C)** yang dioptimalkan untuk **TKAD DIY SD**, selaras dengan Capaian Pembelajaran Kurikulum Merdeka dan dirancang agar dapat langsung digunakan sebagai **master data** untuk Bank Soal, Materi Pembelajaran, CBT Engine, AI Question Generator, Analytics, OCR/Import, dan Recommendation Engine.
-
-> **Hierarki Database**
->
-> `Jenjang → Kelas → Mata Pelajaran → Bab → Subbab → Kompetensi → Topik`
+Berikut adalah **hierarki lengkap Mata Pelajaran Ilmu Pengetahuan Alam dan Sosial (IPAS) SD** berdasarkan **Kurikulum Merdeka**, disusun hingga level **Mata Pelajaran → Fase → Kelas → Bab → Subbab → Kompetensi → Topik**. IPAS merupakan penggabungan IPA dan IPS di jenjang SD agar peserta didik memahami fenomena alam dan sosial secara terpadu. ([Ditsd][1])
 
 ---
 
-# Mata Pelajaran
+# HIERARKI IPAS SD
 
 ```text
-Jenjang          : SD
-Fase             : B, C
-Kelas            : 4, 5, 6
-Mapel            : IPAS
-Kode Mapel       : IPS
-Curriculum Code  : TKAD-DIY-SD-2026
+IPAS SD
+├── Fase A
+│   ├── Kelas 1
+│   └── Kelas 2
+├── Fase B
+│   ├── Kelas 3
+│   └── Kelas 4
+└── Fase C
+    ├── Kelas 5
+    └── Kelas 6
 ```
 
 ---
 
-# BAB 01. Makhluk Hidup dan Lingkungannya
+# DOMAIN KOMPETENSI
 
-**Kode:** `SD.IPS.01`
+Seluruh materi IPAS dikembangkan melalui lima domain utama.
 
-## 1.1 Ciri-ciri Makhluk Hidup
-
-### Kompetensi
-
-* Mengidentifikasi ciri makhluk hidup
-* Membedakan makhluk hidup dan benda mati
-
-### Topik
-
-| Kode             | Topik                  |
-| ---------------- | ---------------------- |
-| SD.IPS.01.01.001 | Bernapas               |
-| SD.IPS.01.01.002 | Bergerak               |
-| SD.IPS.01.01.003 | Tumbuh dan berkembang  |
-| SD.IPS.01.01.004 | Berkembang biak        |
-| SD.IPS.01.01.005 | Peka terhadap rangsang |
-| SD.IPS.01.01.006 | Memerlukan makanan     |
-| SD.IPS.01.01.007 | Adaptasi dasar         |
+1. Makhluk Hidup
+2. Benda, Energi, dan Perubahannya
+3. Bumi dan Alam Semesta
+4. Manusia, Lingkungan, dan Masyarakat
+5. Keterampilan Proses Sains dan Inkuiri
 
 ---
 
-## 1.2 Keanekaragaman Makhluk Hidup
+# KELAS 1
 
-### Kompetensi
+## BAB 1. Aku dan Lingkunganku
 
-* Mengelompokkan makhluk hidup
-* Mengidentifikasi habitat
+### Subbab 1.1 Diriku
 
-### Topik
+**Kompetensi**
 
-* Hewan vertebrata
-* Hewan avertebrata
-* Tumbuhan berbunga
-* Tumbuhan tidak berbunga
-* Habitat darat
-* Habitat air
-* Habitat udara
-* Adaptasi morfologi
-* Adaptasi fisiologi
-* Adaptasi tingkah laku
+* Mengenal diri sendiri
+* Mengenal anggota tubuh
 
----
+**Topik**
 
-## 1.3 Organ Tubuh Makhluk Hidup
-
-### Kompetensi
-
-* Menjelaskan fungsi organ
-
-### Topik
-
-* Akar
-* Batang
-* Daun
-* Bunga
-* Buah
-* Biji
-* Organ gerak
-* Organ pernapasan
-* Organ pencernaan
+* Identitas diri
+* Anggota tubuh
+* Pancaindra
+* Fungsi anggota tubuh
+* Menjaga kesehatan tubuh
 
 ---
 
-# BAB 02. Sistem Tubuh Manusia
+### Subbab 1.2 Keluargaku
 
-**Kode:** `SD.IPS.02`
+Topik
 
-## 2.1 Sistem Gerak
-
-### Kompetensi
-
-* Menjelaskan fungsi alat gerak
-
-### Topik
-
-* Tulang
-* Sendi
-* Otot
-* Kelainan tulang
+* Anggota keluarga
+* Peran anggota keluarga
+* Aturan di rumah
+* Gotong royong
 
 ---
 
-## 2.2 Sistem Pencernaan
+### Subbab 1.3 Sekolahku
 
-### Kompetensi
+Topik
 
-* Menjelaskan proses pencernaan
-
-### Topik
-
-* Mulut
-* Kerongkongan
-* Lambung
-* Usus halus
-* Usus besar
-* Hati
-* Pankreas
-* Gizi seimbang
+* Warga sekolah
+* Tata tertib
+* Ruang sekolah
+* Menjaga kebersihan
 
 ---
 
-## 2.3 Sistem Pernapasan
+## BAB 2. Makhluk Hidup
 
 ### Kompetensi
 
-* Menjelaskan mekanisme pernapasan
+* Mengenali ciri makhluk hidup
 
-### Topik
+Topik
 
-* Hidung
-* Tenggorokan
-* Paru-paru
-* Diafragma
-* Gangguan pernapasan
+* Manusia
+* Hewan
+* Tumbuhan
+* Kebutuhan makhluk hidup
+* Pertumbuhan
 
 ---
 
-## 2.4 Sistem Peredaran Darah
+## BAB 3. Benda di Sekitarku
 
-### Kompetensi
-
-* Menjelaskan fungsi sistem peredaran darah
-
-### Topik
-
-* Jantung
-* Pembuluh darah
-* Darah
-* Golongan darah
-* Menjaga kesehatan jantung
-
----
-
-## 2.5 Sistem Indra
-
-### Kompetensi
-
-* Menjelaskan fungsi alat indra
-
-### Topik
-
-* Mata
-* Telinga
-* Hidung
-* Lidah
-* Kulit
-
----
-
-# BAB 03. Zat dan Perubahannya
-
-**Kode:** `SD.IPS.03`
-
-## 3.1 Wujud Zat
-
-### Kompetensi
-
-* Mengidentifikasi wujud zat
-
-### Topik
+Topik
 
 * Padat
 * Cair
 * Gas
-* Sifat zat
+* Sifat benda
+* Pemanfaatan benda
 
 ---
 
-## 3.2 Perubahan Wujud
+## BAB 4. Cuaca
 
-### Kompetensi
+Topik
 
-* Menjelaskan perubahan wujud
+* Cerah
+* Hujan
+* Berawan
+* Angin
+* Pengaruh cuaca
 
-### Topik
+---
+
+## BAB 5. Lingkungan Bersih
+
+Topik
+
+* Sampah
+* Kebersihan
+* Daur ulang sederhana
+* Hidup sehat
+
+---
+
+# KELAS 2
+
+## BAB 1. Tumbuhan
+
+Topik
+
+* Bagian tumbuhan
+* Fungsi akar
+* Fungsi batang
+* Fungsi daun
+* Fungsi bunga
+* Perkembangbiakan tumbuhan sederhana
+
+---
+
+## BAB 2. Hewan
+
+Topik
+
+* Jenis hewan
+* Habitat
+* Makanan
+* Cara berkembang biak
+* Manfaat hewan
+
+---
+
+## BAB 3. Energi
+
+Topik
+
+* Sumber energi
+* Cahaya
+* Panas
+* Bunyi
+* Penghematan energi
+
+---
+
+## BAB 4. Air
+
+Topik
+
+* Manfaat air
+* Wujud air
+* Siklus sederhana
+* Penghematan air
+
+---
+
+## BAB 5. Kehidupan Bermasyarakat
+
+Topik
+
+* Tetangga
+* Kerja sama
+* Hak
+* Kewajiban
+* Aturan bersama
+
+---
+
+# KELAS 3
+
+## BAB 1. Makhluk Hidup dan Lingkungan
+
+Topik
+
+* Ekosistem sederhana
+* Rantai makanan sederhana
+* Adaptasi
+* Pelestarian lingkungan
+
+---
+
+## BAB 2. Gaya dan Gerak
+
+Topik
+
+* Dorong
+* Tarik
+* Gerak benda
+* Gaya gravitasi
+* Gaya magnet
+
+---
+
+## BAB 3. Perubahan Wujud Benda
+
+Topik
 
 * Mencair
 * Membeku
 * Menguap
 * Mengembun
 * Menyublim
-* Mengkristal
 
 ---
 
-## 3.3 Campuran
+## BAB 4. Bumi
 
-### Kompetensi
+Topik
 
-* Membedakan campuran
-
-### Topik
-
-* Larutan
-* Suspensi
-* Campuran homogen
-* Campuran heterogen
-* Penyaringan sederhana
+* Siang malam
+* Matahari
+* Bulan
+* Musim
+* Arah mata angin
 
 ---
 
-# BAB 04. Energi
+## BAB 5. Kehidupan Sosial
 
-**Kode:** `SD.IPS.04`
+Topik
 
-## 4.1 Bentuk Energi
+* Profesi
+* Kegiatan ekonomi sederhana
+* Keragaman budaya
+* Kerukunan
 
-### Kompetensi
+---
 
-* Mengidentifikasi berbagai bentuk energi
+## BAB 6. Peta Sederhana
 
-### Topik
+Topik
+
+* Denah
+* Simbol
+* Arah
+* Lokasi
+
+---
+
+# KELAS 4
+
+## BAB 1. Tumbuhan Sumber Kehidupan
+
+Topik
+
+* Struktur tumbuhan
+* Fotosintesis
+* Perkembangbiakan
+* Manfaat tumbuhan
+* Pelestarian tumbuhan
+
+---
+
+## BAB 2. Hewan dan Habitat
+
+Topik
+
+* Adaptasi
+* Rantai makanan
+* Ekosistem
+* Pelestarian satwa
+
+---
+
+## BAB 3. Energi dan Bunyi
+
+Topik
 
 * Energi panas
 * Energi cahaya
-* Energi bunyi
-* Energi listrik
-* Energi gerak
-* Energi kimia
+* Bunyi
+* Getaran
+* Perambatan bunyi
 
 ---
 
-## 4.2 Perubahan Energi
+## BAB 4. Bumi dan Alam Semesta
 
-### Kompetensi
+Topik
 
-* Menjelaskan perubahan energi
-
-### Topik
-
-* Listrik menjadi panas
-* Listrik menjadi cahaya
-* Kimia menjadi gerak
-* Cahaya menjadi listrik
-
----
-
-## 4.3 Sumber Energi
-
-### Kompetensi
-
-* Mengidentifikasi sumber energi
-
-### Topik
-
-* Matahari
-* Air
-* Angin
-* Batu bara
-* Minyak bumi
-* Gas alam
-* Biomassa
-* Energi terbarukan
-
----
-
-# BAB 05. Gaya dan Gerak
-
-**Kode:** `SD.IPS.05`
-
-## 5.1 Gaya
-
-### Kompetensi
-
-* Menjelaskan pengaruh gaya
-
-### Topik
-
-* Gaya dorong
-* Gaya tarik
-* Gaya gravitasi
-* Gaya magnet
-* Gaya gesek
-* Gaya pegas
-
----
-
-## 5.2 Gerak
-
-### Kompetensi
-
-* Menjelaskan hubungan gaya dan gerak
-
-### Topik
-
-* Gerak lurus
-* Kecepatan sederhana
-* Perubahan arah
-* Perubahan bentuk benda
-
----
-
-# BAB 06. Bumi dan Antariksa
-
-**Kode:** `SD.IPS.06`
-
-## 6.1 Tata Surya
-
-### Kompetensi
-
-* Mengenal anggota tata surya
-
-### Topik
-
-* Matahari
-* Merkurius
-* Venus
-* Bumi
-* Mars
-* Jupiter
-* Saturnus
-* Uranus
-* Neptunus
-
----
-
-## 6.2 Fenomena Alam
-
-### Kompetensi
-
-* Menjelaskan fenomena alam
-
-### Topik
-
-* Rotasi bumi
-* Revolusi bumi
-* Siang dan malam
-* Pergantian musim
-* Gerhana matahari
-* Gerhana bulan
-* Fase bulan
-
----
-
-## 6.3 Cuaca dan Iklim
-
-### Kompetensi
-
-* Mengidentifikasi kondisi atmosfer
-
-### Topik
-
+* Litosfer
+* Hidrosfer
+* Atmosfer
 * Cuaca
 * Iklim
-* Awan
-* Hujan
-* Angin
-* Suhu
-* Kelembapan
 
 ---
 
-## 6.4 Bencana Alam
+## BAB 5. Sumber Daya Alam
 
-### Kompetensi
+Topik
 
-* Menjelaskan penyebab dan mitigasi bencana
-
-### Topik
-
-* Gempa bumi
-* Gunung api
-* Tsunami
-* Banjir
-* Tanah longsor
-* Kekeringan
-* Mitigasi bencana
+* SDA hayati
+* SDA nonhayati
+* Pemanfaatan
+* Pelestarian
 
 ---
 
-# BAB 07. Ekologi dan Lingkungan
+## BAB 6. Keragaman Budaya
 
-**Kode:** `SD.IPS.07`
-
-## 7.1 Ekosistem
-
-### Kompetensi
-
-* Menjelaskan komponen ekosistem
-
-### Topik
-
-* Individu
-* Populasi
-* Komunitas
-* Ekosistem
-* Biotik
-* Abiotik
-
----
-
-## 7.2 Interaksi Makhluk Hidup
-
-### Kompetensi
-
-* Menganalisis hubungan antarorganisme
-
-### Topik
-
-* Simbiosis mutualisme
-* Simbiosis komensalisme
-* Simbiosis parasitisme
-* Rantai makanan
-* Jaring makanan
-* Piramida makanan
-
----
-
-## 7.3 Pelestarian Lingkungan
-
-### Kompetensi
-
-* Menunjukkan perilaku menjaga lingkungan
-
-### Topik
-
-* Daur ulang
-* Reduce
-* Reuse
-* Recycle
-* Pencemaran udara
-* Pencemaran air
-* Pencemaran tanah
-* Konservasi
-* Reboisasi
-
----
-
-# BAB 08. Kehidupan Bermasyarakat
-
-**Kode:** `SD.IPS.08`
-
-## 8.1 Sejarah Indonesia
-
-### Kompetensi
-
-* Mengenal perkembangan sejarah bangsa
-
-### Topik
-
-* Kerajaan Hindu
-* Kerajaan Buddha
-* Kerajaan Islam
-* Masa penjajahan
-* Pergerakan nasional
-* Proklamasi
-* Tokoh kemerdekaan
-
----
-
-## 8.2 Geografi Indonesia
-
-### Kompetensi
-
-* Memahami kondisi geografis Indonesia
-
-### Topik
-
-* Letak geografis
-* Letak astronomis
-* Pulau besar
-* Provinsi
-* Bentang alam
-* Sungai
-* Gunung
-* Laut
-
----
-
-## 8.3 Kegiatan Ekonomi
-
-### Kompetensi
-
-* Memahami aktivitas ekonomi
-
-### Topik
-
-* Kebutuhan
-* Barang
-* Jasa
-* Produksi
-* Distribusi
-* Konsumsi
-* Uang
-* Pasar
-
----
-
-## 8.4 Keberagaman Indonesia
-
-### Kompetensi
-
-* Menghargai keberagaman
-
-### Topik
+Topik
 
 * Suku bangsa
 * Bahasa daerah
 * Rumah adat
 * Pakaian adat
-* Tarian daerah
-* Lagu daerah
-* Upacara adat
+* Kearifan lokal
 
 ---
 
-## 8.5 Pancasila dan Kewarganegaraan
+## BAB 7. Kebutuhan Manusia
 
-### Kompetensi
+Topik
 
-* Menerapkan nilai Pancasila
+* Kebutuhan
+* Keinginan
+* Produksi
+* Distribusi
+* Konsumsi
 
-### Topik
+---
 
-* Lambang negara
-* Garuda Pancasila
-* Lima sila Pancasila
-* Hak anak
-* Kewajiban anak
+## BAB 8. Kehidupan Bermasyarakat
+
+Topik
+
+* Norma
 * Aturan
-* Gotong royong
-* Musyawarah
+* Hak
+* Kewajiban
+* Tanggung jawab
 
 ---
 
-# Struktur Database Siap Import
+# KELAS 5
 
-| Kolom             | Contoh                                                          |
-| ----------------- | --------------------------------------------------------------- |
-| curriculum_code   | TKAD-DIY-SD-2026                                                |
-| jenjang           | SD                                                              |
-| fase              | B/C                                                             |
-| kelas             | 4/5/6                                                           |
-| mapel_code        | IPS                                                             |
-| mapel             | IPAS                                                            |
-| bab_code          | SD.IPS.04                                                       |
-| bab               | Energi                                                          |
-| subbab_code       | SD.IPS.04.02                                                    |
-| subbab            | Perubahan Energi                                                |
-| competency_code   | SD.IPS.04.02.001                                                |
-| kompetensi        | Menjelaskan perubahan bentuk energi dalam kehidupan sehari-hari |
-| topic_code        | SD.IPS.04.02.001.002                                            |
-| topic             | Listrik menjadi cahaya                                          |
-| level_kognitif    | L1 / L2 / L3                                                    |
-| tingkat_kesulitan | Mudah / Sedang / Sulit                                          |
-| status            | Active                                                          |
-| sort_order        | 1                                                               |
+## BAB 1. Sistem Organ Tubuh
 
-# Ringkasan Cakupan
+Topik
 
-| Komponen   | Estimasi |
-| ---------- | -------: |
-| Bab        |        8 |
-| Subbab     |       24 |
-| Kompetensi |      ±60 |
-| Topik      |     ±140 |
+* Pencernaan
+* Pernapasan
+* Peredaran darah
+* Rangka
+* Otot
 
-### Rekomendasi untuk YakinLulus.id
+---
 
-Untuk analisis hasil ujian yang lebih akurat, tambahkan dua atribut pada setiap `topic`:
+## BAB 2. Zat dan Perubahannya
 
-* `assessment_weight` (0–100): bobot topik dalam blueprint TKA/TKAD.
-* `prerequisite_topic_id`: relasi ke topik prasyarat sehingga AI dapat mendeteksi akar kelemahan siswa dan menyusun jalur belajar yang lebih efektif. Struktur ini juga memudahkan penyusunan paket soal adaptif dan rekomendasi materi berdasarkan capaian kompetensi.
+Topik
+
+* Campuran
+* Larutan
+* Perubahan fisika
+* Perubahan kimia
+
+---
+
+## BAB 3. Energi dan Listrik
+
+Topik
+
+* Listrik
+* Konduktor
+* Isolator
+* Rangkaian listrik
+* Energi alternatif
+
+---
+
+## BAB 4. Bumi
+
+Topik
+
+* Gunung
+* Gempa
+* Gunung api
+* Siklus air
+* Mitigasi bencana
+
+---
+
+## BAB 5. Interaksi Makhluk Hidup
+
+Topik
+
+* Ekosistem
+* Jaring makanan
+* Simbiosis
+* Adaptasi
+* Konservasi
+
+---
+
+## BAB 6. Kegiatan Ekonomi
+
+Topik
+
+* Produksi
+* Distribusi
+* Konsumsi
+* UMKM
+* Pasar
+
+---
+
+## BAB 7. Indonesia
+
+Topik
+
+* Letak geografis
+* Kenampakan alam
+* Keragaman budaya
+* Potensi daerah
+
+---
+
+# KELAS 6
+
+## BAB 1. Organisme dan Lingkungan
+
+Topik
+
+* Populasi
+* Komunitas
+* Ekosistem
+* Keanekaragaman hayati
+
+---
+
+## BAB 2. Energi dan Teknologi
+
+Topik
+
+* Energi terbarukan
+* Energi fosil
+* Teknologi sederhana
+* Teknologi ramah lingkungan
+
+---
+
+## BAB 3. Tata Surya
+
+Topik
+
+* Matahari
+* Planet
+* Satelit
+* Gerhana
+* Rotasi
+* Revolusi
+
+---
+
+## BAB 4. Perubahan Lingkungan
+
+Topik
+
+* Pemanasan global
+* Pencemaran
+* Perubahan iklim
+* Konservasi
+
+---
+
+## BAB 5. Sejarah Indonesia
+
+Topik
+
+* Masa praaksara
+* Kerajaan Nusantara
+* Kolonialisme
+* Pergerakan nasional
+* Kemerdekaan Indonesia
+
+---
+
+## BAB 6. Globalisasi
+
+Topik
+
+* Teknologi informasi
+* Transportasi
+* Komunikasi
+* Dampak globalisasi
+
+---
+
+## BAB 7. Kewargaan dan Masyarakat
+
+Topik
+
+* Hak dan kewajiban
+* Demokrasi
+* Musyawarah
+* Keberagaman
+* Persatuan
+
+---
+
+# Kompetensi Lulusan SD
+
+Pada akhir jenjang SD, peserta didik diharapkan menguasai kompetensi berikut:
+
+### A. Sains
+
+* Mengidentifikasi makhluk hidup
+* Memahami sistem organ sederhana
+* Memahami benda dan sifatnya
+* Memahami energi dan perubahannya
+* Memahami gaya dan gerak
+* Memahami bumi dan tata surya
+* Memahami lingkungan dan konservasi
+
+### B. Ilmu Sosial
+
+* Memahami keluarga dan masyarakat
+* Mengenal keragaman budaya Indonesia
+* Memahami kegiatan ekonomi
+* Membaca peta sederhana
+* Memahami sejarah Indonesia
+* Memahami globalisasi
+
+### C. Keterampilan Proses
+
+* Mengamati
+* Mengelompokkan
+* Mengukur
+* Menanya
+* Menyusun hipotesis sederhana
+* Melakukan percobaan sederhana
+* Mengumpulkan data
+* Menafsirkan data
+* Menarik kesimpulan
+* Mengomunikasikan hasil
+
+### D. Karakter dan Profil Pelajar Pancasila
+
+* Bernalar kritis
+* Gotong royong
+* Mandiri
+* Kreatif
+* Berkebinekaan global
+* Beriman dan berakhlak mulia
+
+Hierarki ini berada pada level **Mata Pelajaran → Fase → Kelas → Bab → Subbab → Kompetensi → Topik** dan dapat langsung dipetakan ke basis data. Untuk implementasi bank soal dan bank materi, struktur ini dapat diperluas lagi menjadi **Subtopik → Capaian Pembelajaran (CP) → Tujuan Pembelajaran (TP) → Indikator Pembelajaran → Indikator Soal → Level Kognitif (C1–C6) → Tingkat Kesulitan → Blueprint TKA/TKAD**, sehingga menghasilkan sekitar **2.500–3.500 node** yang siap digunakan dalam sistem pembelajaran adaptif. ([Guru Kemendikdasmen][2])
+
+[1]: https://ditsd.kemendikdasmen.go.id/artikel/detail/hal-hal-esensial-kurikulum-merdeka-di-jenjang-sd?utm_source=chatgpt.com "Hal-hal Esensial Kurikulum Merdeka di Jenjang SD"
+[2]: https://guru.kemendikdasmen.go.id/kurikulum/referensi-penerapan/capaian-pembelajaran/sd-sma/ilmu-pengetahuan-alam-dan-sosial-ipas/?utm_source=chatgpt.com "Inspirasi ATP - Ilmu Pengetahuan Alam dan Sosial (IPAS) SD-SMA"

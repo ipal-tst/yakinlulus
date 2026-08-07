@@ -1,0 +1,559 @@
+Berikut adalah **hierarki lengkap mata pelajaran Matematika SMA** berdasarkan **Kurikulum Merdeka** yang juga mencakup kompetensi yang umum diujikan pada asesmen sekolah, TKA, dan seleksi masuk perguruan tinggi. Struktur ini dibuat hingga level **topik** sehingga siap dikembangkan menjadi database bank materi maupun bank soal.
+
+---
+
+# HIERARKI MATEMATIKA SMA
+
+```
+Matematika SMA
+├── Kelas X
+├── Kelas XI
+│   ├── Matematika Wajib
+│   └── Matematika Peminatan (bagi sekolah yang masih menerapkan transisi)
+└── Kelas XII
+    ├── Matematika Wajib
+    └── Matematika Lanjut
+```
+
+---
+
+# KELAS X
+
+## BAB 1. Bilangan Berpangkat, Bentuk Akar, dan Logaritma
+
+### Subbab 1.1 Bilangan Berpangkat
+
+**Kompetensi**
+
+* Memahami sifat eksponen
+* Menyederhanakan bentuk berpangkat
+
+**Topik**
+
+* Pangkat positif
+* Pangkat nol
+* Pangkat negatif
+* Pangkat pecahan
+* Pangkat rasional
+* Operasi eksponen
+* Persamaan eksponen sederhana
+* Pertidaksamaan eksponen
+
+---
+
+### Subbab 1.2 Bentuk Akar
+
+**Kompetensi**
+
+* Mengoperasikan bentuk akar
+
+Topik
+
+* Pengertian akar
+* Menyederhanakan akar
+* Operasi akar
+* Rasionalisasi penyebut
+* Persamaan bentuk akar
+
+---
+
+### Subbab 1.3 Logaritma
+
+Kompetensi
+
+* Menggunakan sifat logaritma
+
+Topik
+
+* Definisi logaritma
+* Sifat logaritma
+* Perubahan basis
+* Persamaan logaritma
+* Pertidaksamaan logaritma
+
+---
+
+# BAB 2. Fungsi
+
+## Subbab 2.1 Konsep Fungsi
+
+Kompetensi
+
+* Memahami relasi dan fungsi
+
+Topik
+
+* Domain
+* Kodomain
+* Range
+* Notasi fungsi
+* Nilai fungsi
+* Grafik fungsi
+
+---
+
+## Subbab 2.2 Operasi Fungsi
+
+Topik
+
+* Penjumlahan fungsi
+* Pengurangan fungsi
+* Perkalian fungsi
+* Pembagian fungsi
+
+---
+
+## Subbab 2.3 Fungsi Komposisi
+
+Topik
+
+* Komposisi fungsi
+* Menentukan hasil komposisi
+
+---
+
+## Subbab 2.4 Fungsi Invers
+
+Topik
+
+* Menentukan invers
+* Verifikasi invers
+* Komposisi invers
+
+---
+
+# BAB 3. Persamaan dan Pertidaksamaan
+
+## Subbab 3.1 Persamaan Linear
+
+Topik
+
+* SPLDV
+* SPLTV
+* Eliminasi
+* Substitusi
+* Matriks sederhana
+
+---
+
+## Subbab 3.2 Persamaan Kuadrat
+
+Topik
+
+* Pemfaktoran
+* Rumus kuadrat
+* Melengkapkan kuadrat
+* Diskriminan
+
+---
+
+## Subbab 3.3 Pertidaksamaan
+
+Topik
+
+* Linear
+* Kuadrat
+* Pecahan
+* Nilai mutlak
+
+---
+
+# BAB 4. Trigonometri Dasar
+
+## Subbab 4.1 Sudut
+
+Topik
+
+* Derajat
+* Radian
+* Konversi
+
+---
+
+## Subbab 4.2 Perbandingan Trigonometri
+
+Topik
+
+* Sin
+* Cos
+* Tan
+* Cosec
+* Sec
+* Cot
+
+---
+
+## Subbab 4.3 Identitas Dasar
+
+Topik
+
+* Identitas Pythagoras
+* Identitas sederhana
+
+---
+
+## Subbab 4.4 Aplikasi
+
+Topik
+
+* Tinggi benda
+* Sudut elevasi
+* Sudut depresi
+
+---
+
+# BAB 5. Vektor
+
+## Subbab 5.1 Konsep Vektor
+
+Topik
+
+* Besar vektor
+* Arah vektor
+
+---
+
+## Subbab 5.2 Operasi
+
+Topik
+
+* Penjumlahan
+* Pengurangan
+* Perkalian skalar
+
+---
+
+## Subbab 5.3 Dot Product
+
+Topik
+
+* Sudut antar vektor
+* Panjang vektor
+
+---
+
+## Subbab 5.4 Aplikasi
+
+Topik
+
+* Geometri
+* Fisika
+
+---
+
+# BAB 6. Statistika
+
+## Subbab 6.1 Penyajian Data
+
+Topik
+
+* Histogram
+* Poligon
+* Ogive
+* Diagram batang
+* Diagram lingkaran
+
+---
+
+## Subbab 6.2 Ukuran Pemusatan
+
+Topik
+
+* Mean
+* Median
+* Modus
+
+---
+
+## Subbab 6.3 Ukuran Penyebaran
+
+Topik
+
+* Jangkauan
+* Varians
+* Simpangan baku
+* Kuartil
+* Persentil
+
+---
+
+# BAB 7. Peluang
+
+## Subbab 7.1 Kaidah Pencacahan
+
+Topik
+
+* Aturan perkalian
+* Faktorial
+
+---
+
+## Subbab 7.2 Permutasi
+
+Topik
+
+* Permutasi unsur berbeda
+* Permutasi unsur sama
+* Permutasi siklis
+
+---
+
+## Subbab 7.3 Kombinasi
+
+Topik
+
+* Kombinasi dasar
+* Kombinasi aplikasi
+
+---
+
+## Subbab 7.4 Peluang
+
+Topik
+
+* Ruang sampel
+* Kejadian
+* Peluang bersyarat
+* Kejadian bebas
+
+---
+
+# KELAS XI
+
+# BAB 1. Fungsi Kuadrat Lanjut
+
+Topik
+
+* Grafik parabola
+* Transformasi
+* Titik puncak
+* Nilai optimum
+
+---
+
+# BAB 2. Fungsi Eksponensial
+
+Topik
+
+* Grafik
+* Pertumbuhan
+* Peluruhan
+
+---
+
+# BAB 3. Fungsi Logaritma
+
+Topik
+
+* Grafik
+* Persamaan
+* Aplikasi
+
+---
+
+# BAB 4. Trigonometri Lanjut
+
+Topik
+
+* Identitas
+* Rumus jumlah sudut
+* Rumus selisih sudut
+* Sudut rangkap
+* Setengah sudut
+* Persamaan trigonometri
+
+---
+
+# BAB 5. Matriks
+
+Topik
+
+* Jenis matriks
+* Operasi
+* Determinan
+* Invers
+* SPL dengan matriks
+
+---
+
+# BAB 6. Transformasi Geometri
+
+Topik
+
+* Translasi
+* Refleksi
+* Rotasi
+* Dilatasi
+* Komposisi transformasi
+
+---
+
+# BAB 7. Barisan dan Deret
+
+Topik
+
+* Barisan aritmetika
+* Deret aritmetika
+* Barisan geometri
+* Deret geometri
+* Deret tak hingga
+
+---
+
+# BAB 8. Lingkaran
+
+Topik
+
+* Persamaan lingkaran
+* Garis singgung
+* Kedudukan titik
+* Kedudukan garis
+
+---
+
+# BAB 9. Statistika
+
+Topik
+
+* Distribusi frekuensi
+* Mean kelompok
+* Median kelompok
+* Modus kelompok
+* Varians kelompok
+
+---
+
+# KELAS XII
+
+# BAB 1. Limit Fungsi
+
+Topik
+
+* Limit aljabar
+* Limit trigonometri
+* Limit tak hingga
+
+---
+
+# BAB 2. Turunan
+
+Topik
+
+* Definisi turunan
+* Aturan turunan
+* Turunan fungsi trigonometri
+* Turunan eksponensial
+* Turunan logaritma
+* Maksimum minimum
+* Optimasi
+* Kecepatan sesaat
+
+---
+
+# BAB 3. Integral
+
+Topik
+
+* Integral tak tentu
+* Integral tentu
+* Luas daerah
+* Volume benda putar
+* Teorema dasar kalkulus
+
+---
+
+# BAB 4. Program Linear
+
+Topik
+
+* Sistem pertidaksamaan
+* Daerah solusi
+* Fungsi objektif
+* Optimasi
+
+---
+
+# BAB 5. Dimensi Tiga
+
+Topik
+
+* Titik
+* Garis
+* Bidang
+* Jarak
+* Sudut
+
+---
+
+# BAB 6. Peluang Lanjut
+
+Topik
+
+* Distribusi binomial
+* Distribusi normal
+* Nilai harapan
+* Varians peluang
+
+---
+
+# BAB 7. Statistika Lanjut
+
+Topik
+
+* Regresi linear
+* Korelasi
+* Interpretasi data
+* Prediksi
+
+---
+
+# BAB 8. Kalkulus Lanjut (Matematika Lanjut)
+
+Topik
+
+* Integral substitusi
+* Integral parsial
+* Integral trigonometri
+* Persamaan diferensial sederhana
+* Deret Taylor (pengantar)
+
+---
+
+# BAB 9. Vektor Ruang
+
+Topik
+
+* Vektor 3D
+* Dot product
+* Cross product
+* Persamaan garis ruang
+* Persamaan bidang
+
+---
+
+# Kompetensi Utama Lulusan SMA
+
+Kompetensi secara umum yang harus dikuasai meliputi:
+
+1. Bilangan dan Aljabar
+2. Fungsi dan Grafik
+3. Persamaan dan Pertidaksamaan
+4. Eksponen, Akar, dan Logaritma
+5. Trigonometri
+6. Geometri Analitik
+7. Vektor
+8. Matriks
+9. Transformasi Geometri
+10. Barisan dan Deret
+11. Statistika
+12. Peluang
+13. Limit
+14. Turunan
+15. Integral
+16. Program Linear
+17. Dimensi Tiga
+18. Pemodelan Matematika
+19. Penalaran Matematis
+20. Pemecahan Masalah Matematis
+
+Struktur tersebut sudah berada pada level **Mata Pelajaran → Kelas → Bab → Subbab → Kompetensi → Topik**, sehingga dapat langsung dipetakan ke tabel master kurikulum atau diimpor ke basis data bank materi dan bank soal. Untuk kebutuhan edutech seperti **YakinLulus.id**, struktur ini masih dapat diperinci lagi hingga level **subtopik, indikator pembelajaran, capaian pembelajaran (CP), tujuan pembelajaran (TP), indikator soal, level kognitif (C1–C6), tingkat kesulitan, dan blueprint TKA/SNBT**, yang menghasilkan sekitar **2.500–4.000 node** hierarki.
