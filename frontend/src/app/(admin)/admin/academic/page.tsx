@@ -123,9 +123,12 @@ export default function AdminAcademicPage() {
     }
 
     if (selectedGrade) {
+      const filteredSubjects = (subjectsQuery.data || []).filter((s) =>
+        !selectedLevel || s.level_id === selectedLevel
+      );
       return (
         <SubjectTable
-          subjects={subjectsQuery.data || []}
+          subjects={filteredSubjects}
           onSelect={handleSubjectSelect}
           onEdit={(subject) => { setEditingSubject(subject); setSubjectDialogOpen(true); }}
           selectedSubject={selectedSubject}
@@ -351,7 +354,8 @@ export default function AdminAcademicPage() {
                   <span className="text-xs text-muted-foreground/70 italic">Semua Jenjang</span>
                 )}
                 {selectedGradeData && (
-                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-secondary/10 text-secondary rounded-lg text-xs font-semibold">
+                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold">
+                    <GraduationCap className="h-3.5 w-3.5" />
                     {selectedGradeData.name}
                   </div>
                 )}
