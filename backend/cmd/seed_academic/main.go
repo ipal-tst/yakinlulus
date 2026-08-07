@@ -128,11 +128,11 @@ func seedMapel(ctx context.Context, pool *pgxpool.Pool, levelID, curID uuid.UUID
 	var existing uuid.UUID
 	err = tx.QueryRow(ctx, `SELECT id FROM academic.subject WHERE code=$1`, m.Code).Scan(&existing)
 	if err == nil {
-		tx.Commit(ctx)
-		log.Printf("skip %s (subject exists)", m.Code)
-		return nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+		if _, err := tx.Exec(ctx, `DELETE FROM academic.subject WHERE id=$1`, existing); err != nil {
+			return fmt.Errorf("delete existing subject %s: %w", m.Code, err)
+		}
+		log.Printf("refreshing %s (seeding chapters, subchapters, topics, competencies, & learning_outcomes)", m.Code)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 
@@ -169,6 +169,27 @@ func seedMapel(ctx context.Context, pool *pgxpool.Pool, levelID, curID uuid.UUID
 				scID, chID, scCode, sb.Title, si+1, tujuan); err != nil {
 				return fmt.Errorf("subchapter %s: %w", scCode, err)
 			}
+
+			// Seed Competency (KD) & Learning Outcome (CP)
+			compID := uuid.New()
+			compCode := fmt.Sprintf("KD%d.%d", bi+1, si+1)
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO academic.competency (id, chapter_id, code, title, description, difficulty_level, is_active)
+				 VALUES ($1,$2,$3,$4,$5,'MEDIUM',true)`,
+				compID, chID, compCode, sb.Title, sb.Title); err != nil {
+				return fmt.Errorf("competency %s: %w", compCode, err)
+			}
+
+			for li, t := range sb.Tujuan {
+				loID := uuid.New()
+				if _, err := tx.Exec(ctx,
+					`INSERT INTO academic.learning_outcome (id, competency_id, title, description, blooms_level)
+					 VALUES ($1,$2,$3,NULL,'UNDERSTAND')`,
+					loID, compID, t); err != nil {
+					return fmt.Errorf("learning_outcome %d: %w", li, err)
+				}
+			}
+
 			// Batched topic insert (multi-row) per subchapter.
 			if len(sb.Topik) > 0 {
 				var sbSQL strings.Builder
