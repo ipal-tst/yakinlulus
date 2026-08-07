@@ -13,26 +13,44 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { academicMasterService } from "@/services/academic-master.service";
-import type { EducationLevel, Grade, Subject } from "@/types/academic-master";
+import type { EducationLevel, Grade, Subject, Curriculum, Program } from "@/types/academic-master";
 import { LevelTable } from "@/components/table/LevelTable";
 import { GradeTable } from "@/components/table/GradeTable";
 import { SubjectTable } from "@/components/table/SubjectTable";
+import { CurriculumTable } from "@/components/table/CurriculumTable";
+import { ProgramTable } from "@/components/table/ProgramTable";
 import BabTable from "./bab/BabTable";
 import { LevelFormDialog } from "./forms/LevelFormDialog";
 import { GradeFormDialog } from "./forms/GradeFormDialog";
 import { SubjectFormDialog } from "./forms/SubjectFormDialog";
+import { CurriculumFormDialog } from "./forms/CurriculumFormDialog";
+import { ProgramFormDialog } from "./forms/ProgramFormDialog";
 
 export default function AdminAcademicPage() {
+  const [activeTab, setActiveTab] = useState("hierarchy");
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [editingLevel, setEditingLevel] = useState<any>(null);
+  const [editingGrade, setEditingGrade] = useState<any>(null);
+  const [editingSubject, setEditingSubject] = useState<any>(null);
+  const [editingCurriculum, setEditingCurriculum] = useState<Curriculum | null>(null);
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
 
   // Form dialog states
   const [levelDialogOpen, setLevelDialogOpen] = useState(false);
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
+  const [curriculumDialogOpen, setCurriculumDialogOpen] = useState(false);
+  const [programDialogOpen, setProgramDialogOpen] = useState(false);
 
   // Fetch data based on selection
   const levelsQuery = useQuery({
@@ -52,6 +70,18 @@ export default function AdminAcademicPage() {
       ? academicMasterService.getSubjects(selectedLevel, selectedGrade) 
       : Promise.resolve([]),
     enabled: !!selectedLevel && !!selectedGrade,
+  });
+
+  const curriculumsQuery = useQuery({
+    queryKey: ["academic-curriculums"],
+    queryFn: academicMasterService.getCurriculums,
+    enabled: activeTab === "curriculum",
+  });
+
+  const programsQuery = useQuery({
+    queryKey: ["academic-programs"],
+    queryFn: academicMasterService.getPrograms,
+    enabled: activeTab === "program",
   });
 
   const selectedLevelData = selectedLevel ? levelsQuery.data?.find(l => l.id === selectedLevel) : null;
@@ -93,6 +123,7 @@ export default function AdminAcademicPage() {
         <SubjectTable
           subjects={subjectsQuery.data || []}
           onSelect={handleSubjectSelect}
+          onEdit={(subject) => { setEditingSubject(subject); setSubjectDialogOpen(true); }}
           selectedSubject={selectedSubject}
         />
       );
@@ -103,6 +134,7 @@ export default function AdminAcademicPage() {
         <GradeTable
           grades={gradesQuery.data?.map(g => ({ ...g, alias: g.alias ?? null })) || []}
           onSelect={handleGradeSelect}
+          onEdit={(grade) => { setEditingGrade(grade); setGradeDialogOpen(true); }}
           selectedGrade={selectedGrade}
         />
       );
@@ -111,6 +143,7 @@ export default function AdminAcademicPage() {
     return (
       <LevelTable
         levels={levelsQuery.data || []}
+        onEdit={(level) => { setEditingLevel(level); setLevelDialogOpen(true); }}
         onToggleStatus={() => {}}
         onDelete={() => {}}
       />
@@ -118,6 +151,24 @@ export default function AdminAcademicPage() {
   };
 
   const getActions = () => {
+    if (activeTab === "curriculum") {
+      return (
+        <Button onClick={() => { setEditingCurriculum(null); setCurriculumDialogOpen(true); }} className="rounded-xl">
+          <Plus className="mr-2 h-4 w-4" />
+          Tambah Kurikulum
+        </Button>
+      );
+    }
+
+    if (activeTab === "program") {
+      return (
+        <Button onClick={() => { setEditingProgram(null); setProgramDialogOpen(true); }} className="rounded-xl">
+          <Plus className="mr-2 h-4 w-4" />
+          Tambah Program
+        </Button>
+      );
+    }
+
     if (selectedSubject) {
       return null; // Bab actions handled in BabTable
     }
@@ -157,102 +208,139 @@ export default function AdminAcademicPage() {
           actions={getActions()}
         />
 
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center justify-between">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/staff" className="text-muted-foreground hover:text-foreground">
-                  <Home className="h-3.5 w-3.5" />
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-foreground">Master Akademik</BreadcrumbPage>
-              </BreadcrumbItem>
-              {selectedLevelData && (
-                <>
+        {/* Tabs & Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-muted p-1 rounded-xl">
+            <TabsTrigger value="hierarchy" className="rounded-lg">Jenjang & Kelas</TabsTrigger>
+            <TabsTrigger value="curriculum" className="rounded-lg">Kurikulum</TabsTrigger>
+            <TabsTrigger value="program" className="rounded-lg">Program</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="hierarchy" className="space-y-6 m-0">
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center justify-between">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink href="/staff" className="text-muted-foreground hover:text-foreground">
+                      <Home className="h-3.5 w-3.5" />
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    <button
-                      onClick={() => setSelectedLevel(null)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {selectedLevelData.name}
-                    </button>
+                    <BreadcrumbPage className="text-foreground">Master Akademik</BreadcrumbPage>
                   </BreadcrumbItem>
-                </>
-              )}
-              {selectedGradeData && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <button
-                      onClick={() => setSelectedGrade(null)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {selectedGradeData.name}
-                    </button>
-                  </BreadcrumbItem>
-                </>
-              )}
-              {selectedSubjectData && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <button
-                      onClick={() => setSelectedSubject(null)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {selectedSubjectData.name}
-                    </button>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
+                  {selectedLevelData && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <button
+                          onClick={() => setSelectedLevel(null)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {selectedLevelData.name}
+                        </button>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                  {selectedGradeData && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <button
+                          onClick={() => setSelectedGrade(null)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {selectedGradeData.name}
+                        </button>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                  {selectedSubjectData && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <button
+                          onClick={() => setSelectedSubject(null)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {selectedSubjectData.name}
+                        </button>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
 
-          {selectedLevel && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBack}
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-              Kembali
-            </Button>
-          )}
-        </div>
+              {selectedLevel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBack}
+                  className="gap-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                  Kembali
+                </Button>
+              )}
+            </div>
 
-        {/* Filter Bar - Show current selection */}
-        <div className="flex items-center gap-2 p-4 bg-card rounded-xl border border-border/50">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">Filter:</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            {selectedLevelData && (
-              <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium">
-                <GraduationCap className="h-3.5 w-3.5" />
-                {selectedLevelData.name}
+            {/* Filter Bar - Show current selection */}
+            <div className="flex items-center gap-2 p-4 bg-card rounded-xl border border-border/50">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Filter:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedLevelData && (
+                  <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    {selectedLevelData.name}
+                  </div>
+                )}
+                {selectedGradeData && (
+                  <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-secondary/10 text-secondary rounded-lg text-sm font-medium">
+                    {selectedGradeData.name}
+                  </div>
+                )}
+                {selectedSubjectData && (
+                  <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-sm font-medium">
+                    {selectedSubjectData.name}
+                  </div>
+                )}
               </div>
-            )}
-            {selectedGradeData && (
-              <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-secondary/10 text-secondary rounded-lg text-sm font-medium">
-                {selectedGradeData.name}
-              </div>
-            )}
-            {selectedSubjectData && (
-              <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-sm font-medium">
-                {selectedSubjectData.name}
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Main Content */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-          {renderContent()}
-        </div>
+            {/* Main Content */}
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
+              {renderContent()}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="curriculum" className="m-0">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
+              <CurriculumTable
+                curriculums={curriculumsQuery.data || []}
+                onEdit={(curr) => {
+                  setEditingCurriculum(curr);
+                  setCurriculumDialogOpen(true);
+                }}
+                onDelete={(curr) => academicMasterService.deleteCurriculum(curr.id).then(() => curriculumsQuery.refetch())}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="program" className="m-0">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
+              <ProgramTable
+                programs={programsQuery.data || []}
+                onEdit={(prog) => {
+                  setEditingProgram(prog);
+                  setProgramDialogOpen(true);
+                }}
+                onDelete={(prog) => academicMasterService.deleteProgram(prog.id).then(() => programsQuery.refetch())}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Form Dialogs */}
@@ -270,6 +358,24 @@ export default function AdminAcademicPage() {
         open={subjectDialogOpen}
         onClose={() => setSubjectDialogOpen(false)}
         onSuccess={() => setSubjectDialogOpen(false)}
+      />
+      <CurriculumFormDialog
+        open={curriculumDialogOpen}
+        onClose={() => setCurriculumDialogOpen(false)}
+        onSuccess={() => {
+          setCurriculumDialogOpen(false);
+          curriculumsQuery.refetch();
+        }}
+        editing={editingCurriculum}
+      />
+      <ProgramFormDialog
+        open={programDialogOpen}
+        onClose={() => setProgramDialogOpen(false)}
+        onSuccess={() => {
+          setProgramDialogOpen(false);
+          programsQuery.refetch();
+        }}
+        editing={editingProgram}
       />
     </AppShell>
   );

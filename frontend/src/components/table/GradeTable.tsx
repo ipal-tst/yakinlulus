@@ -2,11 +2,11 @@
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, MoreHorizontal } from "lucide-react";
+import { GraduationCap, MoreHorizontal, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Grade } from "@/types/academic-master";
 
-export function GradeTable({ grades, onSelect, selectedGrade }: { grades: (Grade & { alias: string | null | undefined })[]; onSelect: (gradeId: string) => void; selectedGrade: string | null }) {
+export function GradeTable({ grades, onSelect, onEdit, selectedGrade }: { grades: (Grade & { alias: string | null | undefined })[]; onSelect: (gradeId: string) => void; onEdit: (grade: any) => void; selectedGrade: string | null }) {
   const columns: Column<Grade & { alias: string | null | undefined }>[] = [
     {
       header: "Kelas",
@@ -54,6 +54,10 @@ export function GradeTable({ grades, onSelect, selectedGrade }: { grades: (Grade
             <DropdownMenuItem onSelect={() => onSelect(row.id)} className="gap-2">
               <GraduationCap className="h-4 w-4" />
               Lihat Mata Pelajaran
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
+              <Pencil className="h-4 w-4" />
+              Edit
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

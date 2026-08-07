@@ -1,38 +1,27 @@
-// src/components/table/LevelTable.tsx
+// src/components/table/CurriculumTable.tsx
 "use client";
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { GraduationCap, MoreHorizontal, Power, Trash2, Pencil } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { BookOpen, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import type { Curriculum } from "@/types/academic-master";
 
-interface LevelTableProps {
-  levels: {
-    id: string;
-    name: string;
-    code: string;
-    is_active: boolean;
-    display_order: number;
-  }[];
-  onEdit: (level: any) => void;
-  onToggleStatus: (level: { id: string }) => void;
-  onDelete: (level: { id: string }) => void;
+interface CurriculumTableProps {
+  curriculums: Curriculum[];
+  onEdit: (curriculum: Curriculum) => void;
+  onDelete: (curriculum: { id: string }) => void;
 }
 
-export function LevelTable({ levels, onEdit, onToggleStatus, onDelete }: LevelTableProps) {
-  const columns: Column<{ id: string; name: string; code: string; is_active: boolean; display_order: number }>[] = [
+export function CurriculumTable({ curriculums, onEdit, onDelete }: CurriculumTableProps) {
+  const columns: Column<Curriculum>[] = [
     {
-      header: "Jenjang",
+      header: "Kurikulum",
       accessorKey: "name",
       cell: (row) => (
-        <div className="flex items-center gap-1">
-          <GraduationCap className="h-3.5 w-3.5" /> {row.name}
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4" />
+          <span className="font-medium">{row.name}</span>
         </div>
       ),
     },
@@ -42,6 +31,11 @@ export function LevelTable({ levels, onEdit, onToggleStatus, onDelete }: LevelTa
       cell: (row) => <span>{row.code || "-"}</span>,
     },
     {
+      header: "Deskripsi",
+      accessorKey: "description",
+      cell: (row) => <span className="text-muted-foreground">{row.description || "-"}</span>,
+    },
+    {
       header: "Status",
       accessorKey: "is_active",
       cell: (row) => (
@@ -49,11 +43,6 @@ export function LevelTable({ levels, onEdit, onToggleStatus, onDelete }: LevelTa
           {row.is_active ? "Aktif" : "Non-aktif"}
         </Badge>
       ),
-    },
-    {
-      header: "Urutan",
-      accessorKey: "display_order",
-      cell: (row) => <span>{row.display_order}</span>,
     },
     {
       header: "Aksi",
@@ -68,10 +57,6 @@ export function LevelTable({ levels, onEdit, onToggleStatus, onDelete }: LevelTa
               <Pencil className="h-4 w-4" />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onToggleStatus(row)} className="gap-2">
-              <Power className="h-4 w-4" />
-              {row.is_active ? "Nonaktifkan" : "Aktifkan"}
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDelete(row)} className="text-destructive focus:text-destructive gap-2">
               <Trash2 className="h-4 w-4" />
               Hapus
@@ -82,5 +67,5 @@ export function LevelTable({ levels, onEdit, onToggleStatus, onDelete }: LevelTa
     },
   ];
 
-  return <DataTable columns={columns} data={levels} searchPlaceholder="Cari jenjang" />;
+  return <DataTable columns={columns} data={curriculums} searchPlaceholder="Cari kurikulum..." />;
 }

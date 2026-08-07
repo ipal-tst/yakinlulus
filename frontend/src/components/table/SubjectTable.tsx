@@ -2,11 +2,11 @@
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, MoreHorizontal } from "lucide-react";
+import { BookOpen, MoreHorizontal, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Subject } from "@/types/academic-master";
 
-export function SubjectTable({ subjects, onSelect, selectedSubject }: { subjects: (Subject & { grade_name: string | null })[]; onSelect: (subjectId: string) => void; selectedSubject: string | null }) {
+export function SubjectTable({ subjects, onSelect, onEdit, selectedSubject }: { subjects: (Subject & { grade_name: string | null })[]; onSelect: (subjectId: string) => void; onEdit: (subject: any) => void; selectedSubject: string | null }) {
   const columns: Column<Subject & { grade_name: string | null }>[] = [
     {
       header: "Mata Pelajaran",
@@ -59,6 +59,10 @@ export function SubjectTable({ subjects, onSelect, selectedSubject }: { subjects
             <DropdownMenuItem onSelect={() => onSelect(row.id)} className="gap-2">
               <BookOpen className="h-4 w-4" />
               Lihat Bab
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onEdit(row)} className="gap-2">
+              <Pencil className="h-4 w-4" />
+              Edit
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

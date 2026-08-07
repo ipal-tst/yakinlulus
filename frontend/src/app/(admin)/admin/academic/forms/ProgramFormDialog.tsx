@@ -1,0 +1,160 @@
+// src/app/(admin)/admin/academic/forms/ProgramFormDialog.tsx
+"use client";
+
+import * as React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { academicMasterService } from "@/services/academic-master.service";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
+const educationLevels = ["SD", "SMP", "SMA", "GapYear"] as const;
+
+const schema = z.object({
+    name: z.string().min(1, "Nama program wajib diisi"),
+    code: z.string().min(1, "Kode program wajib diisi"),
+    education_level: z.string().min(1, "Jenjang pendidikan wajib dipilih"),
+    description: z.string().optional(),
+    is_active: z.boolean(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+interface ProgramFormDialogProps {
+    open: boolean;
+    onClose: () => void;
+    onSuccess?: () => void;
+    editing?: {
+        id: string;
+        name: string;
+        code: string;
+        education_level: string;
+        description?: string | null;
+        is_active: boolean;
+    } | null;
+}
+
+export function ProgramFormDialog({ open, onClose, onSuccess, editing }: ProgramFormDialogProps) {
+    const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm<FormValues>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            name: "",
+            code: "",
+            education_level: "",
+            description: "",
+            is_active: true,
+        },
+    });
+
+    const queryClient = useQueryClient();
+    const isActiveValue = watch("is_active");
+    const educationLevelValue = watch("education_level");
+
+    React.useEffect(() => {
+        if (editing) {
+            setValue("name", editing.name);
+            setValue("code", editing.code);
+            setValue("education_level", editing.education_level);
+            setValue("description", editing.description ?? "");
+            setValue("is_active", editing.is_active);
+        } else {
+            reset();
+        }
+    }, [editing, setValue, reset]);
+
+    const createMutation = useMutation({
+        mutationFn: academicMasterService.createProgram,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["academic-programs"] });
+            onSuccess?.();
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: FormValues }) => academicMasterService.updateProgram(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["academic-programs"] });
+            onSuccess?.();
+        },
+    });
+
+    const loading = createMutation.isPending || updateMutation.isPending;
+
+    const onSubmit = handleSubmit((data) => {
+        if (editing?.id) {
+            updateMutation.mutate({ id: editing.id, data });
+        } else {
+            createMutation.mutate(data);
+        }
+    });
+
+    return (
+        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="sm:max-w-md rounded-2xl">
+                <DialogHeader>
+                    <DialogTitle className="font-heading text-lg font-bold">
+                        {editing ? "Edit Program" : "Tambah Program Baru"}
+                    </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={onSubmit} className="space-y-4 pt-4">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Nama Program</label>
+                        <Input {...register("name")} className="h-11" placeholder="cth: Program Kelas XII" />
+                        {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Kode Program</label>
+                        <Input {...register("code")} className="h-11" placeholder="cth: PRG-001" />
+                        {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Jenjang Pendidikan</label>
+                        <Select value={educationLevelValue || ""} onValueChange={(v) => setValue("education_level", v || "")}>
+                            <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Pilih jenjang" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {educationLevels.map((level) => (
+                                    <SelectItem key={level} value={level}>
+                                        {level}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {errors.education_level && <p className="text-xs text-destructive">{errors.education_level.message}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Deskripsi (Opsional)</label>
+                        <Input {...register("description")} className="h-11" placeholder="Deskripsi singkat" />
+                    </div>
+                    <div className="flex items-center justify-between space-x-3">
+                        <label className="text-xs font-semibold text-foreground">Aktif</label>
+                        <Switch
+                            checked={isActiveValue}
+                            onCheckedChange={(v: boolean) => setValue("is_active", v)}
+                        />
+                    </div>
+                    <DialogFooter className="gap-2 sm:justify-end mt-4">
+                        <Button type="button" variant="outline" onClick={onClose} disabled={loading} className="rounded-xl">
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={loading} className="rounded-xl">
+                            {loading ? "Menyimpan..." : "Simpan"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}

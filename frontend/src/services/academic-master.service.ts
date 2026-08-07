@@ -18,6 +18,12 @@ import type {
   LearningOutcome,
   CreateLearningOutcomeReq,
   UpdateLearningOutcomeReq,
+  Curriculum,
+  CreateCurriculumReq,
+  UpdateCurriculumReq,
+  Program,
+  CreateProgramReq,
+  UpdateProgramReq,
 } from "@/types/academic-master";
 
 export const academicMasterService = {
@@ -51,4 +57,14 @@ export const academicMasterService = {
   createLearningOutcome: (data: CreateLearningOutcomeReq): Promise<LearningOutcome> => api("/academic/learning-outcomes", { method: "POST", body: data }),
   updateLearningOutcome: (id: string, data: UpdateLearningOutcomeReq): Promise<LearningOutcome> => api(`/academic/learning-outcomes/${id}`, { method: "PUT", body: data }),
   deleteLearningOutcome: (id: string): Promise<{ message: string }> => api(`/academic/learning-outcomes/${id}`, { method: "DELETE" }),
+
+  getCurriculums: (): Promise<Curriculum[]> => api("/academic/curriculums"),
+  createCurriculum: (data: CreateCurriculumReq): Promise<Curriculum> => api("/academic/curriculums", { method: "POST", body: data }),
+  updateCurriculum: (id: string, data: UpdateCurriculumReq): Promise<Curriculum> => api(`/academic/curriculums/${id}`, { method: "PUT", body: data }),
+  deleteCurriculum: (id: string): Promise<{ message: string }> => api(`/academic/curriculums/${id}`, { method: "DELETE" }),
+
+  getPrograms: (): Promise<Program[]> => api("/academic/programs"),
+  createProgram: (data: CreateProgramReq): Promise<Program> => api("/academic/programs", { method: "POST", body: data }),
+  updateProgram: (id: string, data: UpdateProgramReq): Promise<Program> => api(`/academic/programs/${id}`, { method: "PUT", body: data }),
+  deleteProgram: (id: string): Promise<{ message: string }> => api(`/academic/programs/${id}`, { method: "DELETE" }),
 };
