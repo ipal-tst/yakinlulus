@@ -34,10 +34,12 @@ export default function LoginPage() {
 
             // Route based on role
             const role = res.user.role;
-            if (role === "GURU") router.push("/guru");
-            else if (role === "STAFF" || role === "SUPER_ADMIN") router.push("/staff");
+            if (role === "SUPER_ADMIN") router.push("/admin");
+            else if (role === "STAFF") router.push("/staff");
+            else if (role === "GURU") router.push("/guru");
             else if (role === "FINANCE") router.push("/finance");
             else if (role === "INVESTOR") router.push("/investor");
+            else if (role === "SISWA") router.push("/siswa");
             else router.push("/");
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Gagal masuk. Periksa email & kata sandi Anda.";
