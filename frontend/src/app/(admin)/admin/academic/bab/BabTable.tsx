@@ -76,11 +76,11 @@ export default function BabTable({ subjectId }: BabTableProps) {
         </TableHeader>
         <TableBody>
           {chapters.map((chapter, index) => (
-            <TableRow key={chapter.id} className="hover:bg-muted/30 transition-colors align-top">
-              <TableCell className="text-xs font-mono text-muted-foreground pt-4">
+            <TableRow key={chapter.id} className="hover:bg-muted/30 transition-colors">
+              <TableCell className="text-xs font-mono text-muted-foreground pt-4 align-top">
                 {index + 1}
               </TableCell>
-              <TableCell className="pt-3">
+              <TableCell className="pt-3 align-top">
                 <div className="space-y-1">
                   <span className="font-bold text-sm text-foreground block">{chapter.name}</span>
                   {chapter.description && (
@@ -93,15 +93,15 @@ export default function BabTable({ subjectId }: BabTableProps) {
                   )}
                 </div>
               </TableCell>
-              <TableCell className="pt-3">
+              <TableCell className="pt-3 align-top">
                 <TopicExpander chapterId={chapter.id} />
               </TableCell>
-              <TableCell className="pt-3">
+              <TableCell className="pt-3 align-top">
                 <Badge variant={chapter.is_active !== false ? "success" : "outline"} className="text-xs">
                   {chapter.is_active !== false ? "Aktif" : "Non-aktif"}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right pt-3">
+              <TableCell className="text-right pt-3 align-top">
                 <DropdownMenu>
                   <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                     <MoreHorizontal className="h-4 w-4" />
