@@ -2,31 +2,50 @@
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, MoreHorizontal, Pencil } from "lucide-react";
+import { GraduationCap, MoreHorizontal, Pencil, ChevronRight, BookOpen } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Grade } from "@/types/academic-master";
 
-export function GradeTable({ grades, onSelect, onEdit, selectedGrade }: { grades: (Grade & { alias: string | null | undefined })[]; onSelect: (gradeId: string) => void; onEdit: (grade: any) => void; selectedGrade: string | null }) {
+export function GradeTable({
+  grades,
+  onSelect,
+  onEdit,
+  selectedGrade
+}: {
+  grades: (Grade & { alias: string | null | undefined })[];
+  onSelect: (gradeId: string) => void;
+  onEdit: (grade: any) => void;
+  selectedGrade: string | null;
+}) {
   const columns: Column<Grade & { alias: string | null | undefined }>[] = [
     {
       header: "Kelas",
       accessorKey: "name",
       cell: (row) => (
         <div className="flex items-center gap-2">
-          <GraduationCap className="h-4 w-4" />
-          <span className="font-medium">{row.name}</span>
+          <div className="p-2 rounded-xl border bg-primary/10 text-primary border-primary/20">
+            <GraduationCap className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="font-semibold text-sm block">{row.name}</span>
+            <span className="text-[11px] text-muted-foreground font-mono">{row.level_code || "-"}</span>
+          </div>
         </div>
       ),
     },
     {
-      header: "Kode",
+      header: "Kode Level",
       accessorKey: "level_code",
-      cell: (row) => <span>{row.level_code || "-"}</span>,
+      cell: (row) => (
+        <Badge variant="outline" className="font-mono text-xs">
+          {row.level_code || "-"}
+        </Badge>
+      ),
     },
     {
       header: "Alias",
       accessorKey: "alias",
-      cell: (row) => <span>{row.alias || "-"}</span>,
+      cell: (row) => <span className="text-xs font-medium">{row.alias || "-"}</span>,
     },
     {
       header: "Status",
@@ -38,29 +57,30 @@ export function GradeTable({ grades, onSelect, onEdit, selectedGrade }: { grades
       ),
     },
     {
-      header: "Urutan",
-      accessorKey: "display_order",
-      cell: (row) => <span>{row.display_order}</span>,
-    },
-    {
       header: "Aksi",
       accessorKey: "id",
       cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
-            <MoreHorizontal className="h-4 w-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => onSelect(row.id)} className="gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Lihat Mata Pelajaran
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
-              <Pencil className="h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSelect(row.id)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Lihat Mapel
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2 text-xs">
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Detail Kelas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ),
     },
   ];

@@ -24,11 +24,58 @@ import {
     Code,
     Sparkles,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { academicMasterService } from "@/services/academic-master.service";
 import { DifficultyLevel, QuestionType, BloomsLevel } from "@/types/question-bank";
 
 export default function CreateQuestionPage() {
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
+
+    // Dynamic Master Academic Data from Database
+    const { data: dbLevels = [] } = useQuery({
+        queryKey: ["academic-master-levels-create"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getLevels();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    const { data: dbSubjects = [] } = useQuery({
+        queryKey: ["academic-master-subjects-create"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getSubjects();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    const rawLevels = dbLevels.length > 0
+        ? dbLevels.map((l) => l.name)
+        : ["SD", "SMP", "SMA / UTBK", "Kedinasan"];
+
+    const availableLevels = Array.from(new Set(rawLevels.filter(Boolean)));
+
+    const rawSubjects = dbSubjects.length > 0
+        ? dbSubjects.map((s) => s.name)
+        : [
+            "Penalaran Matematika",
+            "Literasi Bahasa Indonesia",
+            "Literasi Bahasa Inggris",
+            "Penalaran Umum",
+            "Fisika",
+            "Kimia",
+            "Biologi",
+        ];
+
+    const availableSubjects = Array.from(new Set(rawSubjects.filter(Boolean)));
 
     // Form State
     const [classification, setClassification] = useState({
@@ -180,10 +227,11 @@ export default function CreateQuestionPage() {
                                         }
                                         className="w-full h-10 rounded-xl border border-input bg-background px-3"
                                     >
-                                        <option value="SD">SD / MI</option>
-                                        <option value="SMP">SMP / MTs</option>
-                                        <option value="SMA / UTBK">SMA / MA / UTBK-SNBT</option>
-                                        <option value="Kedinasan">CPNS & Kedinasan</option>
+                                        {availableLevels.map((lvl) => (
+                                            <option key={lvl} value={lvl}>
+                                                {lvl}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -196,11 +244,11 @@ export default function CreateQuestionPage() {
                                         }
                                         className="w-full h-10 rounded-xl border border-input bg-background px-3"
                                     >
-                                        <option value="Penalaran Matematika">Penalaran Matematika</option>
-                                        <option value="Literasi Bahasa Indonesia">Literasi Bahasa Indonesia</option>
-                                        <option value="Literasi Bahasa Inggris">Literasi Bahasa Inggris</option>
-                                        <option value="Penalaran Umum">Penalaran Umum</option>
-                                        <option value="Fisika">Fisika</option>
+                                        {availableSubjects.map((subName) => (
+                                            <option key={subName} value={subName}>
+                                                {subName}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -412,16 +460,16 @@ export default function CreateQuestionPage() {
                                     <div
                                         key={idx}
                                         className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${opt.isCorrect
-                                                ? "border-emerald-500 bg-emerald-500/5"
-                                                : "border-border bg-card"
+                                            ? "border-emerald-500 bg-emerald-500/5"
+                                            : "border-border bg-card"
                                             }`}
                                     >
                                         <button
                                             type="button"
                                             onClick={() => handleSelectCorrect(idx)}
                                             className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer ${opt.isCorrect
-                                                    ? "bg-emerald-500 text-white"
-                                                    : "bg-muted text-muted-foreground hover:bg-accent"
+                                                ? "bg-emerald-500 text-white"
+                                                : "bg-muted text-muted-foreground hover:bg-accent"
                                                 }`}
                                             title="Klik untuk jadikan kunci jawaban"
                                         >
@@ -529,8 +577,8 @@ export default function CreateQuestionPage() {
                                             <div
                                                 key={opt.label}
                                                 className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${opt.isCorrect
-                                                        ? "border-emerald-500/50 bg-emerald-500/5"
-                                                        : "border-border"
+                                                    ? "border-emerald-500/50 bg-emerald-500/5"
+                                                    : "border-border"
                                                     }`}
                                             >
                                                 <span className="w-5 h-5 rounded-md bg-muted font-bold text-[10px] flex items-center justify-center">

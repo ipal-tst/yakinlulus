@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { MoreHorizontal, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { academicMasterService } from "@/services/academic-master.service"
-import type { Chapter } from "@/types/academic-master"
 import TopicExpander from "./TopicExpander"
 
 interface BabTableProps {
@@ -28,17 +28,19 @@ interface BabTableProps {
 }
 
 export default function BabTable({ subjectId }: BabTableProps) {
-  const { data: chapters = [], isLoading } = useQuery({
+  const { data: rawData, isLoading } = useQuery({
     queryKey: ["chapters", subjectId],
     queryFn: () => academicMasterService.getChapters(subjectId),
     enabled: !!subjectId,
   })
 
+  const chapters = Array.isArray(rawData) ? rawData : [];
+
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+          <Skeleton key={i} className="h-16 w-full rounded-2xl" />
         ))}
       </div>
     )
@@ -46,15 +48,15 @@ export default function BabTable({ subjectId }: BabTableProps) {
 
   if (chapters.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
-        <div className="rounded-full bg-slate-100 p-4 dark:bg-slate-800">
-          <MoreHorizontalIcon className="size-8 text-slate-400" />
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-12 text-center bg-muted/20">
+        <div className="rounded-2xl bg-muted p-4 text-muted-foreground">
+          <BookOpen className="h-8 w-8" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-slate-900 dark:text-slate-100">
-          Belum ada Bab
+        <h3 className="mt-4 text-sm font-semibold text-foreground">
+          Belum Ada Bab Materi
         </h3>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Bab untuk mata pelajaran ini belum ditambahkan
+        <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+          Mata pelajaran ini belum memiliki daftar bab di database. Anda dapat menambahkan bab baru melalui tombol di atas.
         </p>
       </div>
     )
@@ -64,65 +66,54 @@ export default function BabTable({ subjectId }: BabTableProps) {
     <div className="space-y-4">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead className="w-16">No</TableHead>
-            <TableHead>Nama Bab</TableHead>
-            <TableHead>Jumlah Topik</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-24 text-right">Aksi</TableHead>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-12 text-xs">No</TableHead>
+            <TableHead className="text-xs">Nama Bab &amp; Detail</TableHead>
+            <TableHead className="text-xs">Daftar Topik &amp; CP/KD</TableHead>
+            <TableHead className="w-24 text-xs">Status</TableHead>
+            <TableHead className="w-16 text-right text-xs">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {chapters.map((chapter, index) => (
-            <Collapsible key={chapter.id} className="group">
-              <TableRow>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell className="font-medium">{chapter.name}</TableCell>
-                <TableCell>
-                  <TopicExpander chapterId={chapter.id} />
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-                      chapter.is_active
-                        ? "border-transparent bg-green-500 text-white"
-                        : "border-transparent bg-slate-500 text-white"
-                    }`}
-                  >
-                    {chapter.is_active ? "Aktif" : "Tidak Aktif"}
-                  </span>
-                </TableCell>
-                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontalIcon className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <PencilIcon className="mr-2 size-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer text-destructive">
-                        <Trash2Icon className="mr-2 size-4" />
-                        Hapus
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-              <CollapsibleContent>
-                <TableRow>
-                  <TableCell colSpan={5} className="p-0">
-                    <div className="ml-8 border-l-2 border-slate-200 pl-4 dark:border-slate-700">
-                      <TopicExpander chapterId={chapter.id} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              </CollapsibleContent>
-            </Collapsible>
+            <TableRow key={chapter.id} className="hover:bg-muted/30 transition-colors align-top">
+              <TableCell className="text-xs font-mono text-muted-foreground pt-4">
+                {index + 1}
+              </TableCell>
+              <TableCell className="pt-3">
+                <div className="space-y-1">
+                  <span className="font-bold text-sm text-foreground block">{chapter.name}</span>
+                  {chapter.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{chapter.description}</p>
+                  )}
+                  {chapter.display_order !== undefined && (
+                    <span className="text-[10px] text-muted-foreground/70 font-mono">
+                      Urutan: Bab {chapter.display_order}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="pt-3">
+                <TopicExpander chapterId={chapter.id} />
+              </TableCell>
+              <TableCell className="pt-3">
+                <Badge variant={chapter.is_active !== false ? "success" : "outline"} className="text-xs">
+                  {chapter.is_active !== false ? "Aktif" : "Non-aktif"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right pt-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl">
+                    <DropdownMenuItem className="text-xs gap-2">
+                      Edit Detail Bab
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
           ))}
         </TableBody>
       </Table>

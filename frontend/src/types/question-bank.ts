@@ -140,6 +140,8 @@ export interface ParsedQuestionItem {
     explanation?: string;
     detected_subject?: string;
     detected_topic?: string;
+    bloom_level?: string;
+    weight?: number;
     difficulty: DifficultyLevel;
     confidence_score: number; // 0.0 - 1.0
     validation_status: "VALID" | "WARNING" | "ERROR";

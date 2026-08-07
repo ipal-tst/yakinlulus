@@ -8,8 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useQuery } from "@tanstack/react-query";
+import { academicMasterService } from "@/services/academic-master.service";
 import { questionImportService } from "@/services/question-import.service";
 import { ImportFileFormat, ImportJob, ParsedQuestionItem } from "@/types/question-bank";
+import { QuestionEditDialog } from "@/components/admin/questions/QuestionEditDialog";
+import { QuestionPreviewDialog } from "@/components/admin/questions/QuestionPreviewDialog";
 import {
     ArrowLeft,
     UploadCloud,
@@ -25,12 +29,46 @@ import {
     Sparkles,
     Check,
     Layers,
+    Edit3,
+    Trash2,
+    Plus,
+    Filter,
 } from "lucide-react";
 
 type Stage = 1 | 2 | 3 | 4;
+type FilterStatus = "ALL" | "VALID" | "WARNING" | "ERROR";
 
 export default function QuestionImportPage() {
     const router = useRouter();
+
+    // Dynamic Subjects from Academic Master Database
+    const { data: dbSubjects = [] } = useQuery({
+        queryKey: ["academic-master-subjects-import"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getSubjects();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    const defaultSubjectNames = [
+        "Penalaran Matematika",
+        "Literasi Bahasa Indonesia",
+        "Literasi Bahasa Inggris",
+        "Penalaran Umum",
+        "Fisika",
+        "Kimia",
+        "Biologi",
+    ];
+
+    const rawSubjects = dbSubjects.length > 0
+        ? dbSubjects.map((s) => s.name)
+        : defaultSubjectNames;
+
+    const availableSubjects = Array.from(new Set(rawSubjects.filter(Boolean)));
 
     // Stage State
     const [currentStage, setCurrentStage] = useState<Stage>(1);
@@ -43,7 +81,13 @@ export default function QuestionImportPage() {
     const [parseProgress, setParseProgress] = useState(0);
     const [importJob, setImportJob] = useState<ImportJob | null>(null);
     const [parsedItems, setParsedItems] = useState<ParsedQuestionItem[]>([]);
+
+    // Edit & Preview Modal States
     const [editingItem, setEditingItem] = useState<ParsedQuestionItem | null>(null);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [previewItem, setPreviewItem] = useState<ParsedQuestionItem | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
 
     // Commit State
     const [isCommitting, setIsCommitting] = useState(false);
@@ -64,7 +108,6 @@ export default function QuestionImportPage() {
         setIsParsing(true);
         setParseProgress(20);
 
-        // Progress simulation ticks
         const interval = setInterval(() => {
             setParseProgress((prev) => (prev >= 90 ? 90 : prev + 25));
         }, 300);
@@ -89,11 +132,53 @@ export default function QuestionImportPage() {
         }
     };
 
+    const handleSaveEditedItem = (updatedItem: ParsedQuestionItem) => {
+        setParsedItems((prev) =>
+            prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+        );
+    };
+
+    const handleDeleteItem = (itemId: string) => {
+        if (confirm("Apakah Anda yakin ingin menghapus butir soal draf ini?")) {
+            setParsedItems((prev) => prev.filter((item) => item.id !== itemId));
+        }
+    };
+
+    const handleAddNewDraftItem = () => {
+        const nextNum = parsedItems.length + 1;
+        const newItem: ParsedQuestionItem = {
+            id: `draft-new-${Date.now()}`,
+            question_number: nextNum,
+            question_text: "Pertanyaan soal baru...",
+            question_type: "SINGLE_CHOICE",
+            options: [
+                { label: "A", text: "Opsi A", is_answer: true },
+                { label: "B", text: "Opsi B", is_answer: false },
+                { label: "C", text: "Opsi C", is_answer: false },
+                { label: "D", text: "Opsi D", is_answer: false },
+                { label: "E", text: "Opsi E", is_answer: false },
+            ],
+            correct_answer: "A",
+            explanation: "Pembahasan untuk soal ini.",
+            confidence_score: 1.0,
+            validation_status: "VALID",
+            validation_messages: [],
+            detected_subject: selectedSubject,
+            difficulty: "MEDIUM",
+            bloom_level: "C2 (Memahami)",
+            weight: 1.0,
+        };
+        setParsedItems([newItem, ...parsedItems]);
+        setEditingItem(newItem);
+        setIsEditOpen(true);
+    };
+
     const handleCommitImport = async () => {
         if (!importJob) return;
         setIsCommitting(true);
         try {
-            const res = await questionImportService.commitImport(importJob.id, parsedItems);
+            const validItems = parsedItems.filter((i) => i.validation_status !== "ERROR");
+            const res = await questionImportService.commitImport(importJob.id, validItems);
             setIsCommitting(false);
             setCommitResult({ count: res.imported_count, job_id: res.job_id });
             setCurrentStage(4);
@@ -103,9 +188,14 @@ export default function QuestionImportPage() {
         }
     };
 
+    const filteredItems = parsedItems.filter((item) => {
+        if (filterStatus === "ALL") return true;
+        return item.validation_status === filterStatus;
+    });
+
     return (
         <AppShell>
-            <div className="space-y-6 max-w-5xl mx-auto">
+            <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header Navigation */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -150,7 +240,7 @@ export default function QuestionImportPage() {
                         {[
                             { num: 1, title: "1. Upload File", desc: "Pilih format & berkas" },
                             { num: 2, title: "2. OCR & AI Parsing", desc: "Ekstraksi otomatis" },
-                            { num: 3, title: "3. Review & Edit", desc: "Verifikasi draf" },
+                            { num: 3, title: "3. Review & Edit", desc: "Koreksi & Pratinjau" },
                             { num: 4, title: "4. Batch Commit", desc: "Selesai diimpor" },
                         ].map((s) => {
                             const isActive = currentStage === s.num;
@@ -159,19 +249,19 @@ export default function QuestionImportPage() {
                                 <div
                                     key={s.num}
                                     className={`p-3 rounded-xl border transition-all flex flex-col ${isActive
-                                            ? "border-primary bg-primary/5"
-                                            : isDone
-                                                ? "border-emerald-500/40 bg-emerald-500/5"
-                                                : "border-border/60 bg-muted/20 opacity-60"
+                                        ? "border-primary bg-primary/5"
+                                        : isDone
+                                            ? "border-emerald-500/40 bg-emerald-500/5"
+                                            : "border-border/60 bg-muted/20 opacity-60"
                                         }`}
                                 >
                                     <div className="flex items-center gap-2">
                                         <div
                                             className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isActive
-                                                    ? "bg-primary text-white"
-                                                    : isDone
-                                                        ? "bg-emerald-500 text-white"
-                                                        : "bg-muted text-muted-foreground"
+                                                ? "bg-primary text-white"
+                                                : isDone
+                                                    ? "bg-emerald-500 text-white"
+                                                    : "bg-muted text-muted-foreground"
                                                 }`}
                                         >
                                             {isDone ? <Check className="h-3.5 w-3.5" /> : s.num}
@@ -233,8 +323,8 @@ export default function QuestionImportPage() {
                                             type="button"
                                             onClick={() => setSelectedFormat(item.fmt as ImportFileFormat)}
                                             className={`p-4 rounded-xl border text-left space-y-2 transition-all cursor-pointer ${isSelected
-                                                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-                                                    : "border-border hover:bg-muted/40"
+                                                ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                                                : "border-border hover:bg-muted/40"
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between">
@@ -270,12 +360,11 @@ export default function QuestionImportPage() {
                                 onChange={(e) => setSelectedSubject(e.target.value)}
                                 className="w-full h-10 rounded-xl border border-input bg-background px-3 font-medium"
                             >
-                                <option value="Penalaran Matematika">Penalaran Matematika</option>
-                                <option value="Literasi Bahasa Indonesia">Literasi Bahasa Indonesia</option>
-                                <option value="Literasi Bahasa Inggris">Literasi Bahasa Inggris</option>
-                                <option value="Penalaran Umum">Penalaran Umum</option>
-                                <option value="Fisika">Fisika</option>
-                                <option value="Kimia">Kimia</option>
+                                {availableSubjects.map((subName) => (
+                                    <option key={subName} value={subName}>
+                                        {subName}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
@@ -342,7 +431,7 @@ export default function QuestionImportPage() {
 
                         <div className="space-y-2">
                             <h2 className="font-heading font-bold text-lg">
-                                Menguraikan & Menganalisis Dokumen...
+                                Menguraikan &amp; Menganalisis Dokumen...
                             </h2>
                             <p className="text-xs text-muted-foreground max-w-md mx-auto">
                                 Mesin AI OCR sedang mengekstraksi teks, merender formula LaTeX, dan mencocokkan kunci jawaban otomatis.
@@ -369,52 +458,95 @@ export default function QuestionImportPage() {
                     <div className="space-y-6">
                         {/* Summary Badges Bar */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <Card className="p-4 bg-card border border-border/80 rounded-2xl space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => setFilterStatus("ALL")}
+                                className={`p-4 bg-card border rounded-2xl text-left space-y-1 transition-all cursor-pointer ${filterStatus === "ALL"
+                                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                                    : "border-border/80 hover:bg-muted/30"
+                                    }`}
+                            >
                                 <span className="text-xs text-muted-foreground">Total Ditemukan</span>
                                 <h4 className="text-xl font-bold font-heading">{parsedItems.length} Soal</h4>
-                            </Card>
-                            <Card className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl space-y-1">
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFilterStatus("VALID")}
+                                className={`p-4 rounded-2xl text-left space-y-1 transition-all cursor-pointer ${filterStatus === "VALID"
+                                    ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10"
+                                    : "bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/10"
+                                    }`}
+                            >
                                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                                     Valid (Siap Impor)
                                 </span>
                                 <h4 className="text-xl font-bold font-heading text-emerald-600 dark:text-emerald-400">
                                     {parsedItems.filter((i) => i.validation_status === "VALID").length}
                                 </h4>
-                            </Card>
-                            <Card className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl space-y-1">
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFilterStatus("WARNING")}
+                                className={`p-4 rounded-2xl text-left space-y-1 transition-all cursor-pointer ${filterStatus === "WARNING"
+                                    ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-500/10"
+                                    : "bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10"
+                                    }`}
+                            >
                                 <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                                     Peringatan AI
                                 </span>
                                 <h4 className="text-xl font-bold font-heading text-amber-600 dark:text-amber-400">
                                     {parsedItems.filter((i) => i.validation_status === "WARNING").length}
                                 </h4>
-                            </Card>
-                            <Card className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl space-y-1">
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFilterStatus("ERROR")}
+                                className={`p-4 rounded-2xl text-left space-y-1 transition-all cursor-pointer ${filterStatus === "ERROR"
+                                    ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-500/10"
+                                    : "bg-rose-500/5 border border-rose-500/20 hover:bg-rose-500/10"
+                                    }`}
+                            >
                                 <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
                                     Error (Perlu Koreksi)
                                 </span>
                                 <h4 className="text-xl font-bold font-heading text-rose-600 dark:text-rose-400">
                                     {parsedItems.filter((i) => i.validation_status === "ERROR").length}
                                 </h4>
-                            </Card>
+                            </button>
                         </div>
 
                         {/* Extracted Questions Table */}
                         <Card className="p-0 border border-border overflow-hidden rounded-2xl shadow-2xs">
-                            <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+                            <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
                                     <Layers className="h-4 w-4 text-primary" />
                                     <h3 className="font-heading font-bold text-sm">
-                                        Hasil Parsing draf: {importJob.job_name}
+                                        Draf Parsing ({filteredItems.length} ditampilkan)
                                     </h3>
                                 </div>
-                                <Button
-                                    onClick={handleCommitImport}
-                                    disabled={isCommitting}
-                                    className="rounded-xl text-xs font-bold gap-2 bg-primary text-primary-foreground"
-                                >
-                                    <CheckCircle2 className="h-4 w-4" /> Impor {parsedItems.filter((i) => i.validation_status !== "ERROR").length} Soal Valid
-                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleAddNewDraftItem}
+                                        className="rounded-xl text-xs font-semibold gap-1.5 border-border"
+                                    >
+                                        <Plus className="h-3.5 w-3.5 text-primary" /> Tambah Soal Manual
+                                    </Button>
+
+                                    <Button
+                                        onClick={handleCommitImport}
+                                        disabled={isCommitting || parsedItems.filter((i) => i.validation_status !== "ERROR").length === 0}
+                                        className="rounded-xl text-xs font-bold gap-2 bg-primary text-primary-foreground"
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" /> Impor {parsedItems.filter((i) => i.validation_status !== "ERROR").length} Soal Valid
+                                    </Button>
+                                </div>
                             </div>
 
                             <div className="overflow-x-auto">
@@ -422,15 +554,16 @@ export default function QuestionImportPage() {
                                     <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold uppercase">
                                         <tr>
                                             <th className="p-3 w-12 text-center">No</th>
-                                            <th className="p-3 min-w-[300px]">Narasi Soal Extracted</th>
+                                            <th className="p-3 min-w-[280px]">Narasi Soal Extracted</th>
                                             <th className="p-3">Opsi Jawaban</th>
                                             <th className="p-3 text-center">Kunci</th>
-                                            <th className="p-3">Akurasi AI</th>
+                                            <th className="p-3">Kesulitan</th>
                                             <th className="p-3">Status Validasi</th>
+                                            <th className="p-3 text-right">Aksi &amp; Pratinjau</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/60">
-                                        {parsedItems.map((item) => (
+                                        {filteredItems.map((item) => (
                                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                                                 <td className="p-3 text-center font-bold text-muted-foreground">
                                                     #{item.question_number}
@@ -453,8 +586,8 @@ export default function QuestionImportPage() {
                                                             <span
                                                                 key={opt.label}
                                                                 className={`px-1.5 py-0.5 rounded text-[10px] ${opt.is_answer
-                                                                        ? "bg-emerald-500 text-white font-bold"
-                                                                        : "bg-muted text-muted-foreground"
+                                                                    ? "bg-emerald-500 text-white font-bold"
+                                                                    : "bg-muted text-muted-foreground"
                                                                     }`}
                                                             >
                                                                 {opt.label}
@@ -476,9 +609,9 @@ export default function QuestionImportPage() {
                                                 </td>
 
                                                 <td className="p-3">
-                                                    <span className="font-mono font-bold text-foreground">
-                                                        {Math.round(item.confidence_score * 100)}%
-                                                    </span>
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                        {item.difficulty || "Sedang"}
+                                                    </Badge>
                                                 </td>
 
                                                 <td className="p-3">
@@ -500,6 +633,42 @@ export default function QuestionImportPage() {
                                                             <XCircle className="h-3 w-3" /> Error
                                                         </Badge>
                                                     )}
+                                                </td>
+
+                                                <td className="p-3 text-right space-x-1">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setPreviewItem(item);
+                                                            setIsPreviewOpen(true);
+                                                        }}
+                                                        className="h-7 text-[11px] px-2 rounded-lg gap-1 border-border"
+                                                        title="Pratinjau tampilan CBT siswa"
+                                                    >
+                                                        <Eye className="h-3 w-3 text-primary" /> Pratinjau
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setEditingItem(item);
+                                                            setIsEditOpen(true);
+                                                        }}
+                                                        className="h-7 text-[11px] px-2 rounded-lg gap-1 border-border"
+                                                    >
+                                                        <Edit3 className="h-3 w-3 text-indigo-500" /> Edit
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        className="h-7 w-7 text-muted-foreground hover:text-rose-500 rounded-lg"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -537,6 +706,27 @@ export default function QuestionImportPage() {
                     </Card>
                 )}
             </div>
+
+            {/* Edit Dialog Modal */}
+            <QuestionEditDialog
+                item={editingItem}
+                isOpen={isEditOpen}
+                onClose={() => {
+                    setIsEditOpen(false);
+                    setEditingItem(null);
+                }}
+                onSave={handleSaveEditedItem}
+            />
+
+            {/* Exam Preview Dialog Modal */}
+            <QuestionPreviewDialog
+                item={previewItem}
+                isOpen={isPreviewOpen}
+                onClose={() => {
+                    setIsPreviewOpen(false);
+                    setPreviewItem(null);
+                }}
+            />
         </AppShell>
     );
 }

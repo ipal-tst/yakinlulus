@@ -38,7 +38,13 @@ export const academicMasterService = {
   updateGrade: (id: string, data: UpdateGradeReq): Promise<Grade> => api(`/academic/grades/${id}`, { method: "PUT", body: data }),
   deleteGrade: (id: string): Promise<{ message: string }> => api(`/academic/grades/${id}`, { method: "DELETE" }),
 
-  getSubjects: (levelId: string, gradeId: string): Promise<Subject[]> => api(`/academic/subjects?education_level_id=${levelId}&grade_id=${gradeId}`),
+  getSubjects: (levelId?: string, gradeId?: string): Promise<Subject[]> => {
+    const params = new URLSearchParams();
+    if (levelId) params.append("education_level_id", levelId);
+    if (gradeId) params.append("grade_id", gradeId);
+    const queryString = params.toString();
+    return api(`/academic/subjects${queryString ? `?${queryString}` : ""}`);
+  },
   createSubject: (data: CreateSubjectReq): Promise<Subject> => api("/academic/subjects", { method: "POST", body: data }),
   updateSubject: (id: string, data: UpdateSubjectReq): Promise<Subject> => api(`/academic/subjects/${id}`, { method: "PUT", body: data }),
   deleteSubject: (id: string): Promise<{ message: string }> => api(`/academic/subjects/${id}`, { method: "DELETE" }),

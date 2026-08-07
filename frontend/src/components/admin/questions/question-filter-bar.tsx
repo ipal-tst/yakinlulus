@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { academicMasterService } from "@/services/academic-master.service";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,35 @@ interface FilterProps {
 }
 
 export function QuestionFilterBar({ filters, onChange, onReset }: FilterProps) {
+    const { data: dbSubjects = [] } = useQuery({
+        queryKey: ["academic-master-subjects-filter"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getSubjects();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    // Fallback default subjects if database is initializing or empty
+    const defaultSubjectNames = [
+        "Penalaran Matematika",
+        "Literasi Bahasa Indonesia",
+        "Literasi Bahasa Inggris",
+        "Penalaran Umum",
+        "Fisika",
+        "Kimia",
+        "Biologi",
+    ];
+
+    const rawSubjectList = dbSubjects.length > 0
+        ? dbSubjects.map((s) => s.name)
+        : defaultSubjectNames;
+
+    const subjectList = Array.from(new Set(rawSubjectList.filter(Boolean)));
+
     return (
         <div className="bg-card border border-border/80 rounded-2xl p-4 space-y-3 shadow-2xs">
             <div className="flex flex-col md:flex-row items-center gap-3">
@@ -41,12 +72,11 @@ export function QuestionFilterBar({ filters, onChange, onReset }: FilterProps) {
                     className="w-full md:w-52 h-10 rounded-xl border border-input bg-background/50 px-3 text-xs font-medium focus:ring-2 focus:ring-primary/20"
                 >
                     <option value="ALL">Semua Mata Pelajaran</option>
-                    <option value="Penalaran Matematika">Penalaran Matematika</option>
-                    <option value="Literasi Bahasa Indonesia">Literasi Bahasa Indonesia</option>
-                    <option value="Literasi Bahasa Inggris">Literasi Bahasa Inggris</option>
-                    <option value="Penalaran Umum">Penalaran Umum</option>
-                    <option value="Fisika">Fisika</option>
-                    <option value="Kimia">Kimia</option>
+                    {subjectList.map((subName) => (
+                        <option key={subName} value={subName}>
+                            {subName}
+                        </option>
+                    ))}
                 </select>
 
                 {/* Difficulty Filter */}

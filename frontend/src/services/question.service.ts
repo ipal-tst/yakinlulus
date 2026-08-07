@@ -8,27 +8,27 @@ export const questionService = {
         page?: number;
         limit?: number;
     }): Promise<QuestionItem[] | PaginatedData<QuestionItem>> {
-        return api<QuestionItem[] | PaginatedData<QuestionItem>>("/academic/questions", {
+        return api<QuestionItem[] | PaginatedData<QuestionItem>>("/questions", {
             params,
         });
     },
 
     async createQuestion(payload: Partial<QuestionItem>): Promise<QuestionItem> {
-        return api<QuestionItem>("/academic/questions", {
+        return api<QuestionItem>("/questions", {
             method: "POST",
             body: payload,
         });
     },
 
     async updateQuestion(id: string, payload: Partial<QuestionItem>): Promise<QuestionItem> {
-        return api<QuestionItem>(`/academic/questions/${id}`, {
+        return api<QuestionItem>(`/questions/${id}`, {
             method: "PUT",
             body: payload,
         });
     },
 
     async deleteQuestion(id: string): Promise<{ message: string }> {
-        return api<{ message: string }>(`/academic/questions/${id}`, {
+        return api<{ message: string }>(`/questions/${id}`, {
             method: "DELETE",
         });
     },
