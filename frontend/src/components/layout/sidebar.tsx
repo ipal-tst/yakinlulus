@@ -8,30 +8,27 @@ import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/admin";
 import {
     BookOpen,
-    PenTool,
     FileCheck,
+    Bell,
+    LayoutDashboard,
+    HelpCircle,
+    Users,
+    Building2,
+    Settings,
+    ChevronLeft,
+    ChevronRight,
+    LogOut,
+    GraduationCap,
+    PenTool,
     Trophy,
     Award,
     Target,
     Bot,
-    Bell,
-    User as UserIcon,
-    LayoutDashboard,
-    HelpCircle,
     FolderKanban,
-    Users,
-    Building2,
     Receipt,
     TrendingUp,
-    Settings,
-    ChevronLeft,
-    ChevronRight,
-    ShieldAlert,
-    LogOut,
-    Activity,
-    BarChart3,
-    GraduationCap,
 } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 interface NavItem {
@@ -64,12 +61,12 @@ const GURU_NAV: NavItem[] = [
 const STAFF_NAV: NavItem[] = [
     { title: "Dashboard Staff", href: "/staff", icon: LayoutDashboard },
     { title: "Master Akademik", href: "/admin/academic", icon: GraduationCap },
-    { title: "Kelola User", href: "/staff/users", icon: Users },
     { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2 },
-    { title: "Target Sekolah", href: "/staff/target-schools", icon: Target },
+    { title: "Materi Pelajaran", href: "/admin/materials", icon: BookOpen },
+    { title: "Bank Soal", href: "/admin/questions", icon: HelpCircle },
+    { title: "Kelola Ujian", href: "/admin/exams", icon: FileCheck },
     { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Bell },
-    { title: "Audit Log", href: "/staff/audit", icon: ShieldAlert },
-    { title: "Konfigurasi AI", href: "/staff/ai", icon: Settings },
+    { title: "Monitoring & Konfigurasi", href: "/admin/monitor-config", icon: Settings },
 ];
 
 const FINANCE_NAV: NavItem[] = [
@@ -88,21 +85,26 @@ const INVESTOR_NAV: NavItem[] = [
 const SUPER_ADMIN_NAV: NavItem[] = [
     { title: "Dashboard Admin", href: "/admin", icon: LayoutDashboard },
     { title: "Master Akademik", href: "/admin/academic", icon: GraduationCap },
-    { title: "Kelola User", href: "/staff/users", icon: Users },
     { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2 },
-    { title: "Target Sekolah", href: "/staff/target-schools", icon: Target },
+    { title: "Materi Pelajaran", href: "/admin/materials", icon: BookOpen },
+    { title: "Bank Soal", href: "/admin/questions", icon: HelpCircle },
+    { title: "Kelola Ujian", href: "/admin/exams", icon: FileCheck },
     { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Bell },
-    { title: "Audit Log", href: "/staff/audit", icon: ShieldAlert },
-    { title: "Konfigurasi AI", href: "/staff/ai", icon: Settings },
-    { title: "Analitik & Laporan", href: "/admin/analytics", icon: BarChart3 },
-    { title: "System Health", href: "/admin/health", icon: Activity },
+    { title: "Monitoring & Konfigurasi", href: "/admin/monitor-config", icon: Settings },
 ];
 
-export function Sidebar() {
+function SidebarContent({ 
+  collapsed = false, 
+  onCollapseToggle,
+  isMobile = false 
+}: { 
+  collapsed?: boolean; 
+  onCollapseToggle?: () => void;
+  isMobile?: boolean;
+}) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
-    const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
     const handleLogout = () => {
         logout();
@@ -118,11 +120,14 @@ export function Sidebar() {
     if (role === "FINANCE") navItems = FINANCE_NAV;
     if (role === "INVESTOR") navItems = INVESTOR_NAV;
 
+    const sidebarWidth = collapsed ? "w-[72px]" : "w-[280px]";
+
     return (
         <aside
             className={cn(
                 "fixed left-0 top-0 z-30 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col justify-between hidden md:flex",
-                sidebarCollapsed ? "w-[72px]" : "w-[280px]"
+                !isMobile && sidebarWidth,
+                isMobile && "w-[280px]"
             )}
         >
             <div>
@@ -140,7 +145,7 @@ export function Sidebar() {
                         <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold font-heading text-xl shrink-0">
                             YL
                         </div>
-                        {!sidebarCollapsed && (
+                        {!collapsed && (
                             <div className="flex flex-col">
                                 <span className="font-heading font-bold text-lg leading-none text-foreground">
                                     YakinLulus<span className="text-primary">.id</span>
@@ -151,18 +156,20 @@ export function Sidebar() {
                             </div>
                         )}
                     </Link>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleSidebar}
-                        className="h-8 w-8 text-muted-foreground shrink-0 hidden md:flex"
-                    >
-                        {sidebarCollapsed ? (
-                            <ChevronRight className="h-4 w-4" />
-                        ) : (
-                            <ChevronLeft className="h-4 w-4" />
-                        )}
-                    </Button>
+                    {!isMobile && onCollapseToggle && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onCollapseToggle}
+                            className="h-8 w-8 text-muted-foreground shrink-0 hidden md:flex"
+                        >
+                            {collapsed ? (
+                                <ChevronRight className="h-4 w-4" />
+                            ) : (
+                                <ChevronLeft className="h-4 w-4" />
+                            )}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Navigation Items */}
@@ -180,12 +187,12 @@ export function Sidebar() {
                                     isActive
                                         ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs"
                                         : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
-                                    sidebarCollapsed && "justify-center px-0"
+                                    collapsed && "justify-center px-0"
                                 )}
-                                title={sidebarCollapsed ? item.title : undefined}
+                                title={collapsed ? item.title : undefined}
                             >
                                 <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "")} />
-                                {!sidebarCollapsed && <span>{item.title}</span>}
+                                {!collapsed && <span>{item.title}</span>}
                             </Link>
                         );
                     })}
@@ -194,7 +201,7 @@ export function Sidebar() {
 
             {/* Footer Profile & Logout */}
             <div className="p-3 border-t border-sidebar-border">
-                {!sidebarCollapsed ? (
+                {!collapsed ? (
                     <div className="flex items-center justify-between gap-2 px-2 py-1">
                         <div className="flex items-center gap-2.5 overflow-hidden">
                             <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
@@ -223,7 +230,7 @@ export function Sidebar() {
                     <Button
                         variant="ghost"
                         size="icon"
-                            onClick={handleLogout}
+                        onClick={handleLogout}
                         className="w-full h-10 text-muted-foreground hover:text-destructive"
                         title="Keluar"
                     >
@@ -234,3 +241,32 @@ export function Sidebar() {
         </aside>
     );
 }
+
+function Sidebar() {
+    const { sidebarCollapsed, toggleSidebar } = useUIStore();
+
+    return (
+        <>
+            <SidebarContent collapsed={sidebarCollapsed} onCollapseToggle={toggleSidebar} />
+            <MobileSidebar open={sidebarCollapsed} onOpenChange={toggleSidebar} />
+        </>
+    );
+}
+
+export function MobileSidebar({ 
+    open, 
+    onOpenChange 
+}: { 
+    open: boolean; 
+    onOpenChange: (open: boolean) => void 
+}) {
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="left" className="w-[280px] p-0">
+                <SidebarContent isMobile={true} />
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+export { Sidebar };
