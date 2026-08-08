@@ -9,21 +9,21 @@ describe("schoolService", () => {
   beforeEach(() => apiMock.mockReset());
   afterEach(() => vi.clearAllMocks());
 
-  it("GETs /school", async () => {
+  it("GETs /schools", async () => {
     apiMock.mockResolvedValue([]);
     await schoolService.listSchools();
-    expect(apiMock).toHaveBeenCalledWith("/school", {});
+    expect(apiMock).toHaveBeenCalledWith("/schools", { params: undefined });
   });
 
-  it("POSTs /school", async () => {
+  it("POSTs /schools", async () => {
     apiMock.mockResolvedValue({ id: "s1" });
-    await schoolService.createSchool({ name: "SMA X" });
-    expect(apiMock).toHaveBeenCalledWith("/school", { method: "POST", body: { name: "SMA X" } });
+    await schoolService.createSchool({ name: "SMA X" } as any);
+    expect(apiMock).toHaveBeenCalledWith("/schools", { method: "POST", body: { name: "SMA X", school_name: "SMA X", school_code: undefined } });
   });
 
-  it("PATCHes /school/:id/status", async () => {
+  it("PATCHes /schools/:id/status", async () => {
     apiMock.mockResolvedValue({ id: "s1" });
     await schoolService.toggleStatus("s1", "INACTIVE");
-    expect(apiMock).toHaveBeenCalledWith("/school/s1/status", { method: "PATCH", body: { status: "INACTIVE" } });
+    expect(apiMock).toHaveBeenCalledWith("/schools/s1/status", { method: "PATCH", body: { status: "INACTIVE" } });
   });
 });

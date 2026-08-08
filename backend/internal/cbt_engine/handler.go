@@ -90,7 +90,14 @@ type CreateExamRequest struct {
 	MaxAttempts      int         `json:"max_attempts"`
 	StartTime        *int64      `json:"start_time"` // Unix timestamp
 	EndTime          *int64      `json:"end_time"`   // Unix timestamp
-	Blueprint        interface{} `json:"blueprint"`  // JSONB
+	Category         string      `json:"category"`
+	ScoringSystem    string      `json:"scoring_system"`
+	GradeLevel       string      `json:"grade_level"`
+	Difficulty       string      `json:"difficulty"`
+	DefaultMode      string      `json:"default_mode"`
+	TotalQuestions   int         `json:"total_questions"`
+	Subtests         interface{} `json:"subtests"`
+	Blueprint        interface{} `json:"blueprint"` // JSONB
 	CreatedBy        uuid.UUID   `json:"created_by"`
 }
 
@@ -151,6 +158,27 @@ func (h *Handler) CreateExam(c *fiber.Ctx) error {
 	if bp == nil {
 		bp = make(map[string]interface{})
 	}
+	if req.Category != "" {
+		bp["category"] = req.Category
+	}
+	if req.ScoringSystem != "" {
+		bp["scoring_system"] = req.ScoringSystem
+	}
+	if req.GradeLevel != "" {
+		bp["grade_level"] = req.GradeLevel
+	}
+	if req.Difficulty != "" {
+		bp["difficulty"] = req.Difficulty
+	}
+	if req.DefaultMode != "" {
+		bp["default_mode"] = req.DefaultMode
+	}
+	if req.TotalQuestions > 0 {
+		bp["total_questions"] = req.TotalQuestions
+	}
+	if req.Subtests != nil {
+		bp["subtests"] = req.Subtests
+	}
 
 	exam, err := h.svc.CreateExam(c.Context(), &content.CreateExamReq{
 		CreateContentReq: content.CreateContentReq{
@@ -161,6 +189,7 @@ func (h *Handler) CreateExam(c *fiber.Ctx) error {
 			Body:        req.Description,
 			Status:      content.StatusDraft,
 			CreatedBy:   createdBy,
+			Metadata:    bp,
 		},
 		Description:      req.Description,
 		DurationMinutes:  duration,
@@ -311,16 +340,26 @@ func (h *Handler) UpdateExam(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Title            *string  `json:"title"`
-		Description      *string  `json:"description"`
-		DurationMinutes  *int     `json:"duration_minutes"`
-		PassingScore     *float64 `json:"passing_score"`
-		ShuffleQuestions *bool    `json:"shuffle_questions"`
-		ShuffleOptions   *bool    `json:"shuffle_options"`
-		MaxAttempts      *int     `json:"max_attempts"`
-		StartTime        *int64   `json:"start_time"`
-		EndTime          *int64   `json:"end_time"`
-		Status           *string  `json:"status"`
+		Title            *string     `json:"title"`
+		Description      *string     `json:"description"`
+		DurationMinutes  *int        `json:"duration_minutes"`
+		PassingScore     *float64    `json:"passing_score"`
+		ShuffleQuestions *bool       `json:"shuffle_questions"`
+		ShuffleOptions   *bool       `json:"shuffle_options"`
+		MaxAttempts      *int        `json:"max_attempts"`
+		StartTime        *int64      `json:"start_time"`
+		EndTime          *int64      `json:"end_time"`
+		Status           *string     `json:"status"`
+		Category         *string     `json:"category"`
+		ScoringSystem    *string     `json:"scoring_system"`
+		GradeLevel       *string     `json:"grade_level"`
+		Difficulty       *string     `json:"difficulty"`
+		DefaultMode      *string     `json:"default_mode"`
+		GradeID          *uuid.UUID  `json:"grade_id"`
+		SubjectID        *uuid.UUID  `json:"subject_id"`
+		TotalQuestions   *int        `json:"total_questions"`
+		Subtests         interface{} `json:"subtests"`
+		Blueprint        interface{} `json:"blueprint"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
@@ -336,10 +375,40 @@ func (h *Handler) UpdateExam(c *fiber.Ctx) error {
 		end = &t
 	}
 
+	bp := make(map[string]interface{})
+	if req.Blueprint != nil {
+		if m, ok := req.Blueprint.(map[string]interface{}); ok {
+			bp = m
+		}
+	}
+	if req.Category != nil {
+		bp["category"] = *req.Category
+	}
+	if req.ScoringSystem != nil {
+		bp["scoring_system"] = *req.ScoringSystem
+	}
+	if req.GradeLevel != nil {
+		bp["grade_level"] = *req.GradeLevel
+	}
+	if req.Difficulty != nil {
+		bp["difficulty"] = *req.Difficulty
+	}
+	if req.DefaultMode != nil {
+		bp["default_mode"] = *req.DefaultMode
+	}
+	if req.TotalQuestions != nil {
+		bp["total_questions"] = *req.TotalQuestions
+	}
+	if req.Subtests != nil {
+		bp["subtests"] = req.Subtests
+	}
+
 	contentReq := content.UpdateContentReq{
-		Title:  req.Title,
-		Body:   req.Description,
-		Status: (*content.ContentStatus)(req.Status),
+		Title:     req.Title,
+		Body:      req.Description,
+		SubjectID: req.SubjectID,
+		Status:    (*content.ContentStatus)(req.Status),
+		Metadata:  bp,
 	}
 
 	exam := &content.Exam{
@@ -351,10 +420,16 @@ func (h *Handler) UpdateExam(c *fiber.Ctx) error {
 		MaxAttempts:      derefInt(req.MaxAttempts),
 		StartTime:        start,
 		EndTime:          end,
+		Blueprint:        bp,
 	}
 
 	if err := h.svc.UpdateExam(c.Context(), id, &contentReq, exam); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(shared.Error(shared.ErrInternal, "Failed to update exam: "+err.Error()))
+	}
+
+	updatedExam, err := h.svc.GetExam(c.Context(), id)
+	if err == nil && updatedExam != nil {
+		return c.JSON(shared.Success(updatedExam))
 	}
 
 	return c.JSON(shared.Success(fiber.Map{"message": "Exam updated"}))

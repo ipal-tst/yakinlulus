@@ -27,7 +27,8 @@ import {
 interface QuestionPoolPickerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelectQuestions: (selectedQuestionIds: string[]) => void;
+    onSelectQuestions?: (selectedQuestionIds: string[]) => void;
+    onSave?: (selectedQuestionIds: string[]) => void;
     initialSelectedIds: string[];
     subtestName: string;
     defaultSubjectId?: string;
@@ -37,10 +38,15 @@ export function QuestionPoolPickerModal({
     isOpen,
     onClose,
     onSelectQuestions,
+    onSave,
     initialSelectedIds,
     subtestName,
     defaultSubjectId,
 }: QuestionPoolPickerModalProps) {
+    const handleConfirmSelection = (ids: string[]) => {
+        if (onSelectQuestions) onSelectQuestions(ids);
+        if (onSave) onSave(ids);
+    };
     const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds || []);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>(defaultSubjectId || "");
@@ -148,7 +154,7 @@ export function QuestionPoolPickerModal({
     };
 
     const handleSaveSelection = () => {
-        onSelectQuestions(selectedIds);
+        handleConfirmSelection(selectedIds);
         onClose();
     };
 

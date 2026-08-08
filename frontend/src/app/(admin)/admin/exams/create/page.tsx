@@ -1,14 +1,13 @@
 // frontend/src/app/(admin)/admin/exams/create/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { academicMasterService } from "@/services/academic-master.service";
 import { academicService } from "@/services/academic.service";
 import { ExamCategory, ScoringSystem, ExamSubtestRule } from "@/types";
-import { EXAM_PRESETS, ExamPreset } from "@/components/admin/exams/exam-presets";
 import { QuestionPoolPickerModal } from "@/components/admin/exams/QuestionPoolPickerModal";
 import { StudentExamPovSimulator } from "@/components/admin/exams/StudentExamPovSimulator";
 import { Button } from "@/components/ui/button";
@@ -25,25 +24,72 @@ import {
     Plus,
     Trash2,
     Shuffle,
-    HelpCircle,
     Eye,
     GraduationCap,
     Info,
-    Calendar,
     FileCheck,
+    Loader2,
     BookOpen,
     Zap,
     Database,
-    LayoutTemplate,
-    Award,
-    PlusCircle,
-    Check,
-    X,
+    HelpCircle,
+    BookMarked,
 } from "lucide-react";
 import Link from "next/link";
 
+interface ExamPreset {
+    id: string;
+    title: string;
+    description: string;
+    category: ExamCategory;
+    scoring_system: ScoringSystem;
+    duration_minutes: number;
+    passing_score: number;
+    grade_level: string;
+    default_mode: "SANTAI" | "SIMULASI";
+    subtests: ExamSubtestRule[];
+}
+
+const EXAM_PRESETS: ExamPreset[] = [
+    {
+        id: "utbk-snbt-akbar",
+        title: "Try Out Akbar Nasional UTBK SNBT 2026",
+        description: "Simulasi Ujian UTBK SNBT lengkap 7 subtes (TPS, Literasi Indonesia & Inggris, Penalaran Matematika) dengan penilaian IRT.",
+        category: "UTBK_SNBT",
+        scoring_system: "IRT",
+        duration_minutes: 195,
+        passing_score: 650,
+        grade_level: "12 SMA / UTBK",
+        default_mode: "SIMULASI",
+        subtests: [
+            { id: "st-pu", subtest_name: "Penalaran Umum (PU)", duration_minutes: 30, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-pbm", subtest_name: "Pemahaman Bacaan & Menulis (PBM)", duration_minutes: 25, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-ppu", subtest_name: "Pengetahuan & Pemahaman Umum (PPU)", duration_minutes: 15, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-pk", subtest_name: "Pengetahuan Kuantitatif (PK)", duration_minutes: 20, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-lbi", subtest_name: "Literasi Bahasa Indonesia (LBI)", duration_minutes: 45, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-lbing", subtest_name: "Literasi Bahasa Inggris (LBING)", duration_minutes: 30, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+            { id: "st-pm", subtest_name: "Penalaran Matematika (PM)", duration_minutes: 45, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+        ],
+    },
+    {
+        id: "pts-uas-sekolah",
+        title: "Ujian Penilaian Tengah Semester (PTS) Matematika",
+        description: "Ujian Evaluasi Matematika Wajib SMA dengan sistem poin standar 0-100.",
+        category: "PTS_UAS",
+        scoring_system: "STANDARD_POINTS",
+        duration_minutes: 90,
+        passing_score: 75,
+        grade_level: "11 SMA",
+        default_mode: "SIMULASI",
+        subtests: [
+            { id: "st-mat-1", subtest_name: "Pilihan Ganda & Isian Singkat", duration_minutes: 90, pool_question_ids: [], sample_question_count: 0, shuffle_questions: true, shuffle_options: true },
+        ],
+    },
+];
+
 export default function CreateExamPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     // Form Steps: 1: General Info, 2: Subtests & Pool, 3: Scoring Rules, 4: Student Simulator
     const [currentStep, setCurrentStep] = useState<number>(1);
@@ -81,7 +127,7 @@ export default function CreateExamPage() {
             subtest_name: "Penalaran Umum (PU)",
             duration_minutes: 30,
             pool_question_ids: [],
-            sample_question_count: 30,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -90,7 +136,7 @@ export default function CreateExamPage() {
             subtest_name: "Pemahaman Bacaan & Menulis (PBM)",
             duration_minutes: 25,
             pool_question_ids: [],
-            sample_question_count: 20,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -99,7 +145,7 @@ export default function CreateExamPage() {
             subtest_name: "Pengetahuan & Pemahaman Umum (PPU)",
             duration_minutes: 15,
             pool_question_ids: [],
-            sample_question_count: 20,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -108,7 +154,7 @@ export default function CreateExamPage() {
             subtest_name: "Pengetahuan Kuantitatif (PK)",
             duration_minutes: 20,
             pool_question_ids: [],
-            sample_question_count: 15,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -117,7 +163,7 @@ export default function CreateExamPage() {
             subtest_name: "Literasi Bahasa Indonesia (LBI)",
             duration_minutes: 45,
             pool_question_ids: [],
-            sample_question_count: 30,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -126,7 +172,7 @@ export default function CreateExamPage() {
             subtest_name: "Literasi Bahasa Inggris (LBING)",
             duration_minutes: 30,
             pool_question_ids: [],
-            sample_question_count: 20,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
@@ -135,11 +181,40 @@ export default function CreateExamPage() {
             subtest_name: "Penalaran Matematika (PM)",
             duration_minutes: 45,
             pool_question_ids: [],
-            sample_question_count: 20,
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         },
     ]);
+
+    // Dynamic Master Levels & Grades
+    const { data: dbLevels = [] } = useQuery({
+        queryKey: ["academic-master-levels-create-exam"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getLevels();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    const [selectedLevelId, setSelectedLevelId] = useState<string>("");
+
+    const { data: dbGrades = [] } = useQuery({
+        queryKey: ["academic-master-grades-create-exam", selectedLevelId],
+        queryFn: async () => {
+            if (!selectedLevelId) return [];
+            try {
+                const res = await academicMasterService.getGrades(selectedLevelId);
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+        enabled: !!selectedLevelId,
+    });
 
     // Dynamic Master Subjects
     const { data: dbSubjects = [] } = useQuery({
@@ -156,7 +231,7 @@ export default function CreateExamPage() {
 
     // Dynamic Master Chapters (dependent on subjectId)
     const { data: dbChapters = [] } = useQuery({
-        queryKey: ["academic-master-chapters", subjectId],
+        queryKey: ["academic-master-chapters-create-exam", subjectId],
         queryFn: async () => {
             if (!subjectId) return [];
             try {
@@ -169,7 +244,12 @@ export default function CreateExamPage() {
         enabled: !!subjectId,
     });
 
-    const totalSampledQuestions = subtests.reduce((sum, st) => sum + Number(st.sample_question_count || 0), 0);
+    const totalSampledQuestions = subtests.reduce((sum, st) => {
+        const poolCnt = Array.isArray(st.pool_question_ids) ? st.pool_question_ids.length : 0;
+        const cnt = Number(st.sample_question_count || 0);
+        if (poolCnt === 0) return sum;
+        return sum + Math.min(cnt, poolCnt);
+    }, 0);
     const totalPoolQuestions = subtests.reduce((sum, st) => sum + (st.pool_question_ids?.length || 0), 0);
 
     const selectedSubjectObj = dbSubjects.find((s) => s.id === subjectId);
@@ -194,8 +274,8 @@ export default function CreateExamPage() {
             id: `st-${Date.now()}`,
             subtest_name: "Subtes Baru",
             duration_minutes: 30,
-            pool_question_ids: Array.from({ length: 30 }, (_, i) => `q-new-${i + 1}`),
-            sample_question_count: 15,
+            pool_question_ids: [],
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         };
@@ -209,7 +289,16 @@ export default function CreateExamPage() {
 
     const handleUpdateSubtest = (id: string, field: keyof ExamSubtestRule, value: any) => {
         setSubtests(
-            subtests.map((st) => (st.id === id ? { ...st, [field]: value } : st))
+            subtests.map((st) => {
+                if (st.id !== id) return st;
+                if (field === "sample_question_count") {
+                    const poolLen = Array.isArray(st.pool_question_ids) ? st.pool_question_ids.length : 0;
+                    const parsedVal = Math.max(0, parseInt(value) || 0);
+                    const clampedVal = poolLen > 0 ? Math.min(parsedVal, poolLen) : 0;
+                    return { ...st, sample_question_count: clampedVal };
+                }
+                return { ...st, [field]: value };
+            })
         );
     };
 
@@ -219,11 +308,15 @@ export default function CreateExamPage() {
         setSubtests((prev) =>
             prev.map((st) => {
                 if (st.id === activePoolSubtestId) {
-                    const newCount = Math.min(st.sample_question_count, selectedQuestionIds.length || 1);
+                    const poolLen = selectedQuestionIds.length;
+                    const currentSampleCount = st.sample_question_count;
+                    const newCount = poolLen > 0
+                        ? (currentSampleCount > 0 ? Math.min(currentSampleCount, poolLen) : poolLen)
+                        : 0;
                     return {
                         ...st,
                         pool_question_ids: selectedQuestionIds,
-                        sample_question_count: newCount > 0 ? newCount : (selectedQuestionIds.length > 0 ? 1 : 0),
+                        sample_question_count: newCount,
                     };
                 }
                 return st;
@@ -253,6 +346,13 @@ export default function CreateExamPage() {
                 grade_level: gradeLevel,
                 subtests,
             });
+
+            // Invalidate and refetch TanStack Query cache
+            queryClient.invalidateQueries({ queryKey: ["admin-exams-list"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-exam-detail"] });
+            queryClient.invalidateQueries({ queryKey: ["student-exams-list"] });
+            await queryClient.refetchQueries({ queryKey: ["admin-exams-list"] });
+
             router.push("/admin/exams");
         } catch (err) {
             console.error("Failed to create exam", err);
@@ -283,10 +383,10 @@ export default function CreateExamPage() {
                             </div>
                             <div>
                                 <h1 className="font-heading font-bold text-base sm:text-lg text-foreground leading-tight">
-                                    Studio Ujian & Tryout Master
+                                    Studio Ujian & Tryout Baru
                                 </h1>
                                 <p className="text-xs text-muted-foreground hidden sm:block">
-                                    Konfigurasi Ujian, Latihan Mapel, IRT, dan Dynamic Question Pool Sampling.
+                                    Buat paket ujian baru dengan generator varian otomatis & bank data
                                 </p>
                             </div>
                         </div>
@@ -297,18 +397,17 @@ export default function CreateExamPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setIsPresetModalOpen(true)}
-                            className="rounded-xl gap-1.5 font-semibold text-xs h-9"
+                            className="rounded-xl gap-1.5 text-xs font-semibold h-9 hidden md:flex cursor-pointer"
                         >
-                            <LayoutTemplate className="h-4 w-4 text-primary" /> Preset Template
+                            <BookMarked className="h-4 w-4 text-primary" /> Preset Paket Ujian
                         </Button>
-
                         <Button
                             size="sm"
                             onClick={handleSaveExam}
                             disabled={isSaving || !title.trim()}
-                            className="rounded-xl gap-1.5 font-semibold text-xs h-9 shadow-xs"
+                            className="rounded-xl gap-1.5 font-semibold text-xs h-9 shadow-xs cursor-pointer"
                         >
-                            <Save className="h-4 w-4" /> {isSaving ? "Menyimpan..." : "Publikasikan Ujian"}
+                            <Save className="h-4 w-4" /> {isSaving ? "Menyimpan..." : "Publikasikan Paket Ujian"}
                         </Button>
                     </div>
                 </header>
@@ -318,15 +417,15 @@ export default function CreateExamPage() {
                     <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4 text-xs font-medium min-w-[650px]">
                         <button
                             onClick={() => setCurrentStep(1)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 1 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 1 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">1</span>
-                            1. Identitas & Mapel Ujian
+                            1. Informasi General
                         </button>
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(2)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 2 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 2 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">2</span>
                             2. Subtes & Question Pool ({subtests.length} Subtes)
@@ -334,7 +433,7 @@ export default function CreateExamPage() {
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(3)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 3 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 3 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">3</span>
                             3. Skema Penilaian ({scoringSystem})
@@ -342,35 +441,30 @@ export default function CreateExamPage() {
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(4)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 4 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 4 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">4</span>
-                            4. Simulator Siswa
+                            4. Simulator Pengerjaan Siswa
                         </button>
                     </div>
                 </div>
 
                 {/* Studio Workspace Content */}
                 <div className="flex-1 p-4 sm:p-6 max-w-[1400px] w-full mx-auto space-y-6">
-                    {/* STEP 1: General Info & Practice Attributes */}
+                    {/* STEP 1: General Info */}
                     {currentStep === 1 && (
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                             <div className="md:col-span-8 space-y-5">
                                 <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-2xs">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                                            <FileCheck className="h-4 w-4 text-primary" /> Identitas Paket Ujian / Latihan
-                                        </h2>
-                                        <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
-                                            Preset: {selectedPresetId}
-                                        </Badge>
-                                    </div>
+                                    <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                        <FileCheck className="h-4 w-4 text-primary" /> Identitas Utama Paket Ujian
+                                    </h2>
 
                                     <div className="space-y-3">
                                         <div className="space-y-1">
-                                            <label className="font-bold text-xs text-foreground">Judul Paket Ujian / Latihan *</label>
+                                            <label className="font-bold text-xs text-foreground">Judul Paket Ujian / Tryout *</label>
                                             <Input
-                                                placeholder="Contoh: UTBK SNBT 2026 Akbar (IRT Standar BP3)"
+                                                placeholder="Contoh: Try Out Akbar Nasional UTBK SNBT 2026 #5"
                                                 value={title}
                                                 onChange={(e) => setTitle(e.target.value)}
                                                 className="h-11 rounded-xl text-sm font-semibold bg-background"
@@ -380,15 +474,15 @@ export default function CreateExamPage() {
                                         <div className="space-y-1">
                                             <label className="font-semibold text-xs text-foreground">Deskripsi / Petunjuk Pengerjaan</label>
                                             <textarea
-                                                rows={3}
+                                                rows={4}
                                                 value={description}
                                                 onChange={(e) => setDescription(e.target.value)}
-                                                placeholder="Petunjuk khusus bagi siswa sebelum memulai latihan/ujian..."
+                                                placeholder="Petunjuk khusus bagi siswa sebelum memulai ujian..."
                                                 className="w-full rounded-xl border border-input bg-background p-3 text-xs focus:outline-hidden leading-relaxed"
                                             />
                                         </div>
 
-                                        {/* Practice Mapel & Bab Configuration */}
+                                        {/* Mapel & Bab Configuration */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                             <div className="space-y-1">
                                                 <label className="font-semibold text-xs text-foreground flex items-center gap-1">
@@ -437,12 +531,12 @@ export default function CreateExamPage() {
                             <div className="md:col-span-4 space-y-5">
                                 <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-2xs">
                                     <h2 className="font-bold text-xs text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                        <Sliders className="h-4 w-4 text-primary" /> Klasifikasi & Parameter Latihan
+                                        <Sliders className="h-4 w-4 text-primary" /> Klasifikasi & Ketentuan
                                     </h2>
 
                                     <div className="space-y-3 text-xs">
                                         <div className="space-y-1">
-                                            <label className="font-semibold text-foreground">Kategori Ujian / Latihan</label>
+                                            <label className="font-semibold text-foreground">Kategori Ujian</label>
                                             <select
                                                 value={category}
                                                 onChange={(e) => setCategory(e.target.value as any)}
@@ -504,13 +598,45 @@ export default function CreateExamPage() {
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="font-semibold text-foreground">Target Tingkat Kelas / Jenjang</label>
-                                            <Input
-                                                value={gradeLevel}
-                                                onChange={(e) => setGradeLevel(e.target.value)}
-                                                placeholder="Misal: 12 SMA / UTBK"
-                                                className="h-9 text-xs rounded-xl bg-background"
-                                            />
+                                            <label className="font-semibold text-foreground flex items-center gap-1">
+                                                <GraduationCap className="h-3.5 w-3.5 text-primary" /> Target Jenjang & Kelas (Master Akademik)
+                                            </label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <select
+                                                    value={selectedLevelId}
+                                                    onChange={(e) => {
+                                                        const lvlId = e.target.value;
+                                                        setSelectedLevelId(lvlId);
+                                                        const lvlObj = dbLevels.find((l) => l.id === lvlId);
+                                                        if (lvlObj) setGradeLevel(lvlObj.name);
+                                                    }}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                                >
+                                                    <option value="">-- Pilih Jenjang --</option>
+                                                    {dbLevels.map((l) => (
+                                                        <option key={l.id} value={l.id}>
+                                                            {l.name} ({l.code})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={gradeLevel}
+                                                    onChange={(e) => setGradeLevel(e.target.value)}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                                >
+                                                    <option value={gradeLevel || ""}>{gradeLevel || "-- Pilih Kelas --"}</option>
+                                                    {dbGrades.map((g) => (
+                                                        <option key={g.id} value={`${g.name} (${g.alias || g.level_code})`}>
+                                                            {g.name} ({g.alias || g.level_code})
+                                                        </option>
+                                                    ))}
+                                                    <option value="12 SMA / UTBK">12 SMA / UTBK</option>
+                                                    <option value="11 SMA">11 SMA</option>
+                                                    <option value="10 SMA">10 SMA</option>
+                                                    <option value="9 SMP">9 SMP</option>
+                                                    <option value="6 SD">6 SD</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -524,35 +650,23 @@ export default function CreateExamPage() {
                             <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div>
                                     <h2 className="font-bold text-base text-foreground flex items-center gap-2">
-                                        <Layers className="h-5 w-5 text-primary" /> Dynamic Question Pool Sampling & Subtes Engine
+                                        <Layers className="h-5 w-5 text-primary" /> Pengaturan Subtes & Dynamic Question Pool Sampling
                                     </h2>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        Kelola naskah soal per subtes. Anda bisa menambahkan pool butir soal secara visual dari Bank Soal dan menentukan berapa soal acak yang dikerjakan siswa.
+                                        Pilih soal dari Bank Data ke dalam Pool (Awal 0 soal). Jumlah sampling per siswa tidak boleh melebihi total pool.
                                     </p>
                                 </div>
 
-                                <Button onClick={handleAddSubtest} size="sm" className="rounded-xl gap-1.5 text-xs font-semibold">
+                                <Button onClick={handleAddSubtest} size="sm" className="rounded-xl gap-1.5 text-xs font-semibold cursor-pointer">
                                     <Plus className="h-4 w-4" /> Tambah Subtes Baru
                                 </Button>
-                            </div>
-
-                            {/* Summary Badges */}
-                            <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 p-4 rounded-2xl text-xs flex-wrap">
-                                <Info className="h-5 w-5 text-primary shrink-0" />
-                                <div>
-                                    <span className="font-bold text-foreground">Total Pool Bank Soal:</span>{" "}
-                                    <Badge variant="secondary" className="font-mono text-xs">{totalPoolQuestions} Soal Terdaftar</Badge>
-                                    <span className="mx-2 text-muted-foreground">•</span>
-                                    <span className="font-bold text-foreground">Total Soal Dikerjakan Siswa:</span>{" "}
-                                    <Badge variant="default" className="font-mono text-xs">{totalSampledQuestions} Soal Acak / Siswa</Badge>
-                                </div>
                             </div>
 
                             {/* Subtests List */}
                             <div className="space-y-4">
                                 {subtests.map((st, idx) => (
                                     <div key={st.id} className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-2xs">
-                                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                                        <div className="flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2">
                                                 <Badge variant="outline" className="text-xs font-bold">
                                                     Subtes #{idx + 1}
@@ -564,26 +678,15 @@ export default function CreateExamPage() {
                                                 />
                                             </div>
 
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setActivePoolSubtestId(st.id)}
-                                                    className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                                                >
-                                                    <Database className="h-3.5 w-3.5" /> Visual Question Pool Picker ({st.pool_question_ids.length} Soal)
-                                                </Button>
-
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRemoveSubtest(st.id)}
-                                                    disabled={subtests.length <= 1}
-                                                    className="h-8 text-xs text-destructive hover:bg-destructive/10 rounded-xl"
-                                                >
-                                                    <Trash2 className="h-4 w-4 mr-1" /> Hapus
-                                                </Button>
-                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRemoveSubtest(st.id)}
+                                                disabled={subtests.length <= 1}
+                                                className="h-8 text-xs text-destructive hover:bg-destructive/10 rounded-xl cursor-pointer"
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-1" /> Hapus Subtes
+                                            </Button>
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
@@ -598,17 +701,21 @@ export default function CreateExamPage() {
                                             </div>
 
                                             <div className="space-y-1">
-                                                <label className="font-semibold text-foreground">Jumlah Pool Bank Soal</label>
-                                                <Input
-                                                    type="number"
-                                                    value={st.pool_question_ids.length}
-                                                    onChange={(e) => {
-                                                        const count = parseInt(e.target.value) || 10;
-                                                        const newPool = Array.from({ length: count }, (_, i) => `q-${st.id}-${i + 1}`);
-                                                        handleUpdateSubtest(st.id, "pool_question_ids", newPool);
-                                                    }}
-                                                    className="h-9 rounded-xl bg-background font-mono"
-                                                />
+                                                <label className="font-semibold text-foreground flex items-center justify-between">
+                                                    <span>Jumlah Pool Bank Soal</span>
+                                                    <Badge variant={st.pool_question_ids.length > 0 ? "secondary" : "outline"} className="text-[10px]">
+                                                        {st.pool_question_ids.length} Soal
+                                                    </Badge>
+                                                </label>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setActivePoolSubtestId(st.id)}
+                                                    className="w-full rounded-xl text-xs gap-1.5 h-9 font-semibold justify-center border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary cursor-pointer"
+                                                >
+                                                    <Database className="h-4 w-4" />
+                                                    {st.pool_question_ids.length > 0 ? `Ubah Pool (${st.pool_question_ids.length} Soal)` : "Pilih Soal Pool DB"}
+                                                </Button>
                                             </div>
 
                                             <div className="space-y-1">
@@ -617,10 +724,17 @@ export default function CreateExamPage() {
                                                 </label>
                                                 <Input
                                                     type="number"
+                                                    min={0}
+                                                    max={st.pool_question_ids.length}
                                                     value={st.sample_question_count}
-                                                    onChange={(e) => handleUpdateSubtest(st.id, "sample_question_count", parseInt(e.target.value) || 5)}
+                                                    onChange={(e) => handleUpdateSubtest(st.id, "sample_question_count", e.target.value)}
                                                     className="h-9 rounded-xl bg-background font-bold text-primary"
                                                 />
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {st.pool_question_ids.length === 0
+                                                        ? "⚠️ Pilih pool terlebih dahulu"
+                                                        : `Max: ${st.pool_question_ids.length} soal (sesuai pool)`}
+                                                </p>
                                             </div>
 
                                             <div className="space-y-2 flex flex-col justify-end">
@@ -653,233 +767,73 @@ export default function CreateExamPage() {
                     {/* STEP 3: Scoring Rules */}
                     {currentStep === 3 && (
                         <div className="p-5 rounded-2xl border border-border bg-card space-y-5 shadow-2xs">
-                            <div>
-                                <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                                    <Sparkles className="h-4 w-4 text-primary" /> Pengaturan Sistem Penilaian Ujian
-                                </h2>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Pilih skema kalkulasi nilai akhir siswa sesuai standar ujian nasional, sekolah, atau sistem minus.
-                                </p>
-                            </div>
+                            <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                <Sparkles className="h-4 w-4 text-primary" /> Pengaturan Sistem Penilaian Ujian
+                            </h2>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div
                                     onClick={() => setScoringSystem("IRT")}
-                                    className={`p-5 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "IRT" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
+                                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "IRT" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600 font-bold">
-                                            Rekomendasi UTBK SNBT
-                                        </Badge>
-                                        {scoringSystem === "IRT" && <Check className="h-4 w-4 text-primary" />}
-                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] mb-2">
+                                        Rekomendasi UTBK
+                                    </Badge>
                                     <h3 className="font-bold text-sm text-foreground">Item Response Theory (IRT)</h3>
                                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                                        Skor dihitung dinamis berdasarkan bobot tingkat kesulitan butir soal yang dijawab benar oleh seluruh peserta ujian.
+                                        Skor dihitung dinamis berdasarkan tingkat kesulitan soal yang dijawab benar oleh seluruh peserta ujian.
                                     </p>
                                 </div>
 
                                 <div
                                     onClick={() => setScoringSystem("STANDARD_POINTS")}
-                                    className={`p-5 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "STANDARD_POINTS" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
+                                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "STANDARD_POINTS" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Badge variant="outline" className="text-[10px]">
-                                            Sekolah / PTS / UAS
-                                        </Badge>
-                                        {scoringSystem === "STANDARD_POINTS" && <Check className="h-4 w-4 text-primary" />}
-                                    </div>
+                                    <Badge variant="outline" className="text-[10px] mb-2">
+                                        Sekolah / PTS / UAS
+                                    </Badge>
                                     <h3 className="font-bold text-sm text-foreground">Poin Standar (0 - 100)</h3>
                                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                                        Setiap soal memiliki bobot poin seragam. Skor total dihitung proporsional dari jumlah soal yang dijawab benar.
+                                        Setiap soal memiliki bobot poin sama. Skor total dihitung proporsional dari jumlah soal benar.
                                     </p>
                                 </div>
 
                                 <div
                                     onClick={() => setScoringSystem("NEGATIVE_MARKING")}
-                                    className={`p-5 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "NEGATIVE_MARKING" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
+                                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${scoringSystem === "NEGATIVE_MARKING" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/40 bg-background"}`}
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Badge variant="outline" className="text-[10px]">
-                                            Minus System
-                                        </Badge>
-                                        {scoringSystem === "NEGATIVE_MARKING" && <Check className="h-4 w-4 text-primary" />}
-                                    </div>
+                                    <Badge variant="outline" className="text-[10px] mb-2">
+                                        Minus System
+                                    </Badge>
                                     <h3 className="font-bold text-sm text-foreground">Sistem Minus (+4 / -1 / 0)</h3>
                                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                                        Jawaban benar bernilai +4 poin, salah bernilai -1 poin, dan tidak dijawab 0 poin (cocok untuk SIMAK UI / UM UGM).
+                                        Jawaban benar +4 poin, salah -1 poin, dan tidak dijawab 0 poin (cocok untuk UMPTN klasik).
                                     </p>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* STEP 4: Student Attempt Simulator & Interactive POV */}
+                    {/* STEP 4: Student Attempt Simulator */}
                     {currentStep === 4 && (
-                        <div className="space-y-4">
-                            <StudentExamPovSimulator
-                                examTitle={title}
-                                subtests={subtests}
-                                scoringSystem={scoringSystem}
-                                gradeLevel={gradeLevel}
-                            />
-                        </div>
+                        <StudentExamPovSimulator
+                            examTitle={title}
+                            subtests={subtests}
+                            scoringSystem={scoringSystem}
+                            gradeLevel={gradeLevel}
+                        />
                     )}
                 </div>
-
-                {/* BOTTOM WIZARD NAVIGATION BAR */}
-                <footer className="sticky bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-md px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-lg mt-auto">
-                    <div className="flex items-center gap-2">
-                        <Link href="/admin/exams">
-                            <Button variant="outline" size="sm" className="rounded-xl gap-1.5 font-semibold text-xs text-muted-foreground hover:text-foreground">
-                                <ArrowLeft className="h-4 w-4" /> Batal &amp; Kembali ke Katalog Ujian
-                            </Button>
-                        </Link>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {currentStep > 1 && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentStep((prev) => prev - 1)}
-                                className="rounded-xl gap-1.5 font-semibold text-xs h-9"
-                            >
-                                ← Langkah Sebelumnya
-                            </Button>
-                        )}
-
-                        {currentStep < 4 ? (
-                            <Button
-                                size="sm"
-                                onClick={() => setCurrentStep((prev) => prev + 1)}
-                                className="rounded-xl gap-1.5 font-bold text-xs h-9 bg-primary text-primary-foreground shadow-xs"
-                            >
-                                Lanjut ke Langkah {currentStep + 1} →
-                            </Button>
-                        ) : (
-                            <Button
-                                size="sm"
-                                onClick={handleSaveExam}
-                                disabled={isSaving || !title.trim()}
-                                className="rounded-xl gap-1.5 font-bold text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                            >
-                                <Save className="h-4 w-4" /> {isSaving ? "Menyimpan..." : "Publikasikan Ujian"}
-                            </Button>
-                        )}
-                    </div>
-                </footer>
             </div>
 
-            {/* PRESET SELECTION MODAL */}
-            {isPresetModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-                    <div className="bg-card border border-border rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans animate-in fade-in duration-200">
-                        <div className="p-5 border-b border-border bg-card flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-2xl bg-primary/10 text-primary">
-                                    <LayoutTemplate className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h2 className="font-heading font-bold text-base sm:text-lg text-foreground">
-                                        Pilih Preset Template Ujian
-                                    </h2>
-                                    <p className="text-xs text-muted-foreground">
-                                        Pilih jenis paket ujian untuk mengisi struktur subtes, durasi, dan penilaian secara otomatis.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Link href="/admin/exams">
-                                    <Button variant="ghost" size="sm" className="rounded-xl text-xs text-muted-foreground hover:text-foreground">
-                                        Batal ke Katalog
-                                    </Button>
-                                </Link>
-
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsPresetModalOpen(false)}
-                                    className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground"
-                                    title="Tutup Preset Modal"
-                                >
-                                    <X className="h-5 w-5" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                            {EXAM_PRESETS.map((preset) => (
-                                <div
-                                    key={preset.id}
-                                    onClick={() => handleApplyPreset(preset)}
-                                    className="group p-5 rounded-2xl border border-border bg-card hover:border-primary/60 transition-all cursor-pointer shadow-2xs flex flex-col justify-between space-y-3"
-                                >
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary font-bold">
-                                                {preset.badgeText}
-                                            </Badge>
-                                            <Badge variant="outline" className="text-[10px]">
-                                                {preset.subtests.length} Subtes
-                                            </Badge>
-                                        </div>
-
-                                        <h3 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                                            {preset.title}
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                                            {preset.description}
-                                        </p>
-                                    </div>
-
-                                    <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="h-3.5 w-3.5 text-primary" /> {preset.duration_minutes}m
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> {preset.scoring_system}
-                                        </span>
-                                        <Button size="sm" variant="ghost" className="h-7 text-xs font-semibold text-primary group-hover:bg-primary/10 rounded-lg">
-                                            Gunakan Preset →
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="p-4 border-t border-border bg-muted/30 flex items-center justify-between">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsPresetModalOpen(false)}
-                                className="rounded-xl text-xs font-semibold"
-                            >
-                                Buat Manual / Tanpa Preset
-                            </Button>
-
-                            <Link href="/admin/exams">
-                                <Button variant="destructive" size="sm" className="rounded-xl text-xs font-semibold">
-                                    Batal &amp; Kembali ke Halaman Ujian
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* VISUAL QUESTION POOL PICKER MODAL */}
-            {activePoolSubtestId && (
-                <QuestionPoolPickerModal
-                    isOpen={!!activePoolSubtestId}
-                    onClose={() => setActivePoolSubtestId(null)}
-                    onSelectQuestions={handleSavePoolSelectionForSubtest}
-                    initialSelectedIds={activeSubtestForModal?.pool_question_ids || []}
-                    subtestName={activeSubtestForModal?.subtest_name || "Subtes"}
-                    defaultSubjectId={subjectId}
-                />
-            )}
+            {/* Question Pool Picker Modal */}
+            <QuestionPoolPickerModal
+                isOpen={!!activePoolSubtestId}
+                onClose={() => setActivePoolSubtestId(null)}
+                subtestName={activeSubtestForModal?.subtest_name || "Subtes"}
+                initialSelectedIds={activeSubtestForModal?.pool_question_ids || []}
+                onSave={handleSavePoolSelectionForSubtest}
+            />
         </AppShell>
     );
 }

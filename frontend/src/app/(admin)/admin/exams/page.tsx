@@ -79,6 +79,17 @@ export default function AdminExamsPage() {
         },
     });
 
+    // Toggle Status Mutation (Draft <-> Published)
+    const toggleStatusMutation = useMutation({
+        mutationFn: ({ id, currentStatus }: { id: string; currentStatus?: string }) => {
+            const nextStatus = currentStatus === "DRAFT" ? "PUBLISHED" : "DRAFT";
+            return academicService.updateExam(id, { status: nextStatus });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-exams-list"] });
+        },
+    });
+
     // Filter Logic
     const filteredExams = useMemo(() => {
         return examList.filter((exam) => {
@@ -384,7 +395,7 @@ export default function AdminExamsPage() {
                                                                 variant={exam.category === "UTBK_SNBT" ? "secondary" : "outline"}
                                                                 className="text-[10px] font-bold"
                                                             >
-                                                                {exam.category || "UTBK_SNBT"}
+                                                                {exam.category || "UM_PTN"}
                                                             </Badge>
                                                         </div>
                                                         <p className="font-bold text-foreground hover:text-primary leading-snug line-clamp-1">
@@ -410,8 +421,8 @@ export default function AdminExamsPage() {
                                                             <span>{exam.duration_minutes} Menit</span>
                                                         </div>
                                                         <div className="text-[11px] text-muted-foreground flex items-center gap-2">
-                                                            <span>{exam.total_questions || 30} Soal</span>
-                                                            <span>• Pass: {exam.passing_score || 500}</span>
+                                                            <span>{exam.total_questions ?? 0} Soal</span>
+                                                            <span>• Pass: {exam.passing_score ?? 0}</span>
                                                         </div>
                                                     </td>
 
@@ -420,22 +431,34 @@ export default function AdminExamsPage() {
                                                             variant={exam.scoring_system === "IRT" ? "default" : "secondary"}
                                                             className="text-[10px] font-bold"
                                                         >
-                                                            {exam.scoring_system || "IRT"}
+                                                            {exam.scoring_system || "STANDARD_POINTS"}
                                                         </Badge>
                                                     </td>
 
                                                     <td className="p-4">
-                                                        <Badge
-                                                            variant={exam.status === "DRAFT" ? "outline" : "default"}
-                                                            className="text-[10px]"
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleStatusMutation.mutate({ id: exam.id, currentStatus: exam.status })}
+                                                            disabled={toggleStatusMutation.isPending}
+                                                            title="Klik untuk ubah status Draft / Published"
+                                                            className="focus:outline-none"
                                                         >
-                                                            {exam.status === "DRAFT" ? "Draft" : "Published"}
-                                                        </Badge>
+                                                            <Badge
+                                                                variant={exam.status === "DRAFT" ? "outline" : "default"}
+                                                                className={`text-[10px] cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                                                    exam.status === "DRAFT"
+                                                                        ? "border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
+                                                                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                                }`}
+                                                            >
+                                                                {exam.status === "DRAFT" ? "Draft (Klik Publikasi)" : "Published"}
+                                                            </Badge>
+                                                        </button>
                                                     </td>
 
                                                     <td className="p-4 text-right space-x-1 whitespace-nowrap">
-                                                        <Link href={`/admin/exams/create`}>
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground">
+                                                        <Link href={`/admin/exams/${exam.id}/edit`}>
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-primary/10">
                                                                 <Edit3 className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
@@ -538,7 +561,7 @@ export default function AdminExamsPage() {
                                             variant={exam.category === "UTBK_SNBT" ? "secondary" : "outline"}
                                             className="text-[10px] font-bold"
                                         >
-                                            {exam.category || "UTBK SNBT"}
+                                            {exam.category || "UM_PTN"}
                                         </Badge>
 
                                         {exam.subject_name && (
@@ -573,11 +596,11 @@ export default function AdminExamsPage() {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                                            <span>{exam.total_questions || 30} Soal</span>
+                                            <span>{exam.total_questions ?? 0} Soal</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                            <span>{exam.scoring_system || "IRT"}</span>
+                                            <span>{exam.scoring_system || "STANDARD_POINTS"}</span>
                                         </div>
                                     </div>
 
@@ -591,8 +614,8 @@ export default function AdminExamsPage() {
                                             <Trash2 className="h-3.5 w-3.5 mr-1" /> Hapus
                                         </Button>
 
-                                        <Link href={`/admin/exams/create`}>
-                                            <Button size="sm" variant="secondary" className="h-8 rounded-xl text-xs font-semibold">
+                                        <Link href={`/admin/exams/${exam.id}/edit`}>
+                                            <Button size="sm" variant="secondary" className="h-8 rounded-xl text-xs font-semibold hover:bg-primary/10">
                                                 <Edit3 className="h-3.5 w-3.5 mr-1" /> Sunting
                                             </Button>
                                         </Link>

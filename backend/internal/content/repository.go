@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var examCustomBlueprintStore sync.Map
 
 type repository struct {
 	pool *pgxpool.Pool
@@ -1833,6 +1836,56 @@ func (r *repository) clearExamJunctions(ctx context.Context, tx pgx.Tx, examID u
 
 // createExamContent creates the cbt.exam master plus its academic junctions in
 // one transaction. The exam_metadata row is written by CreateExam.
+func packDescriptionWithBlueprint(desc string, bp map[string]interface{}) string {
+	cleanDesc := desc
+	if idx := strings.Index(cleanDesc, "<!--BP:"); idx != -1 {
+		cleanDesc = strings.TrimSpace(cleanDesc[:idx])
+	}
+	if len(bp) == 0 {
+		return cleanDesc
+	}
+	b, err := json.Marshal(bp)
+	if err != nil {
+		return cleanDesc
+	}
+	return fmt.Sprintf("%s <!--BP:%s-->", cleanDesc, string(b))
+}
+
+func unpackDescriptionWithBlueprint(rawDesc string) (string, map[string]interface{}) {
+	idx := strings.Index(rawDesc, "<!--BP:")
+	if idx == -1 {
+		return rawDesc, nil
+	}
+	userDesc := strings.TrimSpace(rawDesc[:idx])
+	endIdx := strings.Index(rawDesc[idx:], "-->")
+	if endIdx == -1 {
+		return userDesc, nil
+	}
+	jsonStr := rawDesc[idx+7 : idx+endIdx]
+	var bp map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &bp); err != nil {
+		return userDesc, nil
+	}
+	return userDesc, bp
+}
+
+func mapCategoryToExamType(cat string) string {
+	switch strings.ToUpper(strings.TrimSpace(cat)) {
+	case "UTBK_SNBT", "UTBK":
+		return "UTBK"
+	case "TRYOUT_NASIONAL", "TRYOUT":
+		return "TRYOUT"
+	case "PTS_UAS", "MID", "FINAL":
+		return "MID"
+	case "UJIAN_HARIAN", "UJIAN_BAB", "QUIZ":
+		return "QUIZ"
+	case "AKM":
+		return "AKM"
+	default:
+		return "CBT"
+	}
+}
+
 func (r *repository) createExamContent(ctx context.Context, c *Content) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -1849,11 +1902,19 @@ func (r *repository) createExamContent(ctx context.Context, c *Content) error {
 		statusID = statuses[string(StatusDraft)]
 	}
 
+	dbExamType := "CBT"
+	if c.Metadata != nil {
+		if cat, ok := c.Metadata["category"].(string); ok && cat != "" {
+			dbExamType = mapCategoryToExamType(cat)
+		}
+	}
+
+	packedDesc := packDescriptionWithBlueprint(c.Body, c.Metadata)
 	code := "exm_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	_, err = tx.Exec(ctx, `
 		INSERT INTO cbt.exam (id, exam_code, title, description, exam_type, status_id, owner_id, created_by)
-		VALUES ($1, $2, $3, $4, 'CBT', $5, $6, $7)`,
-		c.ID, code, c.Title, c.Body, statusID, c.CreatedBy, c.CreatedBy)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		c.ID, code, c.Title, packedDesc, dbExamType, statusID, c.CreatedBy, c.CreatedBy)
 	if err != nil {
 		return err
 	}
@@ -1883,8 +1944,20 @@ func (r *repository) updateExamContent(ctx context.Context, id uuid.UUID, req Up
 		}
 	}
 
-	sets := []string{"title = COALESCE($2, title)", "description = COALESCE($3, description)", "status_id = COALESCE($4, status_id)", "updated_at = NOW()"}
-	args := []interface{}{id, req.Title, req.Body, statusID}
+	bodyStr := ""
+	if req.Body != nil {
+		bodyStr = *req.Body
+	}
+	packedDesc := packDescriptionWithBlueprint(bodyStr, req.Metadata)
+
+	sets := []string{"title = COALESCE($2, title)", "description = $3", "status_id = COALESCE($4, status_id)", "updated_at = NOW()"}
+	args := []interface{}{id, req.Title, packedDesc, statusID}
+	if req.Metadata != nil {
+		if cat, ok := req.Metadata["category"].(string); ok && cat != "" {
+			sets = append(sets, fmt.Sprintf("exam_type = $%d", len(args)+1))
+			args = append(args, mapCategoryToExamType(cat))
+		}
+	}
 	if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE cbt.exam SET %s WHERE id = $1 AND deleted_at IS NULL", strings.Join(sets, ", ")), args...); err != nil {
 		return err
 	}
@@ -1920,6 +1993,28 @@ func (r *repository) softDeleteExam(ctx context.Context, contentID uuid.UUID) er
 	return nil
 }
 
+func mapExamTypeToCategory(examType string) string {
+	switch strings.ToUpper(strings.TrimSpace(examType)) {
+	case "UTBK":
+		return "UTBK_SNBT"
+	case "TRYOUT":
+		return "TRYOUT_NASIONAL"
+	case "MID", "FINAL":
+		return "PTS_UAS"
+	case "QUIZ":
+		return "UJIAN_HARIAN"
+	case "AKM":
+		return "UTBK_SNBT"
+	case "CBT":
+		return "UTBK_SNBT"
+	default:
+		if examType != "" {
+			return examType
+		}
+		return "UTBK_SNBT"
+	}
+}
+
 // examColumns projects a cbt.exam master plus its status, metadata,
 // randomization, schedule and academic junctions into the ExamFull shape.
 const examColumns = `
@@ -1931,7 +2026,7 @@ const examColumns = `
 	tp.topic_id,
 	NULL::uuid,
 	m.title,
-	COALESCE(m.description, '')::text,
+	m.description,
 	COALESCE(st.code, 'DRAFT')::text,
 	COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
 	NULL::jsonb,
@@ -1946,7 +2041,9 @@ const examColumns = `
 	1::int,
 	sch.start_time,
 	sch.end_time,
-	'{}'::jsonb`
+	COALESCE(m.exam_type, 'UTBK')::text,
+	COALESCE(g.name, '12 SMA / UTBK')::text,
+	COALESCE(pool_cnt.cnt, 0)::int`
 
 const examFrom = `
 	FROM cbt.exam m
@@ -1956,21 +2053,68 @@ const examFrom = `
 	LEFT JOIN LATERAL (SELECT start_time, end_time FROM cbt.exam_schedule WHERE exam_id = m.id ORDER BY created_at DESC LIMIT 1) sch ON true
 	LEFT JOIN LATERAL (SELECT subject_id FROM cbt.exam_subject WHERE exam_id = m.id LIMIT 1) subj ON true
 	LEFT JOIN LATERAL (SELECT grade_id FROM cbt.exam_grade WHERE exam_id = m.id LIMIT 1) gr ON true
+	LEFT JOIN academic.grade g ON g.id = gr.grade_id
 	LEFT JOIN LATERAL (SELECT chapter_id FROM cbt.exam_chapter WHERE exam_id = m.id LIMIT 1) ch ON true
-	LEFT JOIN LATERAL (SELECT topic_id FROM cbt.exam_topic WHERE exam_id = m.id LIMIT 1) tp ON true`
+	LEFT JOIN LATERAL (SELECT topic_id FROM cbt.exam_topic WHERE exam_id = m.id LIMIT 1) tp ON true
+	LEFT JOIN LATERAL (
+		SELECT COUNT(*)::int as cnt FROM (
+			SELECT question_id FROM cbt.exam_package_question epq 
+			JOIN cbt.exam_package ep ON ep.id = epq.package_id WHERE ep.exam_id = m.id
+			UNION
+			SELECT id as question_id FROM cbt.exam_question_pool WHERE exam_id = m.id
+		) pool_q
+	) pool_cnt ON true`
 
 func scanExam(row pgx.Row) (*ExamFull, error) {
 	e := &ExamFull{}
 	var meta map[string]interface{}
+	var rawExamType, gradeName, rawDesc string
+	var totalQuestions int
+
 	if err := row.Scan(
-		&e.Content.ID, &e.Content.ContentType, &e.Content.GradeID, &e.Content.SubjectID, &e.Content.ChapterID, &e.Content.TopicID, &e.Content.LOID, &e.Content.Title, &e.Content.Body, &e.Content.Status, &e.Content.CreatedBy, &meta, &e.Content.PublishedAt, &e.Content.CreatedAt, &e.Content.UpdatedAt,
-		&e.Exam.Description, &e.Exam.DurationMinutes, &e.Exam.PassingScore, &e.Exam.ShuffleQuestions, &e.Exam.ShuffleOptions, &e.Exam.MaxAttempts, &e.Exam.StartTime, &e.Exam.EndTime, &e.Exam.Blueprint,
+		&e.Content.ID, &e.Content.ContentType, &e.Content.GradeID, &e.Content.SubjectID, &e.Content.ChapterID, &e.Content.TopicID, &e.Content.LOID, &e.Content.Title, &rawDesc, &e.Content.Status, &e.Content.CreatedBy, &meta, &e.Content.PublishedAt, &e.Content.CreatedAt, &e.Content.UpdatedAt,
+		&e.Exam.Description, &e.Exam.DurationMinutes, &e.Exam.PassingScore, &e.Exam.ShuffleQuestions, &e.Exam.ShuffleOptions, &e.Exam.MaxAttempts, &e.Exam.StartTime, &e.Exam.EndTime,
+		&rawExamType, &gradeName, &totalQuestions,
 	); err != nil {
 		return nil, err
 	}
 	if len(meta) > 0 {
 		e.Content.Metadata = meta
 	}
+
+	cleanDesc, unpackedBp := unpackDescriptionWithBlueprint(rawDesc)
+	e.Content.Body = cleanDesc
+	e.Exam.Description = cleanDesc
+
+	category := mapExamTypeToCategory(rawExamType)
+	defaultScoring := "IRT"
+	if category == "UJIAN_HARIAN" || category == "PTS_UAS" || category == "QUIZ" || category == "MID" {
+		defaultScoring = "STANDARD_POINTS"
+	}
+
+	bp := map[string]interface{}{
+		"category":        category,
+		"grade_level":     gradeName,
+		"total_questions": totalQuestions,
+		"scoring_system":  defaultScoring,
+	}
+
+	for k, v := range unpackedBp {
+		if v != nil && v != "" {
+			bp[k] = v
+		}
+	}
+
+	if storedBp, ok := examCustomBlueprintStore.Load(e.Content.ID); ok {
+		if bpMap, ok := storedBp.(map[string]interface{}); ok {
+			for k, v := range bpMap {
+				if v != nil && v != "" {
+					bp[k] = v
+				}
+			}
+		}
+	}
+	e.Exam.Blueprint = bp
 	return e, nil
 }
 
@@ -2035,6 +2179,10 @@ func (r *repository) CreateExam(ctx context.Context, e *Exam) error {
 	}
 	defer tx.Rollback(ctx)
 
+	if e.Blueprint != nil {
+		examCustomBlueprintStore.Store(e.ContentID, e.Blueprint)
+	}
+
 	// cbt.exam_metadata carries the authored duration/score/flags; shuffle
 	// flags land on cbt.exam_randomization (max_attempts has no cbt column and
 	// is dropped). Blueprint is dropped here: exam_question_pool (via the
@@ -2088,12 +2236,16 @@ func (r *repository) UpdateExam(ctx context.Context, contentID uuid.UUID, e *Exa
 	}
 	defer tx.Rollback(ctx)
 
+	if e.Blueprint != nil {
+		examCustomBlueprintStore.Store(contentID, e.Blueprint)
+	}
+
 	_, err = tx.Exec(ctx, `
 		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, negative_marking)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (exam_id) DO UPDATE SET
-			duration_minute = CASE WHEN EXCLUDED.duration_minute > 0 THEN EXCLUDED.duration_minute ELSE cbt.exam_metadata.duration_minute END,
-			passing_score = CASE WHEN EXCLUDED.passing_score > 0 THEN EXCLUDED.passing_score ELSE cbt.exam_metadata.passing_score END,
+			duration_minute = EXCLUDED.duration_minute,
+			passing_score = EXCLUDED.passing_score,
 			negative_marking = CASE WHEN $4 THEN $4 ELSE cbt.exam_metadata.negative_marking END`,
 		contentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
 	if err != nil {

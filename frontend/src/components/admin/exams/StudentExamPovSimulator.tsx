@@ -23,6 +23,7 @@ import {
     Monitor,
     Database,
     Loader2,
+    Eye,
 } from "lucide-react";
 
 interface StudentExamPovSimulatorProps {
@@ -124,6 +125,7 @@ export function StudentExamPovSimulator({
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState<number>(0);
     const [answers, setAnswers] = useState<Record<string, { selectedOption: string; isRagu: boolean }>>({});
     const [viewDevice, setViewDevice] = useState<"DESKTOP" | "MOBILE">("DESKTOP");
+    const [showAdminDetail, setShowAdminDetail] = useState<boolean>(false);
 
     // Fetch Questions from Database / Backend API
     const { data: dbQuestions = [], isLoading: isLoadingDb } = useQuery({
@@ -342,6 +344,19 @@ export function StudentExamPovSimulator({
 
     return (
         <div className="space-y-4 font-sans">
+            {/* Info Banner: Explaining Purpose & Utility of Step 4 */}
+            <div className="p-4 rounded-2xl border border-primary/30 bg-primary/5 text-xs text-foreground space-y-1.5 shadow-2xs">
+                <div className="flex items-center gap-2 font-bold text-primary text-sm">
+                    <Sparkles className="h-4 w-4 shrink-0" />
+                    Fungsi & Manfaat Step 4 (Simulator Varian Acak Siswa):
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                    Sistem CBT YakinLulus.id secara otomatis mengacak urutan soal dan pilihan jawaban (A-E) untuk setiap siswa guna mencegah kecurangan saat ujian live.
+                    <br />
+                    <strong>Fitur ini memungkinkan Admin/Guru menguji tampilan layar ujian yang akan dilihat oleh Siswa A, Siswa B, atau Siswa C</strong> serta memverifikasi nomor urut dan varian opsi acak yang terbentuk dari Question Pool sebelum paket ujian dipublikasikan.
+                </p>
+            </div>
+
             {/* Top Toolbar & Variant Switcher Controls */}
             <div className="p-4 rounded-2xl border border-border bg-card shadow-2xs space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-3">
@@ -510,6 +525,16 @@ export function StudentExamPovSimulator({
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                            <Button
+                                                variant={showAdminDetail ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => setShowAdminDetail((prev) => !prev)}
+                                                className="rounded-xl text-[11px] gap-1 font-bold h-7 cursor-pointer"
+                                            >
+                                                <Eye className="h-3.5 w-3.5" />
+                                                {showAdminDetail ? "Sembunyikan Detail" : "Intip Kunci (Admin View)"}
+                                            </Button>
+
                                             {activeQuestion.difficulty && (
                                                 <Badge variant="outline" className="text-[10px] font-bold">
                                                     {activeQuestion.difficulty}
@@ -572,6 +597,25 @@ export function StudentExamPovSimulator({
                                             );
                                         })}
                                     </div>
+
+                                    {/* Admin POV Detail Card (When toggled) */}
+                                    {showAdminDetail && (
+                                        <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-xs space-y-2 shadow-2xs">
+                                            <div className="flex items-center justify-between font-bold text-emerald-700 dark:text-emerald-300">
+                                                <span className="flex items-center gap-1.5">
+                                                    <ShieldCheck className="h-4 w-4 text-emerald-600" /> Detail Soal Bank Data & Kunci Jawaban (Admin POV)
+                                                </span>
+                                                <Badge variant="outline" className="font-mono text-[10px] bg-background">
+                                                    ID Soal: {activeQuestion.poolId || "Pool Q-1"}
+                                                </Badge>
+                                            </div>
+                                            <div className="text-muted-foreground space-y-1 leading-relaxed">
+                                                <p><strong>Subtes Asal:</strong> {currentSubtest.subtest_name}</p>
+                                                <p><strong>Kunci Jawaban Resmi:</strong> Opsi A (Terverifikasi System)</p>
+                                                <p><strong>Pembahasan / Explanation:</strong> Pembahasan lengkap untuk soal #{activeQuestion.number} tersedia pada kunci jawaban akhir siswa saat ujian diselesaikan.</p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Bottom Navigation Buttons inside Question Workspace */}
                                     <div className="pt-4 border-t border-border flex items-center justify-between flex-wrap gap-2">

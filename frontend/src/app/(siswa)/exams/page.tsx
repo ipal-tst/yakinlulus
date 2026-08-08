@@ -30,6 +30,8 @@ import {
     Flame,
     BarChart3,
     BookOpen,
+    Loader2,
+    Inbox,
 } from "lucide-react";
 
 interface ExamWithProgress extends Exam {
@@ -48,92 +50,51 @@ export default function ExamsPage() {
     const [activeTab, setActiveTab] = useState<"ALL" | "UTBK" | "UM_PTN" | "SCHOOL">("ALL");
     const [statusFilter, setStatusFilter] = useState<"ALL" | "NOT_STARTED" | "COMPLETED">("ALL");
 
-    // Student Target University & Score Progress
+    const [targetData, setTargetData] = useState<{ school_name?: string; major_name?: string; target_score?: number } | null>(null);
+
+    // Dynamic Student Target University & Score Progress
     const studentTarget = {
-        university: user?.school_name || "Universitas Indonesia",
-        major: user?.major || "Teknik Informatika",
-        targetScore: 720,
+        university: targetData?.school_name || user?.school_name || "Universitas Indonesia",
+        major: targetData?.major_name || user?.major || "Teknik Informatika",
+        targetScore: targetData?.target_score || 700,
         currentHighestScore: 685,
-        passingProbability: 95,
+        passingProbability: 92,
         nationalRank: 42,
         totalParticipants: 3450,
     };
 
     useEffect(() => {
         async function load() {
+            setLoading(true);
             try {
-                const res = await academicService.getExams();
-                if (Array.isArray(res) && res.length > 0) {
-                    const enriched: ExamWithProgress[] = res.map((e, idx) => ({
+                const [resExams, resTarget] = await Promise.allSettled([
+                    academicService.getExams(),
+                    academicService.getTargetSchool(),
+                ]);
+
+                if (resTarget.status === "fulfilled" && resTarget.value) {
+                    setTargetData(resTarget.value);
+                }
+
+                if (resExams.status === "fulfilled" && Array.isArray(resExams.value)) {
+                    const activeExams = resExams.value.filter((e) => e.status !== "DRAFT");
+                    const enriched: ExamWithProgress[] = (activeExams.length > 0 ? activeExams : resExams.value).map((e) => ({
                         ...e,
-                        userStatus: idx === 0 ? "COMPLETED" : "NOT_STARTED",
-                        lastScore: idx === 0 ? 685 : undefined,
-                        nationalRank: idx === 0 ? 42 : undefined,
-                        totalParticipants: idx === 0 ? 3450 : undefined,
-                        targetMatch: e.category === "UTBK_SNBT" || e.title.toUpperCase().includes("UTBK"),
+                        userStatus: "NOT_STARTED",
+                        targetMatch: Boolean(e.category === "UTBK_SNBT" || (e.title && e.title.toUpperCase().includes("UTBK"))),
                     }));
                     setExams(enriched);
                 } else {
-                    setExams(getFallbackExams());
+                    setExams([]);
                 }
             } catch {
-                setExams(getFallbackExams());
+                setExams([]);
             } finally {
                 setLoading(false);
             }
         }
         load();
     }, []);
-
-    function getFallbackExams(): ExamWithProgress[] {
-        return [
-            {
-                id: "ex-1",
-                title: "Try Out Nasional UTBK SNBT 2026 #5",
-                description: "Simulasi ujian lengkap 7 Subtes (TPS & Literasi) dengan penilaian IRT Item Response Theory skala 200 - 1000.",
-                category: "UTBK_SNBT",
-                scoring_system: "IRT",
-                duration_minutes: 195,
-                total_questions: 155,
-                is_active: true,
-                created_at: "2026-03-01",
-                userStatus: "COMPLETED",
-                lastScore: 685,
-                nationalRank: 42,
-                totalParticipants: 3450,
-                targetMatch: true,
-                difficulty: "HARD",
-            },
-            {
-                id: "ex-2",
-                title: "Try Out SIMAK UI Kemampuan IPA & IPS #2",
-                description: "Latihan Ujian Mandiri Universitas Indonesia dengan skema penilaian sistem minus (+4, -1, 0).",
-                category: "UM_PTN",
-                scoring_system: "NEGATIVE_MARKING",
-                duration_minutes: 120,
-                total_questions: 90,
-                is_active: true,
-                created_at: "2026-02-28",
-                userStatus: "NOT_STARTED",
-                targetMatch: true,
-                difficulty: "HOTS",
-            },
-            {
-                id: "ex-3",
-                title: "Try Out Sekolah SMAN 1 Jakarta - PAS Genap",
-                description: "Simulasi Ujian Sekolah Standar Kurikulum Merdeka untuk Evaluasi Rapor & PTS/PAS Genap.",
-                category: "PTS_UAS",
-                scoring_system: "STANDARD_POINTS",
-                duration_minutes: 90,
-                total_questions: 50,
-                is_active: true,
-                created_at: "2026-02-20",
-                userStatus: "NOT_STARTED",
-                targetMatch: false,
-                difficulty: "MEDIUM",
-            },
-        ];
-    }
 
     const filteredExams = exams.filter((exam) => {
         const matchesSearch =
@@ -330,86 +291,105 @@ export default function ExamsPage() {
                 </div>
 
                 {/* Exams Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredExams.map((exam) => (
-                        <Card key={exam.id} className="flex flex-col justify-between hover:border-primary/50 transition-all shadow-2xs group">
-                            <CardHeader className="space-y-3">
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <Badge variant="default" className="text-[10px] gap-1 bg-primary/90">
-                                        <Sparkles className="h-3 w-3 text-amber-300" /> {exam.scoring_system === "IRT" ? "Standard IRT UTBK" : exam.scoring_system === "NEGATIVE_MARKING" ? "Sistem Minus (+4/-1)" : "Poin Standar"}
-                                    </Badge>
-
-                                    {exam.targetMatch && (
-                                        <Badge variant="outline" className="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 font-bold">
-                                            Target Match 🎯
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-card rounded-3xl border border-border">
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                        <p className="text-sm font-medium text-muted-foreground">Memuat paket ujian dari database...</p>
+                    </div>
+                ) : filteredExams.length === 0 ? (
+                    <Card className="p-12 text-center flex flex-col items-center justify-center space-y-3 rounded-3xl border-dashed border-2">
+                        <div className="p-4 rounded-2xl bg-muted text-muted-foreground">
+                            <Inbox className="h-8 w-8" />
+                        </div>
+                        <h3 className="font-heading font-bold text-lg text-foreground">Belum Ada Paket Ujian Tersedia</h3>
+                        <p className="text-xs text-muted-foreground max-w-md">
+                            {searchQuery
+                                ? `Tidak ditemukan paket ujian yang cocok dengan kata kunci "${searchQuery}".`
+                                : "Belum ada paket ujian yang dipublikasikan oleh guru/admin. Silakan cek kembali nanti."}
+                        </p>
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredExams.map((exam) => (
+                            <Card key={exam.id} className="flex flex-col justify-between hover:border-primary/50 transition-all shadow-2xs group">
+                                <CardHeader className="space-y-3">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <Badge variant="default" className="text-[10px] gap-1 bg-primary/90">
+                                            <Sparkles className="h-3 w-3 text-amber-300" /> {exam.scoring_system === "IRT" ? "Standard IRT UTBK" : exam.scoring_system === "NEGATIVE_MARKING" ? "Sistem Minus (+4/-1)" : "Poin Standar"}
                                         </Badge>
-                                    )}
 
-                                    {exam.userStatus === "COMPLETED" ? (
-                                        <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600 font-semibold gap-1">
-                                            <CheckCircle2 className="h-3 w-3" /> Selesai
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-[10px]">
-                                            Tersedia
-                                        </Badge>
-                                    )}
-                                </div>
+                                        {exam.targetMatch && (
+                                            <Badge variant="outline" className="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 font-bold">
+                                                Target Match 🎯
+                                            </Badge>
+                                        )}
 
-                                <div>
-                                    <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                                        {exam.title}
-                                    </CardTitle>
-                                    <CardDescription className="line-clamp-2 text-xs mt-1">
-                                        {exam.description || "Ujian simulasi dengan pembobotan skor standar nasional."}
-                                    </CardDescription>
-                                </div>
-                            </CardHeader>
-
-                            <CardContent className="pt-0 space-y-4">
-                                <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-muted/40 text-xs">
-                                    <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                                        <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                                        <span>{exam.duration_minutes} Menit</span>
+                                        {exam.userStatus === "COMPLETED" ? (
+                                            <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600 font-semibold gap-1">
+                                                <CheckCircle2 className="h-3 w-3" /> Selesai
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="text-[10px]">
+                                                Tersedia
+                                            </Badge>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                                        <HelpCircle className="h-3.5 w-3.5 text-primary shrink-0" />
-                                        <span>{exam.total_questions} Soal</span>
-                                    </div>
-                                </div>
 
-                                {/* Completed Score Display */}
-                                {exam.userStatus === "COMPLETED" && (
-                                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <Award className="h-4 w-4 text-primary" />
-                                            <span className="font-semibold text-foreground">Skor IRT Kamu:</span>
+                                    <div>
+                                        <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                                            {exam.title}
+                                        </CardTitle>
+                                        <CardDescription className="line-clamp-2 text-xs mt-1">
+                                            {exam.description || "Ujian simulasi dengan pembobotan skor standar nasional."}
+                                        </CardDescription>
+                                    </div>
+                                </CardHeader>
+
+                                <CardContent className="pt-0 space-y-4">
+                                    <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-muted/40 text-xs">
+                                        <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                                            <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                            <span>{exam.duration_minutes} Menit</span>
                                         </div>
-                                        <div className="font-mono font-bold text-sm text-primary">
-                                            {exam.lastScore} <span className="text-[10px] font-sans text-muted-foreground font-normal">(Rank #{exam.nationalRank})</span>
+                                        <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                                            <HelpCircle className="h-3.5 w-3.5 text-primary shrink-0" />
+                                            <span>{exam.total_questions || 30} Soal</span>
                                         </div>
                                     </div>
-                                )}
 
-                                <div className="pt-1">
-                                    {exam.userStatus === "COMPLETED" ? (
-                                        <Button asChild variant="outline" className="w-full rounded-xl font-semibold text-xs h-10 gap-1.5">
-                                            <Link href={`/exams/${exam.id}`}>
-                                                <RotateCcw className="h-4 w-4" /> Ulangi / Lihat Pembahasan
-                                            </Link>
-                                        </Button>
-                                    ) : (
-                                        <Button asChild className="w-full rounded-xl font-semibold text-xs h-10 shadow-xs gap-1.5">
-                                            <Link href={`/exams/${exam.id}`}>
-                                                <PlayCircle className="h-4 w-4" /> Mulai Pengerjaan <ArrowRight className="h-4 w-4 ml-auto" />
-                                            </Link>
-                                        </Button>
+                                    {/* Completed Score Display */}
+                                    {exam.userStatus === "COMPLETED" && (
+                                        <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <Award className="h-4 w-4 text-primary" />
+                                                <span className="font-semibold text-foreground">Skor IRT Kamu:</span>
+                                            </div>
+                                            <div className="font-mono font-bold text-sm text-primary">
+                                                {exam.lastScore} <span className="text-[10px] font-sans text-muted-foreground font-normal">(Rank #{exam.nationalRank})</span>
+                                            </div>
+                                        </div>
                                     )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+
+                                    <div className="pt-1">
+                                        {exam.userStatus === "COMPLETED" ? (
+                                            <Button asChild variant="outline" className="w-full rounded-xl font-semibold text-xs h-10 gap-1.5 cursor-pointer">
+                                                <Link href={`/exams/${exam.id}`}>
+                                                    <RotateCcw className="h-4 w-4" /> Ulangi / Lihat Pembahasan
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <Button asChild className="w-full rounded-xl font-semibold text-xs h-10 shadow-xs gap-1.5 cursor-pointer">
+                                                <Link href={`/exams/${exam.id}`}>
+                                                    <PlayCircle className="h-4 w-4" /> Mulai Pengerjaan <ArrowRight className="h-4 w-4 ml-auto" />
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </div>
         </AppShell>
     );

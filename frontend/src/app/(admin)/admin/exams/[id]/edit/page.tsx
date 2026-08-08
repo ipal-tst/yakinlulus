@@ -1,12 +1,15 @@
+// frontend/src/app/(admin)/admin/exams/[id]/edit/page.tsx
 "use client";
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { academicMasterService } from "@/services/academic-master.service";
 import { academicService } from "@/services/academic.service";
 import { ExamCategory, ScoringSystem, ExamSubtestRule } from "@/types";
+import { QuestionPoolPickerModal } from "@/components/admin/exams/QuestionPoolPickerModal";
+import { StudentExamPovSimulator } from "@/components/admin/exams/StudentExamPovSimulator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +29,9 @@ import {
     Info,
     FileCheck,
     Loader2,
+    BookOpen,
+    Zap,
+    Database,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -35,12 +41,16 @@ interface EditExamPageProps {
 
 export default function EditExamPage({ params }: EditExamPageProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const resolvedParams = use(params);
     const examId = resolvedParams.id;
 
     // Form Steps: 1: General Info, 2: Subtests & Pool, 3: Scoring Rules, 4: Student Simulator
     const [currentStep, setCurrentStep] = useState<number>(1);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Question Pool Picker Modal State
+    const [activePoolSubtestId, setActivePoolSubtestId] = useState<string | null>(null);
 
     // General Exam Fields
     const [title, setTitle] = useState("");
@@ -51,6 +61,12 @@ export default function EditExamPage({ params }: EditExamPageProps) {
     const [passingScore, setPassingScore] = useState(650);
     const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("PUBLISHED");
     const [gradeLevel, setGradeLevel] = useState("12 SMA / UTBK");
+
+    // Practice Configuration Fields
+    const [subjectId, setSubjectId] = useState<string>("");
+    const [chapterId, setChapterId] = useState<string>("");
+    const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD" | "HOTS">("MEDIUM");
+    const [defaultMode, setDefaultMode] = useState<"SANTAI" | "SIMULASI">("SIMULASI");
 
     // Subtests Configuration
     const [subtests, setSubtests] = useState<ExamSubtestRule[]>([]);
@@ -65,6 +81,63 @@ export default function EditExamPage({ params }: EditExamPageProps) {
         enabled: !!examId,
     });
 
+    // Dynamic Master Levels & Grades
+    const { data: dbLevels = [] } = useQuery({
+        queryKey: ["academic-master-levels-edit-exam"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getLevels();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    const [selectedLevelId, setSelectedLevelId] = useState<string>("");
+
+    const { data: dbGrades = [] } = useQuery({
+        queryKey: ["academic-master-grades-edit-exam", selectedLevelId],
+        queryFn: async () => {
+            if (!selectedLevelId) return [];
+            try {
+                const res = await academicMasterService.getGrades(selectedLevelId);
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+        enabled: !!selectedLevelId,
+    });
+
+    // Dynamic Master Subjects
+    const { data: dbSubjects = [] } = useQuery({
+        queryKey: ["academic-master-subjects-edit-exam"],
+        queryFn: async () => {
+            try {
+                const res = await academicMasterService.getSubjects();
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+    });
+
+    // Dynamic Master Chapters (dependent on subjectId)
+    const { data: dbChapters = [] } = useQuery({
+        queryKey: ["academic-master-chapters-edit-exam", subjectId],
+        queryFn: async () => {
+            if (!subjectId) return [];
+            try {
+                const res = await academicMasterService.getChapters(subjectId);
+                return Array.isArray(res) ? res : [];
+            } catch {
+                return [];
+            }
+        },
+        enabled: !!subjectId,
+    });
+
     useEffect(() => {
         if (examItem) {
             setTitle(examItem.title || "");
@@ -75,6 +148,10 @@ export default function EditExamPage({ params }: EditExamPageProps) {
             setPassingScore(examItem.passing_score || 600);
             setStatus(examItem.status === "DRAFT" ? "DRAFT" : "PUBLISHED");
             setGradeLevel(examItem.grade_level || "12 SMA / UTBK");
+            setSubjectId(examItem.subject_id || "");
+            setChapterId(examItem.chapter_id || "");
+            setDifficulty(examItem.difficulty || "MEDIUM");
+            setDefaultMode(examItem.default_mode || "SIMULASI");
 
             if (examItem.subtests && examItem.subtests.length > 0) {
                 setSubtests(examItem.subtests);
@@ -84,8 +161,8 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                         id: "st-1",
                         subtest_name: "Penalaran Matematika",
                         duration_minutes: 45,
-                        pool_question_ids: Array.from({ length: 100 }, (_, i) => `q-pm-${i + 1}`),
-                        sample_question_count: 30,
+                        pool_question_ids: [],
+                        sample_question_count: 0,
                         shuffle_questions: true,
                         shuffle_options: true,
                     },
@@ -93,8 +170,8 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                         id: "st-2",
                         subtest_name: "Literasi Bahasa Indonesia",
                         duration_minutes: 45,
-                        pool_question_ids: Array.from({ length: 80 }, (_, i) => `q-lbi-${i + 1}`),
-                        sample_question_count: 30,
+                        pool_question_ids: [],
+                        sample_question_count: 0,
                         shuffle_questions: true,
                         shuffle_options: true,
                     },
@@ -103,7 +180,12 @@ export default function EditExamPage({ params }: EditExamPageProps) {
         }
     }, [examItem]);
 
-    const totalSampledQuestions = subtests.reduce((sum, st) => sum + Number(st.sample_question_count || 0), 0);
+    const totalSampledQuestions = subtests.reduce((sum, st) => {
+        const poolCnt = Array.isArray(st.pool_question_ids) ? st.pool_question_ids.length : 0;
+        const cnt = Number(st.sample_question_count || 0);
+        if (poolCnt === 0) return sum;
+        return sum + Math.min(cnt, poolCnt);
+    }, 0);
     const totalPoolQuestions = subtests.reduce((sum, st) => sum + (st.pool_question_ids?.length || 0), 0);
 
     const handleAddSubtest = () => {
@@ -111,8 +193,8 @@ export default function EditExamPage({ params }: EditExamPageProps) {
             id: `st-${Date.now()}`,
             subtest_name: "Subtes Baru",
             duration_minutes: 30,
-            pool_question_ids: Array.from({ length: 50 }, (_, i) => `q-edit-${i + 1}`),
-            sample_question_count: 15,
+            pool_question_ids: [],
+            sample_question_count: 0,
             shuffle_questions: true,
             shuffle_options: true,
         };
@@ -126,7 +208,38 @@ export default function EditExamPage({ params }: EditExamPageProps) {
 
     const handleUpdateSubtest = (id: string, field: keyof ExamSubtestRule, value: any) => {
         setSubtests(
-            subtests.map((st) => (st.id === id ? { ...st, [field]: value } : st))
+            subtests.map((st) => {
+                if (st.id !== id) return st;
+                if (field === "sample_question_count") {
+                    const poolLen = Array.isArray(st.pool_question_ids) ? st.pool_question_ids.length : 0;
+                    const parsedVal = Math.max(0, parseInt(value) || 0);
+                    const clampedVal = poolLen > 0 ? Math.min(parsedVal, poolLen) : 0;
+                    return { ...st, sample_question_count: clampedVal };
+                }
+                return { ...st, [field]: value };
+            })
+        );
+    };
+
+    const handleSavePoolSelectionForSubtest = (selectedQuestionIds: string[]) => {
+        if (!activePoolSubtestId) return;
+
+        setSubtests((prev) =>
+            prev.map((st) => {
+                if (st.id === activePoolSubtestId) {
+                    const poolLen = selectedQuestionIds.length;
+                    const currentSampleCount = st.sample_question_count;
+                    const newCount = poolLen > 0
+                        ? (currentSampleCount > 0 ? Math.min(currentSampleCount, poolLen) : poolLen)
+                        : 0;
+                    return {
+                        ...st,
+                        pool_question_ids: selectedQuestionIds,
+                        sample_question_count: newCount,
+                    };
+                }
+                return st;
+            })
         );
     };
 
@@ -140,13 +253,35 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                 description: description.trim(),
                 category,
                 scoring_system: scoringSystem,
+                subject_id: subjectId || undefined,
+                chapter_id: chapterId || undefined,
+                difficulty,
+                default_mode: defaultMode,
                 duration_minutes: Number(durationMinutes) || 120,
                 total_questions: totalSampledQuestions,
                 passing_score: Number(passingScore) || 500,
                 status,
                 grade_level: gradeLevel,
                 subtests,
+                blueprint: {
+                    category,
+                    scoring_system: scoringSystem,
+                    total_questions: totalSampledQuestions,
+                    grade_level: gradeLevel,
+                    difficulty,
+                    default_mode: defaultMode,
+                    subtests,
+                    passing_score: Number(passingScore) || 500,
+                    duration_minutes: Number(durationMinutes) || 120,
+                },
             });
+
+            // Invalidate and refetch TanStack Query cache
+            queryClient.invalidateQueries({ queryKey: ["admin-exams-list"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-exam-detail"] });
+            queryClient.invalidateQueries({ queryKey: ["student-exams-list"] });
+            await queryClient.refetchQueries({ queryKey: ["admin-exams-list"] });
+
             router.push("/admin/exams");
         } catch (err) {
             console.error("Failed to update exam", err);
@@ -154,6 +289,8 @@ export default function EditExamPage({ params }: EditExamPageProps) {
             setIsSaving(false);
         }
     };
+
+    const activeSubtestForModal = subtests.find((st) => st.id === activePoolSubtestId);
 
     if (isLoadingExam) {
         return (
@@ -201,7 +338,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                             size="sm"
                             onClick={handleSaveExam}
                             disabled={isSaving || !title.trim()}
-                            className="rounded-xl gap-1.5 font-semibold text-xs h-9 shadow-xs"
+                            className="rounded-xl gap-1.5 font-semibold text-xs h-9 shadow-xs cursor-pointer"
                         >
                             <Save className="h-4 w-4" /> {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
                         </Button>
@@ -213,7 +350,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                     <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4 text-xs font-medium min-w-[650px]">
                         <button
                             onClick={() => setCurrentStep(1)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 1 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 1 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">1</span>
                             1. Informasi General
@@ -221,7 +358,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(2)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 2 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 2 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">2</span>
                             2. Subtes & Question Pool ({subtests.length} Subtes)
@@ -229,7 +366,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(3)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 3 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 3 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">3</span>
                             3. Skema Penilaian ({scoringSystem})
@@ -237,7 +374,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                         <div className="h-4 w-px bg-border" />
                         <button
                             onClick={() => setCurrentStep(4)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors ${currentStep === 4 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${currentStep === 4 ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"}`}
                         >
                             <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px]">4</span>
                             4. Simulator Pengerjaan Siswa
@@ -277,6 +414,49 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                                 className="w-full rounded-xl border border-input bg-background p-3 text-xs focus:outline-hidden leading-relaxed"
                                             />
                                         </div>
+
+                                        {/* Mapel & Bab Configuration */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                            <div className="space-y-1">
+                                                <label className="font-semibold text-xs text-foreground flex items-center gap-1">
+                                                    <BookOpen className="h-3.5 w-3.5 text-primary" /> Mata Pelajaran Utama (Mapel)
+                                                </label>
+                                                <select
+                                                    value={subjectId}
+                                                    onChange={(e) => {
+                                                        setSubjectId(e.target.value);
+                                                        setChapterId("");
+                                                    }}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                                >
+                                                    <option value="">-- Multi-Mapel / Ujian Paket --</option>
+                                                    {dbSubjects.map((s) => (
+                                                        <option key={s.id} value={s.id}>
+                                                            {s.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="font-semibold text-xs text-foreground flex items-center gap-1">
+                                                    <Zap className="h-3.5 w-3.5 text-amber-500" /> Bab / Topik Spesifik (Opsional)
+                                                </label>
+                                                <select
+                                                    value={chapterId}
+                                                    onChange={(e) => setChapterId(e.target.value)}
+                                                    disabled={!subjectId}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden disabled:opacity-50"
+                                                >
+                                                    <option value="">-- Semua Bab / Topik --</option>
+                                                    {dbChapters.map((c) => (
+                                                        <option key={c.id} value={c.id}>
+                                                            {c.name || (c as any).title}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -305,6 +485,32 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                         </div>
 
                                         <div className="space-y-1">
+                                            <label className="font-semibold text-foreground">Tingkat Kesulitan (Difficulty)</label>
+                                            <select
+                                                value={difficulty}
+                                                onChange={(e) => setDifficulty(e.target.value as any)}
+                                                className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                            >
+                                                <option value="EASY">EASY (Mudah)</option>
+                                                <option value="MEDIUM">MEDIUM (Sedang)</option>
+                                                <option value="HARD">HARD (Sulit)</option>
+                                                <option value="HOTS">HOTS (High Order Thinking)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="font-semibold text-foreground">Default Mode Pengerjaan Siswa</label>
+                                            <select
+                                                value={defaultMode}
+                                                onChange={(e) => setDefaultMode(e.target.value as any)}
+                                                className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                            >
+                                                <option value="SANTAI">Mode Santai (Pembahasan Langsung)</option>
+                                                <option value="SIMULASI">Mode Simulasi Ujian (Timer Active)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1">
                                             <label className="font-semibold text-foreground">Total Durasi Ujian (Menit)</label>
                                             <Input
                                                 type="number"
@@ -325,13 +531,45 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="font-semibold text-foreground">Target Tingkat Kelas / Jenjang</label>
-                                            <Input
-                                                value={gradeLevel}
-                                                onChange={(e) => setGradeLevel(e.target.value)}
-                                                placeholder="Misal: 12 SMA / Alumni"
-                                                className="h-9 text-xs rounded-xl bg-background"
-                                            />
+                                            <label className="font-semibold text-foreground flex items-center gap-1">
+                                                <GraduationCap className="h-3.5 w-3.5 text-primary" /> Target Jenjang & Kelas (Master Akademik)
+                                            </label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <select
+                                                    value={selectedLevelId}
+                                                    onChange={(e) => {
+                                                        const lvlId = e.target.value;
+                                                        setSelectedLevelId(lvlId);
+                                                        const lvlObj = dbLevels.find((l) => l.id === lvlId);
+                                                        if (lvlObj) setGradeLevel(lvlObj.name);
+                                                    }}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                                >
+                                                    <option value="">-- Pilih Jenjang --</option>
+                                                    {dbLevels.map((l) => (
+                                                        <option key={l.id} value={l.id}>
+                                                            {l.name} ({l.code})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={gradeLevel}
+                                                    onChange={(e) => setGradeLevel(e.target.value)}
+                                                    className="w-full h-9 rounded-xl border border-input bg-background px-3 font-medium text-xs focus:outline-hidden"
+                                                >
+                                                    <option value={gradeLevel || ""}>{gradeLevel || "-- Pilih Kelas --"}</option>
+                                                    {dbGrades.map((g) => (
+                                                        <option key={g.id} value={`${g.name} (${g.alias || g.level_code})`}>
+                                                            {g.name} ({g.alias || g.level_code})
+                                                        </option>
+                                                    ))}
+                                                    <option value="12 SMA / UTBK">12 SMA / UTBK</option>
+                                                    <option value="11 SMA">11 SMA</option>
+                                                    <option value="10 SMA">10 SMA</option>
+                                                    <option value="9 SMP">9 SMP</option>
+                                                    <option value="6 SD">6 SD</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -348,11 +586,11 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                         <Layers className="h-5 w-5 text-primary" /> Pengaturan Subtes & Dynamic Question Pool Sampling
                                     </h2>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        Admin mengumpulkan banyak soal ke Pool (contoh: 100 soal), lalu menentukan berapa soal yang akan dikerjakan siswa (contoh: 30 soal acak).
+                                        Pilih soal dari Bank Data ke dalam Pool (Awal 0 soal). Jumlah sampling per siswa tidak boleh melebihi total pool.
                                     </p>
                                 </div>
 
-                                <Button onClick={handleAddSubtest} size="sm" className="rounded-xl gap-1.5 text-xs font-semibold">
+                                <Button onClick={handleAddSubtest} size="sm" className="rounded-xl gap-1.5 text-xs font-semibold cursor-pointer">
                                     <Plus className="h-4 w-4" /> Tambah Subtes Baru
                                 </Button>
                             </div>
@@ -378,7 +616,7 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                                 size="sm"
                                                 onClick={() => handleRemoveSubtest(st.id)}
                                                 disabled={subtests.length <= 1}
-                                                className="h-8 text-xs text-destructive hover:bg-destructive/10 rounded-xl"
+                                                className="h-8 text-xs text-destructive hover:bg-destructive/10 rounded-xl cursor-pointer"
                                             >
                                                 <Trash2 className="h-4 w-4 mr-1" /> Hapus Subtes
                                             </Button>
@@ -396,17 +634,21 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                             </div>
 
                                             <div className="space-y-1">
-                                                <label className="font-semibold text-foreground">Jumlah Pool Bank Soal</label>
-                                                <Input
-                                                    type="number"
-                                                    value={st.pool_question_ids.length}
-                                                    onChange={(e) => {
-                                                        const count = parseInt(e.target.value) || 10;
-                                                        const newPool = Array.from({ length: count }, (_, i) => `q-${st.id}-${i + 1}`);
-                                                        handleUpdateSubtest(st.id, "pool_question_ids", newPool);
-                                                    }}
-                                                    className="h-9 rounded-xl bg-background font-mono"
-                                                />
+                                                <label className="font-semibold text-foreground flex items-center justify-between">
+                                                    <span>Jumlah Pool Bank Soal</span>
+                                                    <Badge variant={st.pool_question_ids.length > 0 ? "secondary" : "outline"} className="text-[10px]">
+                                                        {st.pool_question_ids.length} Soal
+                                                    </Badge>
+                                                </label>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setActivePoolSubtestId(st.id)}
+                                                    className="w-full rounded-xl text-xs gap-1.5 h-9 font-semibold justify-center border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary cursor-pointer"
+                                                >
+                                                    <Database className="h-4 w-4" />
+                                                    {st.pool_question_ids.length > 0 ? `Ubah Pool (${st.pool_question_ids.length} Soal)` : "Pilih Soal Pool DB"}
+                                                </Button>
                                             </div>
 
                                             <div className="space-y-1">
@@ -415,10 +657,17 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                                                 </label>
                                                 <Input
                                                     type="number"
+                                                    min={0}
+                                                    max={st.pool_question_ids.length}
                                                     value={st.sample_question_count}
-                                                    onChange={(e) => handleUpdateSubtest(st.id, "sample_question_count", parseInt(e.target.value) || 5)}
+                                                    onChange={(e) => handleUpdateSubtest(st.id, "sample_question_count", e.target.value)}
                                                     className="h-9 rounded-xl bg-background font-bold text-primary"
                                                 />
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {st.pool_question_ids.length === 0
+                                                        ? "⚠️ Pilih pool terlebih dahulu"
+                                                        : `Max: ${st.pool_question_ids.length} soal (sesuai pool)`}
+                                                </p>
                                             </div>
 
                                             <div className="space-y-2 flex flex-col justify-end">
@@ -500,50 +749,24 @@ export default function EditExamPage({ params }: EditExamPageProps) {
 
                     {/* STEP 4: Student Attempt Simulator */}
                     {currentStep === 4 && (
-                        <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-2xs">
-                            <div className="flex items-center justify-between">
-                                <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                                    <Eye className="h-4 w-4 text-emerald-500" /> Pratinjau Simulator Varian Soal Siswa
-                                </h2>
-                                <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-xs">
-                                    Dynamic Randomization Active
-                                </Badge>
-                            </div>
-
-                            <p className="text-xs text-muted-foreground">
-                                Berikut adalah contoh variasi {totalSampledQuestions} soal yang akan diterima oleh seorang siswa secara acak dari total pool {totalPoolQuestions} soal:
-                            </p>
-
-                            <div className="space-y-3 pt-2">
-                                {subtests.map((st, sIdx) => (
-                                    <div key={st.id} className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-bold text-xs text-foreground">
-                                                Subtes {sIdx + 1}: {st.subtest_name}
-                                            </span>
-                                            <Badge variant="secondary" className="text-[10px]">
-                                                Dikerjakan {st.sample_question_count} dari {st.pool_question_ids.length} Pool
-                                            </Badge>
-                                        </div>
-
-                                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                            {Array.from({ length: st.sample_question_count }).map((_, qIdx) => (
-                                                <span
-                                                    key={qIdx}
-                                                    className="h-7 w-7 rounded-lg bg-background border border-border flex items-center justify-center font-mono text-[11px] font-bold text-primary shadow-2xs"
-                                                    title={`Soal #${qIdx + 1} (Diambil acak dari Pool ID: ${st.pool_question_ids[qIdx % st.pool_question_ids.length]})`}
-                                                >
-                                                    {qIdx + 1}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <StudentExamPovSimulator
+                            examTitle={title}
+                            subtests={subtests}
+                            scoringSystem={scoringSystem}
+                            gradeLevel={gradeLevel}
+                        />
                     )}
                 </div>
             </div>
+
+            {/* Question Pool Picker Modal */}
+            <QuestionPoolPickerModal
+                isOpen={!!activePoolSubtestId}
+                onClose={() => setActivePoolSubtestId(null)}
+                subtestName={activeSubtestForModal?.subtest_name || "Subtes"}
+                initialSelectedIds={activeSubtestForModal?.pool_question_ids || []}
+                onSave={handleSavePoolSelectionForSubtest}
+            />
         </AppShell>
     );
 }

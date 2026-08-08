@@ -80,7 +80,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
     };
 
     return (
-        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
             <DialogContent className="sm:max-w-xl rounded-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="font-heading text-lg font-bold flex items-center gap-2">
@@ -148,7 +148,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
                                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                                 Peran (Role) <span className="text-destructive">*</span>
                             </label>
-                            <Select value={watch("role")} onValueChange={(v) => setValue("role", (v || "") as UserRole)}>
+                            <Select value={watch("role")} onValueChange={(v: string | null) => setValue("role", (v || "") as UserRole)}>
                                 <SelectTrigger className="h-11 w-full">
                                     <SelectValue placeholder="Pilih role" />
                                 </SelectTrigger>
@@ -163,7 +163,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
 
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-foreground">Jenis Kelamin</label>
-                            <Select value={watch("gender") || undefined} onValueChange={(v) => setValue("gender", v || undefined)}>
+                            <Select value={watch("gender") || undefined} onValueChange={(v: string | null) => setValue("gender", v || undefined)}>
                                 <SelectTrigger className="h-11 w-full">
                                     <SelectValue placeholder="Pilih jenis kelamin" />
                                 </SelectTrigger>
@@ -201,7 +201,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
                                     <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                                         <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" /> Jenjang
                                     </label>
-                                    <Select value={watch("education_level") || undefined} onValueChange={(v) => setValue("education_level", v || undefined)}>
+                                    <Select value={watch("education_level") || undefined} onValueChange={(v: string | null) => setValue("education_level", v || undefined)}>
                                         <SelectTrigger className="h-11">
                                             <SelectValue placeholder="Jenjang" />
                                         </SelectTrigger>
@@ -219,7 +219,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-foreground">Status Paket</label>
-                                    <Select value={watch("membership_status")} onValueChange={(v) => setValue("membership_status", v as any)}>
+                                    <Select value={watch("membership_status")} onValueChange={(v: string | null) => setValue("membership_status", v as any)}>
                                         <SelectTrigger className="h-11 w-full">
                                             <SelectValue placeholder="Status" />
                                         </SelectTrigger>

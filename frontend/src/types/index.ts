@@ -223,6 +223,7 @@ export interface Exam {
     status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
     grade_level?: string;
     subtests?: ExamSubtestRule[];
+    blueprint?: Record<string, any>;
     start_time?: string;
     end_time?: string;
     created_at: string;

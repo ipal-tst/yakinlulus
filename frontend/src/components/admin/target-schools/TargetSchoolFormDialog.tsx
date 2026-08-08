@@ -54,7 +54,7 @@ export function TargetSchoolFormDialog({ open, loading = false, onClose, onSubmi
     };
 
     return (
-        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
             <DialogContent className="sm:max-w-md rounded-2xl">
                 <DialogHeader>
                     <DialogTitle className="font-heading text-lg font-bold">Tambah Target Sekolah / PTN</DialogTitle>
@@ -68,7 +68,7 @@ export function TargetSchoolFormDialog({ open, loading = false, onClose, onSubmi
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-foreground">Jenjang</label>
-                            <Select value={watch("level") || "SMA"} onValueChange={(v) => setValue("level", (v as string) || "SMA")}>
+                            <Select value={watch("level") || "SMA"} onValueChange={(v: string | null) => setValue("level", (v as string) || "SMA")}>
                                 <SelectTrigger className="h-11 w-full">
                                     <SelectValue placeholder="Pilih jenjang" />
                                 </SelectTrigger>

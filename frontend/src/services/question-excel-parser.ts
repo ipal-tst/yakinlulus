@@ -165,7 +165,7 @@ export async function parseExcelQuestionFile(file: File): Promise<ParsedQuestion
 
         if (ws) {
             const images = ws.getImages();
-            images.forEach((img) => {
+            images.forEach((img: any) => {
                 const imgData = exceljsWorkbook.getImage(Number(img.imageId));
                 if (imgData && imgData.buffer) {
                     const rowIdx = Math.floor(img.range.tl.row);

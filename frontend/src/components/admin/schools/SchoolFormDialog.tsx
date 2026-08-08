@@ -69,7 +69,7 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, sch
     };
 
     return (
-        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
             <DialogContent className="sm:max-w-md rounded-2xl">
                 <DialogHeader>
                     <DialogTitle className="font-heading text-lg font-bold">
@@ -94,7 +94,7 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, sch
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-foreground">Jenjang</label>
-                        <Select value={watch("education_level")} onValueChange={(v) => setValue("education_level", v ?? undefined)}>
+                        <Select value={watch("education_level")} onValueChange={(v: string | null) => setValue("education_level", v ?? undefined)}>
                             <SelectTrigger className="h-11 w-full">
                                 <SelectValue placeholder="Pilih jenjang" />
                             </SelectTrigger>

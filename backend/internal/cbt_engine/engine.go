@@ -43,6 +43,7 @@ func (s *Service) CreateExam(ctx context.Context, req *content.CreateExamReq) (*
 		Body:        req.Description,
 		Status:      content.StatusDraft,
 		CreatedBy:   req.CreatedBy,
+		Metadata:    req.Metadata,
 	}
 
 	exam := &content.Exam{
