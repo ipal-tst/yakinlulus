@@ -12,22 +12,30 @@ import {
 function normalizeExam(e: any): Exam {
     if (!e || typeof e !== "object") return e;
     
-    const content = e.Content || e;
-    const examData = e.Exam || e;
+    const content = e.content || e.Content || e;
+    const examData = e.exam || e.Exam || e;
     const bp = (typeof examData.blueprint === "object" && examData.blueprint !== null)
         ? examData.blueprint
         : ((typeof examData.Blueprint === "object" && examData.Blueprint !== null)
             ? examData.Blueprint
-            : ((typeof e.blueprint === "object" && e.blueprint !== null) ? e.blueprint : {}));
+            : ((typeof e.blueprint === "object" && e.blueprint !== null)
+                ? e.blueprint
+                : ((typeof e.Blueprint === "object" && e.Blueprint !== null) ? e.Blueprint : {})));
 
     const subtestsList = Array.isArray(e.subtests) && e.subtests.length > 0 
         ? e.subtests 
-        : (Array.isArray(bp.subtests) ? bp.subtests : (Array.isArray(examData.subtests) ? examData.subtests : []));
+        : (Array.isArray(bp.subtests)
+            ? bp.subtests 
+            : (Array.isArray(examData.subtests) ? examData.subtests : []));
     
-    let calcQuestions = e.total_questions ?? bp.total_questions ?? examData.total_questions;
+    let calcQuestions = e.total_questions ?? bp.total_questions ?? examData.total_questions ?? examData.totalQuestions;
     if ((calcQuestions === undefined || calcQuestions === null || calcQuestions === 0) && subtestsList.length > 0) {
         calcQuestions = subtestsList.reduce((sum: number, st: any) => sum + Number(st.sample_question_count || (st.pool_question_ids?.length || 0)), 0);
     }
+
+    const category = e.category || bp.category || examData.category || "UTBK_SNBT";
+    const defaultScoring = (category === "UJIAN_HARIAN" || category === "PTS_UAS" || category === "QUIZ" || category === "MID") ? "STANDARD_POINTS" : "IRT";
+    const scoringSystem = e.scoring_system || bp.scoring_system || examData.scoring_system || defaultScoring;
 
     return {
         ...e,
@@ -39,8 +47,8 @@ function normalizeExam(e: any): Exam {
         updated_at: content.updated_at || content.UpdatedAt || e.updated_at,
         duration_minutes: examData.duration_minutes || examData.DurationMinutes || e.duration_minutes || 120,
         passing_score: examData.passing_score || examData.PassingScore || e.passing_score || 0,
-        category: e.category || bp.category || examData.category || "UTBK_SNBT",
-        scoring_system: e.scoring_system || bp.scoring_system || examData.scoring_system || ((e.category || bp.category) === "UJIAN_HARIAN" || (e.category || bp.category) === "PTS_UAS" ? "STANDARD_POINTS" : "IRT"),
+        category: category,
+        scoring_system: scoringSystem,
         grade_level: e.grade_level || bp.grade_level || examData.grade_level || "12 SMA / UTBK",
         difficulty: e.difficulty || bp.difficulty || examData.difficulty || "MEDIUM",
         default_mode: e.default_mode || bp.default_mode || examData.default_mode || "SIMULASI",

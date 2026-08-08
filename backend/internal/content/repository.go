@@ -2225,7 +2225,7 @@ func (r *repository) GetExam(ctx context.Context, contentID uuid.UUID) (*ExamFul
 	if err != nil {
 		return nil, err
 	}
-	e.Blueprint = bp
+	e.TypedBlueprint = bp
 	return e, nil
 }
 

@@ -326,10 +326,10 @@ type ExamAnswer struct {
 type ExamFull struct {
 	Content
 	Exam
-	Questions    []ExamQuestion    `json:"questions,omitempty"`
-	Blueprint    *ExamBlueprint    `json:"blueprint,omitempty"`
-	Participants []ExamParticipant `json:"participants,omitempty"`
-	Attempts     []ExamAttempt     `json:"attempts,omitempty"`
+	Questions      []ExamQuestion    `json:"questions,omitempty"`
+	TypedBlueprint *ExamBlueprint    `json:"typed_blueprint,omitempty"`
+	Participants   []ExamParticipant `json:"participants,omitempty"`
+	Attempts       []ExamAttempt     `json:"attempts,omitempty"`
 }
 
 // ========== QUESTION POOL ==========
