@@ -4,6 +4,7 @@ export type UserRole =
     | "FINANCE"
     | "GURU"
     | "SISWA"
+    | "SUPER_SISWA"
     | "INVESTOR";
 
 export interface User {
@@ -101,7 +102,7 @@ export interface Topic {
 }
 
 // Question Bank
-export type DifficultyLevel = "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+export type DifficultyLevel = "EASY" | "MEDIUM" | "HARD" | "EXPERT" | "HOTS";
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "ESSAY" | "TRUE_FALSE";
 export type QuestionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
@@ -133,10 +134,17 @@ export interface Question {
 
 export interface QuestionItem {
     id: string;
-    subject_name: string;
-    difficulty: DifficultyLevel;
+    subject_name?: string;
+    difficulty?: DifficultyLevel | string;
     content: string;
-    created_at: string;
+    code?: string;
+    grade_level?: string;
+    image_url?: string;
+    image_urls?: string[];
+    options?: QuestionOption[];
+    score?: number;
+    status?: QuestionStatus;
+    created_at?: string;
     author_id?: string;
 }
 

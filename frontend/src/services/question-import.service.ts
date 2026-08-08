@@ -93,6 +93,20 @@ export const questionImportService = {
         await downloadBlob("/questions/import/template", "template_import_soal.xlsx");
     },
 
+    async uploadMediaFile(file: File, folder: string = "questions/general"): Promise<string> {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", folder);
+        formData.append("entity_type", "question");
+        const res = await fetch(`${BASE_URL}/media/upload`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: formData,
+        });
+        const data = await parseJsonResponse(res);
+        return data?.url || data?.storage_path || "";
+    },
+
     async importFile(file: File): Promise<QuestionImportResult> {
         const formData = new FormData();
         formData.append("file", file);

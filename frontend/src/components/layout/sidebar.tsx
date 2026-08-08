@@ -142,7 +142,7 @@ function SidebarContent({
                                 role === "GURU" ? "/guru" :
                                     role === "FINANCE" ? "/finance" :
                                         role === "INVESTOR" ? "/investor" :
-                                            role === "SISWA" ? "/siswa" : "/"}
+                                            (role === "SISWA" || role === "SUPER_SISWA") ? "/siswa" : "/"}
                         className="flex items-center gap-3 overflow-hidden"
                     >
                         <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold font-heading text-xl shrink-0">

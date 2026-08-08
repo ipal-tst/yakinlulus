@@ -23,9 +23,10 @@ interface DrawerProps {
     question: ExtendedQuestion | null;
     isOpen: boolean;
     onClose: () => void;
+    onStatusChange?: (id: string, action: "publish" | "unpublish" | "archive") => void;
 }
 
-export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps) {
+export function QuestionDetailDrawer({ question, isOpen, onClose, onStatusChange }: DrawerProps) {
     const [copied, setCopied] = useState(false);
 
     if (!isOpen || !question) return null;
@@ -63,7 +64,7 @@ export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps)
                                 </Badge>
                             )}
                         </div>
-                        <h2 className="text-lg font-bold font-heading">Detail Butir Soal (Read-Only)</h2>
+                        <h2 className="text-lg font-bold font-heading">Detail Butir Soal</h2>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -140,23 +141,37 @@ export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps)
                             <Layers className="h-4 w-4 text-primary" /> Konten Utama Soal
                         </h3>
                         <div className="p-4 rounded-2xl border border-border bg-card shadow-2xs space-y-3">
-                            <p className="text-sm font-medium leading-relaxed whitespace-pre-line text-foreground">
-                                {question.content}
-                            </p>
+                            {(!question.blocks || question.blocks.length <= 1) && question.content && (
+                                <p className="text-sm font-medium leading-relaxed whitespace-pre-line text-foreground">
+                                    {question.content}
+                                </p>
+                            )}
 
                             {question.blocks && question.blocks.length > 0 && (
-                                <div className="space-y-2 pt-2 border-t border-border/50">
+                                <div className="space-y-3">
                                     {question.blocks.map((block, idx) => (
-                                        <div key={idx} className="p-3 rounded-xl bg-muted/40 text-xs font-mono">
+                                        <div key={idx} className="p-3 rounded-xl bg-muted/40 text-xs font-mono border border-border/40">
                                             <span className="text-[10px] text-primary font-bold uppercase block mb-1">
-                                                Blok #{block.block_order} ({block.block_type})
+                                                Blok #{block.block_order ?? idx + 1} ({block.block_type})
                                             </span>
-                                            {block.block_type === "LATEX" ? (
+                                            {block.block_type === "IMAGE" || block.block_type === "PICTURE" || block.block_type === "IMG" ? (
+                                                <div className="py-1 space-y-1">
+                                                    <img
+                                                        src={block.content}
+                                                        alt={`Gambar Soal Blok #${block.block_order ?? idx + 1}`}
+                                                        className="max-h-72 w-auto max-w-full object-contain rounded-xl border border-border bg-white p-2 shadow-2xs"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).alt = "Gambar tidak dapat dimuat (" + block.content + ")";
+                                                        }}
+                                                    />
+                                                    <span className="text-[10px] text-muted-foreground block truncate font-mono">URL: {block.content}</span>
+                                                </div>
+                                            ) : block.block_type === "LATEX" ? (
                                                 <code className="text-emerald-600 dark:text-emerald-400 bg-background px-2 py-1 rounded">
                                                     {block.content}
                                                 </code>
                                             ) : (
-                                                <p>{block.content}</p>
+                                                <p className="whitespace-pre-line text-foreground font-sans text-sm leading-relaxed">{block.content}</p>
                                             )}
                                         </div>
                                     ))}
@@ -175,14 +190,14 @@ export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps)
                                 <div
                                     key={opt.id}
                                     className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${opt.is_correct
-                                            ? "border-emerald-500 bg-emerald-500/5 dark:bg-emerald-950/20"
-                                            : "border-border bg-card"
+                                        ? "border-emerald-500 bg-emerald-500/5 dark:bg-emerald-950/20"
+                                        : "border-border bg-card"
                                         }`}
                                 >
                                     <div
                                         className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${opt.is_correct
-                                                ? "bg-emerald-500 text-white"
-                                                : "bg-muted text-muted-foreground"
+                                            ? "bg-emerald-500 text-white"
+                                            : "bg-muted text-muted-foreground"
                                             }`}
                                     >
                                         {opt.label}
@@ -218,7 +233,7 @@ export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps)
                                 <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Pembahasan Resmi
                             </h3>
                             <Card className="p-4 bg-emerald-500/5 border-emerald-500/20 rounded-2xl space-y-2 text-xs leading-relaxed">
-                                <p className="text-foreground font-medium">{question.explanation}</p>
+                                <p className="text-foreground font-medium whitespace-pre-line">{question.explanation}</p>
                             </Card>
                         </div>
                     )}
@@ -280,11 +295,48 @@ export function QuestionDetailDrawer({ question, isOpen, onClose }: DrawerProps)
                 </div>
 
                 {/* Drawer Footer */}
-                <div className="p-4 border-t border-border bg-card flex items-center justify-between text-xs text-muted-foreground">
+                <div className="p-4 border-t border-border bg-card flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>Versi: v{question.version_no} (Dibuat oleh {question.author_name || "Admin"})</span>
-                    <Button variant="outline" size="sm" onClick={onClose} className="rounded-xl">
-                        Tutup Drawer
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {onStatusChange && (
+                            <>
+                                {question.status !== "PUBLISHED" && (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                                        onClick={() => onStatusChange(question.id, "publish")}
+                                    >
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Setujui & Publikasikan
+                                    </Button>
+                                )}
+                                {question.status === "PUBLISHED" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-xl gap-1 text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+                                        onClick={() => onStatusChange(question.id, "unpublish")}
+                                    >
+                                        Kembalikan ke Draft
+                                    </Button>
+                                )}
+                                {question.status !== "ARCHIVED" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-xl gap-1 text-slate-500 border-border hover:bg-accent"
+                                        onClick={() => onStatusChange(question.id, "archive")}
+                                    >
+                                        Arsipkan
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                        <Button variant="outline" size="sm" onClick={onClose} className="rounded-xl">
+                            Tutup
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

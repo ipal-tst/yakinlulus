@@ -40,6 +40,7 @@ func main() {
 		{"FINANCE", "Finance"},
 		{"GURU", "Guru"},
 		{"SISWA", "Siswa"},
+		{"SUPER_SISWA", "Super Siswa (Testing)"},
 		{"INVESTOR", "Investor"},
 	}
 	for _, r := range roles {
@@ -66,6 +67,7 @@ func main() {
 		{"guru.budi@yakinlulus.id", "Drs. Budi Santoso, M.Pd", "GURU"},
 		{"guru.siti@yakinlulus.id", "Siti Rahmawati, S.Si", "GURU"},
 		{"murid@yakinlulus.id", "Ahmad Pratama", "SISWA"},
+		{"supersiswa@yakinlulus.id", "Super Siswa (Testing)", "SUPER_SISWA"},
 	}
 
 	for _, u := range users {

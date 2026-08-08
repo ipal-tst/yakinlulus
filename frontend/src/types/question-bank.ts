@@ -33,7 +33,7 @@ export type ImportJobStatus =
 export interface QuestionBlock {
     id?: string;
     block_order: number;
-    block_type: "PARAGRAPH" | "IMAGE" | "TABLE" | "LATEX";
+    block_type: "PARAGRAPH" | "IMAGE" | "TABLE" | "LATEX" | string;
     content: string;
     asset_id?: string;
 }

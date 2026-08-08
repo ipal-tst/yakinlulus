@@ -47,6 +47,7 @@ const (
 	RoleFinance    = "FINANCE"
 	RoleGuru       = "GURU"
 	RoleSiswa      = "SISWA"
+	RoleSuperSiswa = "SUPER_SISWA"
 	RoleInvestor   = "INVESTOR"
 )
 

@@ -4,6 +4,7 @@ export type UserRole =
     | "FINANCE"
     | "GURU"
     | "SISWA"
+    | "SUPER_SISWA"
     | "INVESTOR";
 
 export type EducationLevel = "SD" | "SMP" | "SMA" | "GapYear";

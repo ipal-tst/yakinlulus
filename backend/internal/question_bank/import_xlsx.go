@@ -1,12 +1,18 @@
 package question_bank
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -79,8 +85,45 @@ func ptrStr(s string) *string {
 	return &s
 }
 
-// parseQuestionXLSX reads the "Soal" sheet into ImportRow values. It returns
-func parseQuestionXLSX(f *excelize.File) ([]ImportRow, []string) {
+func ExtractZipImages(fileBytes []byte) ([]string, error) {
+	br := bytes.NewReader(fileBytes)
+	zr, err := zip.NewReader(br, int64(len(fileBytes)))
+	if err != nil {
+		return nil, err
+	}
+
+	uploadDir := "./uploads"
+	_ = os.MkdirAll(uploadDir, 0755)
+
+	var imgURLs []string
+	for _, f := range zr.File {
+		if strings.HasPrefix(f.Name, "xl/media/") {
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil || len(data) == 0 {
+				continue
+			}
+
+			ext := filepath.Ext(f.Name)
+			if ext == "" {
+				ext = ".png"
+			}
+			fileName := fmt.Sprintf("%s_%s%s", time.Now().Format("20060102_150405"), uuid.New().String()[:8], ext)
+			dstPath := filepath.Join(uploadDir, fileName)
+			if err := os.WriteFile(dstPath, data, 0644); err == nil {
+				imgURLs = append(imgURLs, "/uploads/"+fileName)
+			}
+		}
+	}
+	return imgURLs, nil
+}
+
+// ParseQuestionXLSX reads the "Soal" sheet into ImportRow values.
+func ParseQuestionXLSX(f *excelize.File, zipImages []string) ([]ImportRow, []string) {
 	sheet := "Soal"
 	if idx, err := f.GetSheetIndex(sheet); err != nil || idx == -1 {
 		if idx2, err2 := f.GetSheetIndex("Soal (Isi)"); err2 == nil && idx2 != -1 {
@@ -98,6 +141,14 @@ func parseQuestionXLSX(f *excelize.File) ([]ImportRow, []string) {
 	var out []ImportRow
 	var errs []string
 	letters := "ABCDEFGH"
+	zipMediaPointer := 0
+
+	cleanBlock := func(val string) string {
+		if val == "" || strings.Contains(val, "#VALUE!") || strings.Contains(val, "#REF!") {
+			return ""
+		}
+		return strings.TrimSpace(val)
+	}
 
 	for i := 1; i < len(raw); i++ { // skip header row
 		row := raw[i]
@@ -105,20 +156,48 @@ func parseQuestionXLSX(f *excelize.File) ([]ImportRow, []string) {
 		if mapel == "" {
 			continue // blank line
 		}
-		content := xqCell(row, xqColBlockIsi)
-		if content == "" {
-			errs = append(errs, fmt.Sprintf("baris %d: kolom 'Blok 1 - Isi' kosong", i+1))
-			continue
+		var blocks []QuestionBlock
+		var paragraphTexts []string
+
+		for b := 0; b < xqBlockPairs; b++ {
+			rawTipe := xqCell(row, xqColBlockTipe+b*2)
+			rawIsi := xqCell(row, xqColBlockIsi+b*2)
+			cleanIsi := cleanBlock(rawIsi)
+
+			isImgType := strings.EqualFold(rawTipe, "IMAGE") ||
+				strings.EqualFold(rawTipe, "GAMBAR") ||
+				strings.Contains(rawIsi, "#VALUE!") ||
+				strings.HasPrefix(cleanIsi, "/uploads/") ||
+				strings.HasPrefix(cleanIsi, "http://") ||
+				strings.HasPrefix(cleanIsi, "https://") ||
+				strings.HasPrefix(cleanIsi, "data:image/")
+
+			if isImgType {
+				if cleanIsi == "" && zipMediaPointer < len(zipImages) {
+					cleanIsi = zipImages[zipMediaPointer]
+					zipMediaPointer++
+				}
+				if cleanIsi != "" {
+					blocks = append(blocks, QuestionBlock{BlockType: "IMAGE", Content: cleanIsi})
+				}
+			} else if cleanIsi != "" {
+				blocks = append(blocks, QuestionBlock{BlockType: "PARAGRAPH", Content: cleanIsi})
+				paragraphTexts = append(paragraphTexts, cleanIsi)
+			}
 		}
 
-		var blocks []QuestionBlock
-		for b := 0; b < xqBlockPairs; b++ {
-			tipe := xqNormalizeBlockType(xqCell(row, xqColBlockTipe+b*2))
-			isi := xqCell(row, xqColBlockIsi+b*2)
-			if isi == "" {
-				continue
+		content := strings.Join(paragraphTexts, "\n\n")
+		if content == "" && len(blocks) > 0 {
+			for _, b := range blocks {
+				if b.BlockType == "PARAGRAPH" {
+					content = b.Content
+					break
+				}
 			}
-			blocks = append(blocks, QuestionBlock{BlockType: tipe, Content: isi})
+		}
+		if content == "" && len(blocks) == 0 {
+			errs = append(errs, fmt.Sprintf("baris %d: kolom 'Blok 1 - Isi' kosong", i+1))
+			continue
 		}
 
 		correctMap := map[string]bool{}
@@ -237,13 +316,20 @@ func (h *Handler) ImportQuestionsXLSX(c *fiber.Ctx) error {
 	}
 	defer f.Close()
 
-	xls, err := excelize.OpenReader(f)
+	fileBytes, err := io.ReadAll(f)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Gagal membaca isi file"))
+	}
+
+	zipImages, _ := ExtractZipImages(fileBytes)
+
+	xls, err := excelize.OpenReader(bytes.NewReader(fileBytes))
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "File Excel tidak valid: "+err.Error()))
 	}
 	defer xls.Close()
 
-	rows, rowErrs := parseQuestionXLSX(xls)
+	rows, rowErrs := ParseQuestionXLSX(xls, zipImages)
 	if len(rowErrs) > 0 {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Baris bermasalah: "+strings.Join(rowErrs, "; ")))
 	}
@@ -355,11 +441,26 @@ func questionXlsxHeaders() []string {
 
 // QuestionImportTemplate streams a downloadable .xlsx template.
 func (h *Handler) QuestionImportTemplate(c *fiber.Ctx) error {
+	// 1. Try to serve pre-generated template file from disk if available
+	candidatePaths := []string{
+		"template_import_soal.xlsx",
+		"../template_import_soal.xlsx",
+		"d:/Project/EdTech/Yakinlulus.id/template_import_soal.xlsx",
+	}
+	for _, path := range candidatePaths {
+		if _, err := os.Stat(path); err == nil {
+			c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+			c.Set("Content-Disposition", "attachment; filename=template_import_soal.xlsx")
+			return c.SendFile(path)
+		}
+	}
+
+	// 2. Fallback: Generate dynamically with full examples
 	f := excelize.NewFile()
 	defer f.Close()
 
 	f.SetSheetName("Sheet1", "Soal")
-	f.NewSheet("Petunjuk")
+	f.NewSheet("Petunjuk Pengisian")
 
 	headers := questionXlsxHeaders()
 	colLetters := excelize.ColumnNumberToName
@@ -368,43 +469,93 @@ func (h *Handler) QuestionImportTemplate(c *fiber.Ctx) error {
 		_ = f.SetCellValue("Soal", cellRef+"1", hd)
 	}
 
-	// Example row
-	example := make([]string, questionXlsCols)
-	example[xqColMapel-1] = "Matematika"
-	example[xqColKelas-1] = "10"
-	example[xqColTipe-1] = "SINGLE_CHOICE"
-	example[xqColKesulitan-1] = "MEDIUM"
-	example[xqColBlockTipe-1] = "PARAGRAPH"
-	example[xqColBlockIsi-1] = "Contoh teks soal di sini..."
-	example[xqColBlockTipe-1+2] = "IMAGE"
-	example[xqColBlockIsi-1+2] = "asset-id-uuid-atau-tautan-gambar"
-	example[xqColOptionA-1] = "Pilihan jawaban A"
-	example[xqColOptionA-1+1] = "Pilihan jawaban B"
-	example[xqColOptionA-1+2] = "Pilihan jawaban C"
-	example[xqColOptionA-1+3] = "Pilihan jawaban D"
-	example[xqColKunci-1] = "A"
-	example[xqColSkor-1] = "5"
-	example[xqColSkorNeg-1] = "0"
-	example[xqColBloom-1] = "C3"
-	example[xqColBahasa-1] = "id"
-	for i, v := range example {
-		cellRef, _ := colLetters(i + 1)
-		_ = f.SetCellValue("Soal", cellRef+"2", v)
+	// Example 1: SINGLE_CHOICE
+	ex1 := make([]string, questionXlsCols)
+	ex1[xqColNo-1] = "1"
+	ex1[xqColKode-1] = "SOAL-MTK-001"
+	ex1[xqColMapel-1] = "Matematika"
+	ex1[xqColKelas-1] = "10"
+	ex1[xqColTipe-1] = "SINGLE_CHOICE"
+	ex1[xqColKesulitan-1] = "MEDIUM"
+	ex1[xqColBlockTipe-1] = "PARAGRAPH"
+	ex1[xqColBlockIsi-1] = "Sebuah toko menjual 2 jenis buah: apel Rp 5.000/ons dan jeruk Rp 3.000/ons. Jika beli total 10 ons seharga Rp 42.000, maka banyak apel yang dibeli adalah ..."
+	ex1[xqColOptionA-1] = "6 ons"
+	ex1[xqColOptionA-1+1] = "4 ons"
+	ex1[xqColOptionA-1+2] = "5 ons"
+	ex1[xqColOptionA-1+3] = "3 ons"
+	ex1[xqColOptionA-1+4] = "8 ons"
+	ex1[xqColKunci-1] = "A"
+	ex1[xqColSkor-1] = "5"
+	ex1[xqColSkorNeg-1] = "0"
+	ex1[xqColPembahasan-1] = "Misalkan x = apel, y = jeruk. x + y = 10 dan 5000x + 3000y = 42000 => x = 6."
+	ex1[xqColBloom-1] = "C3"
+	ex1[xqColBahasa-1] = "id"
+
+	// Example 2: MULTIPLE_CHOICE
+	ex2 := make([]string, questionXlsCols)
+	ex2[xqColNo-1] = "2"
+	ex2[xqColKode-1] = "SOAL-FIS-002"
+	ex2[xqColMapel-1] = "Fisika"
+	ex2[xqColKelas-1] = "11"
+	ex2[xqColTipe-1] = "MULTIPLE_CHOICE"
+	ex2[xqColKesulitan-1] = "HARD"
+	ex2[xqColBlockTipe-1] = "PARAGRAPH"
+	ex2[xqColBlockIsi-1] = "Manakah dari besaran-besaran berikut yang merupakan besaran turunan? (Pilih semua yang benar)"
+	ex2[xqColOptionA-1] = "Kecepatan"
+	ex2[xqColOptionA-1+1] = "Massa"
+	ex2[xqColOptionA-1+2] = "Gaya"
+	ex2[xqColOptionA-1+3] = "Panjang"
+	ex2[xqColOptionA-1+4] = "Energi"
+	ex2[xqColKunci-1] = "A,C,E"
+	ex2[xqColSkor-1] = "5"
+	ex2[xqColSkorNeg-1] = "0"
+	ex2[xqColPembahasan-1] = "Besaran turunan meliputi Kecepatan, Gaya, dan Energi."
+	ex2[xqColBloom-1] = "C4"
+	ex2[xqColBahasa-1] = "id"
+
+	// Example 3: TRUE_FALSE
+	ex3 := make([]string, questionXlsCols)
+	ex3[xqColNo-1] = "3"
+	ex3[xqColKode-1] = "SOAL-BIO-003"
+	ex3[xqColMapel-1] = "Biologi"
+	ex3[xqColKelas-1] = "10"
+	ex3[xqColTipe-1] = "TRUE_FALSE"
+	ex3[xqColKesulitan-1] = "MEDIUM"
+	ex3[xqColBlockTipe-1] = "PARAGRAPH"
+	ex3[xqColBlockIsi-1] = "Tentukan apakah setiap pernyataan mengenai sel berikut bernilai BENAR atau SALAH:"
+	ex3[xqColOptionA-1] = "Mitokondria berfungsi sebagai tempat respirasi seluler."
+	ex3[xqColOptionA-1+1] = "Dinding sel ditemukan pada sel hewan."
+	ex3[xqColOptionA-1+2] = "Ribosom berperan dalam sintesis protein."
+	ex3[xqColOptionA-1+3] = "Membran sel bersifat impermiabel terhadap semua zat."
+	ex3[xqColKunci-1] = "A:B, B:S, C:B, D:S"
+	ex3[xqColSkor-1] = "5"
+	ex3[xqColSkorNeg-1] = "0"
+	ex3[xqColPembahasan-1] = "Dinding sel hanya ada pada tumbuhan. Membran sel bersifat semi-permiabel."
+	ex3[xqColBloom-1] = "C3"
+	ex3[xqColBahasa-1] = "id"
+
+	examples := [][]string{ex1, ex2, ex3}
+	for rIdx, ex := range examples {
+		rowNum := rIdx + 2
+		for i, v := range ex {
+			cellRef, _ := colLetters(i + 1)
+			_ = f.SetCellValue("Soal", fmt.Sprintf("%s%d", cellRef, rowNum), v)
+		}
 	}
 
-	// Styling
+	// Styling Header
 	headerStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Bold: true, Color: "#FFFFFF"},
-		Fill: excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"#2563EB"}},
+		Fill: excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"#1E3A8A"}},
 	})
 	_ = f.SetCellStyle("Soal", "A1", "AC1", headerStyle)
 
 	widths := map[string]float64{
-		"A": 6, "B": 12, "C": 22, "D": 10, "E": 24,
-		"F": 18, "G": 14, "H": 12, "I": 42, "J": 12, "K": 42,
-		"L": 12, "M": 42, "N": 12, "O": 42, "P": 12, "Q": 42,
-		"R": 12, "S": 42, "T": 12, "U": 42, "V": 12, "W": 42,
-		"X": 16, "Y": 10, "Z": 12, "AA": 42, "AB": 12, "AC": 10,
+		"A": 6, "B": 15, "C": 22, "D": 10, "E": 24,
+		"F": 18, "G": 14, "H": 12, "I": 45, "J": 12, "K": 30,
+		"L": 12, "M": 30, "N": 12, "O": 30, "P": 30, "Q": 30,
+		"R": 30, "S": 30, "T": 30, "U": 20, "V": 20, "W": 20,
+		"X": 22, "Y": 10, "Z": 12, "AA": 40, "AB": 12, "AC": 10,
 	}
 	for col, w := range widths {
 		_ = f.SetColWidth("Soal", col, col, w)
@@ -415,28 +566,30 @@ func (h *Handler) QuestionImportTemplate(c *fiber.Ctx) error {
 		TopLeftCell: "A2",
 		ActivePane:  "bottomLeft",
 	})
-
 	_ = f.AutoFilter("Soal", "A1:AC1", []excelize.AutoFilterOptions{})
 
-	// Petunjuk sheet
+	// Petunjuk Sheet
 	instructions := [][]string{
-		{"PENGISIAN FILE TEMPLATE IMPORT SOAL"},
+		{"PANDUAN & PETUNJUK PENGISIAN TEMPLATE IMPORT SOAL"},
+		{"Platform YakinLulus.id — Format Standar Import Excel (.xlsx)"},
 		{""},
-		{"1. Isi setiap baris = 1 soal. Jangan edit baris header (No s/d Bahasa)."},
-		{"2. Mapel: tulis nama mapel persis (contoh: Matematika) atau kode mapel."},
-		{"3. Bab (ID): opsional, diisi ID bab (UUID) jika ada."},
-		{"4. Tipe Soal: SINGLE_CHOICE / MULTIPLE_CHOICE / TRUE_FALSE. Kosongkan = SINGLE_CHOICE."},
-		{"5. Kesulitan: EASY / MEDIUM / HARD. Kosongkan = MEDIUM."},
-		{"6. Blok digunakan untuk konten kaya: urutan PARAGRAPH > IMAGE > PARAGRAPH. Tipe IMAGE diisi ID aset (asset id) di kolom Isi."},
-		{"7. Kunci Jawaban: huruf jawaban benar (A s/d H). MULTIPLE_CHOICE boleh lebih dari satu huruf (contoh: A,C)."},
-		{"8. Kolom Opsi yang tidak terpakai cukup dikosongkan."},
-		{"9. Baris dengan Mapel kosong akan diabaikan."},
+		{"1. ATURAN UMUM"},
+		{"- Sheet data harus bernama 'Soal' atau 'Soal (Isi)'. Jangan diubah."},
+		{"- Header pada Baris 1 tidak boleh dihapus atau diubah."},
+		{"- Kolom Mapel dan Blok 1 - Isi WAJIB diisi."},
+		{""},
+		{"2. KUNCI JAWABAN PER TIPE SOAL"},
+		{"- SINGLE_CHOICE (Pilihan Ganda 1 Jawaban): Diisi 1 huruf (A, B, C, D, atau E). Contoh: A"},
+		{"- MULTIPLE_CHOICE (Pilihan Ganda Kompleks): Diisi huruf dipisahkan koma atau digabung. Contoh: A,C,E"},
+		{"- TRUE_FALSE (Matriks Benar - Salah): Diisi format A:B, B:S, C:B, D:S (atau B,S,B,S)"},
 	}
 	for i, line := range instructions {
-		cellRef, _ := colLetters(1)
-		_ = f.SetCellValue("Petunjuk", cellRef+fmt.Sprintf("%d", i+1), line[0])
+		for j, val := range line {
+			cellRef, _ := colLetters(j + 1)
+			_ = f.SetCellValue("Petunjuk Pengisian", fmt.Sprintf("%s%d", cellRef, i+1), val)
+		}
 	}
-	_ = f.SetColWidth("Petunjuk", "A", "A", 120)
+	_ = f.SetColWidth("Petunjuk Pengisian", "A", "A", 100)
 
 	buf, err := f.WriteToBuffer()
 	if err != nil {

@@ -16,7 +16,7 @@ const schema = z.object({
     full_name: z.string().min(1, "Nama wajib diisi"),
     email: z.string().email("Email tidak valid"),
     password: z.string().optional(),
-    role: z.enum(["SUPER_ADMIN", "STAFF", "FINANCE", "GURU", "SISWA", "INVESTOR"]),
+    role: z.enum(["SUPER_ADMIN", "STAFF", "FINANCE", "GURU", "SISWA", "SUPER_SISWA", "INVESTOR"]),
     gender: z.string().optional(),
     phone: z.string().optional(),
     school_name: z.string().optional(),
@@ -46,7 +46,7 @@ interface UserFormDialogProps {
     onSubmit: (values: UserFormValues) => void;
 }
 
-const ROLE_OPTIONS: UserRole[] = ["SISWA", "GURU", "STAFF", "FINANCE", "INVESTOR", "SUPER_ADMIN"];
+const ROLE_OPTIONS: UserRole[] = ["SISWA", "SUPER_SISWA", "GURU", "STAFF", "FINANCE", "INVESTOR", "SUPER_ADMIN"];
 
 export function UserFormDialog({ open, loading = false, editing, onClose, onSubmit }: UserFormDialogProps) {
     const [showPassword, setShowPassword] = React.useState(false);
@@ -176,7 +176,7 @@ export function UserFormDialog({ open, loading = false, editing, onClose, onSubm
                     </div>
 
                     {/* SISWA specific profile details */}
-                    {watch("role") === "SISWA" && (
+                    {(watch("role") === "SISWA" || watch("role") === "SUPER_SISWA") && (
                         <div className="space-y-4 pt-2 border-t border-border">
                             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
                                 Profil Siswa

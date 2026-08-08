@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -263,6 +265,9 @@ func (s *Service) Create(ctx context.Context, m *Media) error {
 	if m.Bucket == "" && s.st != nil {
 		m.Bucket = s.st.GetBucket()
 	}
+	if m.Bucket == "" {
+		m.Bucket = "uploads"
+	}
 	return s.repo.Create(ctx, m)
 }
 
@@ -304,15 +309,32 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID, is
 }
 
 func (s *Service) UploadFile(ctx context.Context, fileName string, reader io.Reader, size int64, contentType string) (string, string, error) {
-	if s.st == nil {
-		return "", "", fmt.Errorf("storage not configured")
-	}
 	objectName := fmt.Sprintf("uploads/%s_%s", uuid.New().String(), fileName)
-	url, err := s.st.Upload(ctx, objectName, reader, size, contentType)
-	if err != nil {
-		return "", "", err
+	if s.st != nil {
+		url, err := s.st.Upload(ctx, objectName, reader, size, contentType)
+		if err == nil {
+			return objectName, url, nil
+		}
+		slog.Warn("Storage client upload failed, falling back to local disk storage", "error", err)
 	}
-	return objectName, url, nil
+
+	// Fallback to local disk storage in ./uploads/
+	if err := os.MkdirAll("./uploads", 0755); err != nil {
+		return "", "", fmt.Errorf("failed to create local uploads folder: %w", err)
+	}
+	filePath := path.Join("./uploads", path.Base(objectName))
+	out, err := os.Create(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create local file: %w", err)
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, reader); err != nil {
+		return "", "", fmt.Errorf("failed to write local file: %w", err)
+	}
+
+	publicURL := fmt.Sprintf("/uploads/%s", path.Base(objectName))
+	return objectName, publicURL, nil
 }
 
 type Handler struct {
@@ -363,10 +385,14 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 
 	objectName, url, err := h.svc.UploadFile(c.Context(), file.Filename, f, file.Size, file.Header.Get("Content-Type"))
 	if err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to upload file to storage"))
+		slog.Error("Failed to upload file to storage", "error", err, "filename", file.Filename)
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to upload file to storage: "+err.Error()))
 	}
 
-	userIDStr, _ := c.Locals("user_id").(string)
+	var uploadedBy *uuid.UUID
+	if uid, ok := middleware.UserIDFromCtx(c); ok {
+		uploadedBy = &uid
+	}
 
 	m := &Media{
 		FileName:     file.Filename,
@@ -375,7 +401,7 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 		FileSize:     file.Size,
 		StoragePath:  objectName,
 		URL:          url,
-		UploadedBy:   uuidPtr(uuid.MustParse(userIDStr)),
+		UploadedBy:   uploadedBy,
 	}
 
 	if entityType != "" {
@@ -389,7 +415,8 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	}
 
 	if err := h.svc.Create(c.Context(), m); err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to save media metadata"))
+		slog.Error("Failed to save media metadata to database", "error", err, "filename", file.Filename)
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, fmt.Sprintf("Failed to save media metadata: %v", err)))
 	}
 
 	return c.Status(201).JSON(shared.Success(m))

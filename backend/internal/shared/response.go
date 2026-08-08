@@ -15,12 +15,12 @@ type APIResponse struct {
 }
 
 type PaginationMeta struct {
-	Page         int  `json:"page"`
-	Limit        int  `json:"limit"`
-	Total        int  `json:"total"`
-	TotalPages   int  `json:"total_pages"`
-	HasNext      bool `json:"has_next"`
-	HasPrevious  bool `json:"has_previous"`
+	Page        int  `json:"page"`
+	Limit       int  `json:"limit"`
+	Total       int  `json:"total"`
+	TotalPages  int  `json:"total_pages"`
+	HasNext     bool `json:"has_next"`
+	HasPrevious bool `json:"has_previous"`
 }
 
 type ErrorItem struct {
@@ -31,15 +31,15 @@ type ErrorItem struct {
 type ErrorCode string
 
 const (
-	ErrValidation    ErrorCode = "VALIDATION_ERROR"
-	ErrUnauthorized  ErrorCode = "UNAUTHORIZED"
-	ErrForbidden     ErrorCode = "FORBIDDEN"
-	ErrNotFound      ErrorCode = "NOT_FOUND"
-	ErrConflict      ErrorCode = "CONFLICT"
-	ErrInternal      ErrorCode = "INTERNAL_ERROR"
-	ErrMaxAttemptsReached ErrorCode = "MAX_ATTEMPTS_REACHED"
-	ErrExamNotStarted     ErrorCode = "EXAM_NOT_STARTED"
-	ErrExamFinished       ErrorCode = "EXAM_FINISHED"
+	ErrValidation              ErrorCode = "VALIDATION_ERROR"
+	ErrUnauthorized            ErrorCode = "UNAUTHORIZED"
+	ErrForbidden               ErrorCode = "FORBIDDEN"
+	ErrNotFound                ErrorCode = "NOT_FOUND"
+	ErrConflict                ErrorCode = "CONFLICT"
+	ErrInternal                ErrorCode = "INTERNAL_ERROR"
+	ErrMaxAttemptsReached      ErrorCode = "MAX_ATTEMPTS_REACHED"
+	ErrExamNotStarted          ErrorCode = "EXAM_NOT_STARTED"
+	ErrExamFinished            ErrorCode = "EXAM_FINISHED"
 	ErrAttemptAlreadySubmitted ErrorCode = "ATTEMPT_ALREADY_SUBMITTED"
 )
 
@@ -94,7 +94,7 @@ func ParsePagination(c *fiber.Ctx) (page, limit int) {
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 || limit > 1000 {
 		limit = 20
 	}
 	return

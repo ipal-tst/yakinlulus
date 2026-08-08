@@ -3,6 +3,7 @@ package question_bank
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ type Question struct {
 	GradeID       *uuid.UUID       `json:"grade_id,omitempty"`
 	ChapterID     *uuid.UUID       `json:"chapter_id,omitempty"`
 	Content       string           `json:"content"`
+	ContentHash   string           `json:"content_hash,omitempty"`
 	ImageURL      *string          `json:"image_url,omitempty"`
 	Difficulty    string           `json:"difficulty"`
 	QuestionType  QuestionType     `json:"question_type"`
@@ -586,6 +588,14 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Question, err
 	}
 	opts, _ := r.GetOptions(ctx, id)
 	q.Options = opts
+	blocks, _ := r.GetBlocks(ctx, id)
+	q.Blocks = blocks
+	for _, b := range blocks {
+		if b.BlockType == "IMAGE" && b.Content != "" {
+			q.ImageURL = &b.Content
+			break
+		}
+	}
 	return q, nil
 }
 
@@ -642,6 +652,14 @@ func (r *Repository) List(ctx context.Context, subjectID *uuid.UUID, gradeID *uu
 		}
 		opts, _ := r.GetOptions(ctx, q.ID)
 		q.Options = opts
+		blocks, _ := r.GetBlocks(ctx, q.ID)
+		q.Blocks = blocks
+		for _, b := range blocks {
+			if b.BlockType == "IMAGE" && b.Content != "" {
+				q.ImageURL = &b.Content
+				break
+			}
+		}
 		questions = append(questions, *q)
 	}
 	return questions, total, nil
@@ -669,6 +687,38 @@ func (r *Repository) GetOptions(ctx context.Context, questionID uuid.UUID) ([]Qu
 		opts = append(opts, o)
 	}
 	return opts, nil
+}
+
+func (r *Repository) GetBlocks(ctx context.Context, questionID uuid.UUID) ([]QuestionBlock, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT qb.block_type,
+		       qb.content,
+		       qb.asset_id,
+		       COALESCE(ast.public_url, '') AS image_url
+		FROM question.question_block qb
+		JOIN question.question q ON q.current_version_id = qb.question_version_id
+		LEFT JOIN media.asset a ON a.id = qb.asset_id
+		LEFT JOIN media.asset_storage ast ON ast.id = a.storage_id
+		WHERE q.id = $1 AND q.deleted_at IS NULL
+		ORDER BY qb.block_order ASC`, questionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blocks []QuestionBlock
+	for rows.Next() {
+		var b QuestionBlock
+		var imgURL string
+		if err := rows.Scan(&b.BlockType, &b.Content, &b.AssetID, &imgURL); err != nil {
+			return nil, err
+		}
+		if b.BlockType == "IMAGE" && imgURL != "" && (b.Content == "" || (!strings.HasPrefix(b.Content, "http") && !strings.HasPrefix(b.Content, "/"))) {
+			b.Content = imgURL
+		}
+		blocks = append(blocks, b)
+	}
+	return blocks, nil
 }
 
 func (r *Repository) ReplaceOptions(ctx context.Context, questionID uuid.UUID, opts []QuestionOption) error {
@@ -1188,13 +1238,20 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	read := middleware.RequireAuth(h.jwt)
 	auth := middleware.RequireAuth(h.jwt)
 
+	// Static routes FIRST (to prevent /:id parameter matching)
 	r.Get("/", read, h.List)
-	r.Get("/:id", read, h.GetByID)
-	r.Post("/", auth, write, h.Create)
 	r.Get("/export", auth, write, h.Export)
-	r.Post("/import", auth, write, h.Import)
 	r.Get("/import/template", auth, write, h.QuestionImportTemplate)
+	r.Post("/import", auth, write, h.Import)
 	r.Post("/import/xlsx", auth, write, h.ImportQuestionsXLSX)
+	r.Post("/check-duplicates", auth, write, h.CheckDuplicates)
+	r.Post("/bulk-publish", auth, write, h.BulkPublish)
+	r.Post("/bulk-status", auth, write, h.BulkUpdateStatus)
+	r.Post("/bulk-update", auth, write, h.BulkUpdate)
+	r.Post("/bulk-delete", auth, write, h.BulkDelete)
+
+	// Parameterized /:id routes SECOND
+	r.Get("/:id", read, h.GetByID)
 	r.Put("/:id", auth, write, h.Update)
 	r.Post("/:id/publish", auth, write, h.Publish)
 	r.Post("/:id/archive", auth, write, h.ArchiveQuestion)
@@ -1321,7 +1378,7 @@ func (h *Handler) Export(c *fiber.Ctx) error {
 		if q.ChapterID != nil {
 			chID = q.ChapterID.String()
 		}
-		buf.WriteString(strconv.Quote(q.Content) + "," + q.Difficulty + "," + q.SubjectID.String() + "," + chID + "," + strconv.Quote(q.Explanation) + "\n")
+		fmt.Fprintf(&buf, "%s,%s,%s,%s,%s\n", strconv.Quote(q.Content), q.Difficulty, q.SubjectID.String(), chID, strconv.Quote(q.Explanation))
 	}
 
 	c.Set("Content-Type", "text/csv")
@@ -1681,4 +1738,303 @@ func (h *Handler) ListRevisions(c *fiber.Ctx) error {
 		revs = []QuestionRevision{}
 	}
 	return c.JSON(shared.Success(revs))
+}
+
+// --- Check Duplicates ---
+
+type DuplicateCheckItem struct {
+	ID        string           `json:"id"`
+	SubjectID *uuid.UUID       `json:"subject_id,omitempty"`
+	Content   string           `json:"content"`
+	Options   []QuestionOption `json:"options,omitempty"`
+}
+
+type CheckDuplicatesReq struct {
+	SubjectID *uuid.UUID           `json:"subject_id,omitempty"`
+	Items     []DuplicateCheckItem `json:"items"`
+}
+
+type DuplicateCheckResult struct {
+	ID                   string `json:"id"`
+	IsDuplicate          bool   `json:"is_duplicate"`
+	ExistingQuestionID   string `json:"existing_question_id,omitempty"`
+	ExistingQuestionCode string `json:"existing_question_code,omitempty"`
+	DuplicateType        string `json:"duplicate_type,omitempty"`
+}
+
+func (r *Repository) CheckDuplicates(ctx context.Context, req CheckDuplicatesReq) ([]DuplicateCheckResult, error) {
+	results := make([]DuplicateCheckResult, len(req.Items))
+
+	hashMap := make(map[string][]int)
+	for idx, item := range req.Items {
+		results[idx] = DuplicateCheckResult{
+			ID:          item.ID,
+			IsDuplicate: false,
+		}
+		if strings.TrimSpace(item.Content) == "" {
+			continue
+		}
+
+		hash := CalculateContentHash(item.Content, item.Options)
+		hashMap[hash] = append(hashMap[hash], idx)
+	}
+
+	if len(hashMap) == 0 {
+		return results, nil
+	}
+
+	var subjID *uuid.UUID
+	if req.SubjectID != nil && *req.SubjectID != uuid.Nil {
+		subjID = req.SubjectID
+	} else {
+		for _, item := range req.Items {
+			if item.SubjectID != nil && *item.SubjectID != uuid.Nil {
+				subjID = item.SubjectID
+				break
+			}
+		}
+	}
+
+	var query string
+	var args []any
+	if subjID != nil && *subjID != uuid.Nil {
+		query = `
+			SELECT q.id, 
+			       COALESCE(
+			           (SELECT string_agg(b.content, E'\n' ORDER BY b.block_order)
+			            FROM question.question_block b 
+			            WHERE b.question_version_id = q.current_version_id AND b.content IS NOT NULL AND b.content != ''), 
+			           ''
+			       ) AS content
+			FROM question.question q
+			JOIN question.question_subject qs ON qs.question_id = q.id
+			WHERE qs.subject_id = $1 AND q.deleted_at IS NULL
+		`
+		args = append(args, *subjID)
+	} else {
+		query = `
+			SELECT q.id, 
+			       COALESCE(
+			           (SELECT string_agg(b.content, E'\n' ORDER BY b.block_order)
+			            FROM question.question_block b 
+			            WHERE b.question_version_id = q.current_version_id AND b.content IS NOT NULL AND b.content != ''), 
+			           ''
+			       ) AS content
+			FROM question.question q
+			WHERE q.deleted_at IS NULL
+		`
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return results, nil
+	}
+	defer rows.Close()
+
+	type existingQ struct {
+		id      uuid.UUID
+		content string
+	}
+	var existingList []existingQ
+	for rows.Next() {
+		var eq existingQ
+		if err := rows.Scan(&eq.id, &eq.content); err == nil {
+			existingList = append(existingList, eq)
+		}
+	}
+
+	for _, eq := range existingList {
+		opts, _ := r.GetOptions(ctx, eq.id)
+		existingHash := CalculateContentHash(eq.content, opts)
+		if indices, found := hashMap[existingHash]; found {
+			for _, idx := range indices {
+				results[idx].IsDuplicate = true
+				results[idx].ExistingQuestionID = eq.id.String()
+				results[idx].ExistingQuestionCode = "QS-" + eq.id.String()[:8]
+				results[idx].DuplicateType = "DATABASE"
+			}
+		}
+	}
+
+	return results, nil
+}
+
+func (s *Service) CheckDuplicates(ctx context.Context, req CheckDuplicatesReq) ([]DuplicateCheckResult, error) {
+	return s.repo.CheckDuplicates(ctx, req)
+}
+
+func (h *Handler) CheckDuplicates(c *fiber.Ctx) error {
+	var req CheckDuplicatesReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	results, err := h.svc.CheckDuplicates(c.Context(), req)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to check duplicates"))
+	}
+	return c.JSON(shared.Success(results))
+}
+
+// --- Bulk Operations ---
+
+type BulkIDsReq struct {
+	IDs []string `json:"ids"`
+}
+
+type BulkStatusReq struct {
+	IDs    []string `json:"ids"`
+	Status string   `json:"status"`
+}
+
+type BulkUpdateReq struct {
+	IDs           []string `json:"ids"`
+	SubjectID     *string  `json:"subject_id,omitempty"`
+	GradeID       *string  `json:"grade_id,omitempty"`
+	ChapterID     *string  `json:"chapter_id,omitempty"`
+	Difficulty    *string  `json:"difficulty,omitempty"`
+	Status        *string  `json:"status,omitempty"`
+	Score         *float64 `json:"score,omitempty"`
+	NegativeScore *float64 `json:"negative_score,omitempty"`
+}
+
+func (r *Repository) BulkPublish(ctx context.Context, ids []uuid.UUID, userID uuid.UUID) error {
+	for _, id := range ids {
+		_ = r.setStatus(ctx, id, "PUBLISHED", "", userID, "bulk approval & publish")
+	}
+	return nil
+}
+
+func (r *Repository) BulkUpdateStatus(ctx context.Context, ids []uuid.UUID, status string, userID uuid.UUID) error {
+	for _, id := range ids {
+		_ = r.setStatus(ctx, id, status, "", userID, "bulk status update")
+	}
+	return nil
+}
+
+func (r *Repository) BulkUpdate(ctx context.Context, req BulkUpdateReq, userID uuid.UUID) error {
+	for _, idStr := range req.IDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			continue
+		}
+		if req.Status != nil && *req.Status != "" {
+			_ = r.setStatus(ctx, id, *req.Status, "", userID, "bulk update status")
+		}
+		if req.Difficulty != nil && *req.Difficulty != "" {
+			diff := normalizeDifficulty(*req.Difficulty)
+			_, _ = r.pool.Exec(ctx, `UPDATE question.question_metadata SET difficulty_level = $1 WHERE question_id = $2`, diff, id)
+		}
+		if req.SubjectID != nil && *req.SubjectID != "" {
+			if sID, err := uuid.Parse(*req.SubjectID); err == nil {
+				_, _ = r.pool.Exec(ctx, `DELETE FROM question.question_subject WHERE question_id = $1`, id)
+				_, _ = r.pool.Exec(ctx, `INSERT INTO question.question_subject (question_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, id, sID)
+			}
+		}
+		if req.GradeID != nil && *req.GradeID != "" {
+			if gID, err := uuid.Parse(*req.GradeID); err == nil {
+				_, _ = r.pool.Exec(ctx, `DELETE FROM question.question_grade WHERE question_id = $1`, id)
+				_, _ = r.pool.Exec(ctx, `INSERT INTO question.question_grade (question_id, grade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, id, gID)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) BulkPublish(ctx context.Context, ids []uuid.UUID, userID uuid.UUID) error {
+	return s.repo.BulkPublish(ctx, ids, userID)
+}
+
+func (s *Service) BulkUpdateStatus(ctx context.Context, ids []uuid.UUID, status string, userID uuid.UUID) error {
+	return s.repo.BulkUpdateStatus(ctx, ids, status, userID)
+}
+
+func (s *Service) BulkUpdate(ctx context.Context, req BulkUpdateReq, userID uuid.UUID) error {
+	return s.repo.BulkUpdate(ctx, req, userID)
+}
+
+func (h *Handler) BulkPublish(c *fiber.Ctx) error {
+	var req BulkIDsReq
+	if err := c.BodyParser(&req); err != nil || len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body or empty IDs"))
+	}
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, _ := uuid.Parse(userIDStr)
+
+	var uuids []uuid.UUID
+	for _, idStr := range req.IDs {
+		if u, err := uuid.Parse(idStr); err == nil {
+			uuids = append(uuids, u)
+		}
+	}
+	if err := h.svc.BulkPublish(c.Context(), uuids, userID); err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to bulk publish questions"))
+	}
+	return c.JSON(shared.Success(fiber.Map{"message": "Bulk questions published successfully", "count": len(uuids)}))
+}
+
+func (h *Handler) BulkUpdateStatus(c *fiber.Ctx) error {
+	var req BulkStatusReq
+	if err := c.BodyParser(&req); err != nil || len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body or empty IDs"))
+	}
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, _ := uuid.Parse(userIDStr)
+
+	var uuids []uuid.UUID
+	for _, idStr := range req.IDs {
+		if u, err := uuid.Parse(idStr); err == nil {
+			uuids = append(uuids, u)
+		}
+	}
+	if err := h.svc.BulkUpdateStatus(c.Context(), uuids, req.Status, userID); err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to bulk update question status"))
+	}
+	return c.JSON(shared.Success(fiber.Map{"message": "Bulk status updated successfully", "count": len(uuids)}))
+}
+
+func (h *Handler) BulkUpdate(c *fiber.Ctx) error {
+	var req BulkUpdateReq
+	if err := c.BodyParser(&req); err != nil || len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body or empty IDs"))
+	}
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, _ := uuid.Parse(userIDStr)
+
+	if err := h.svc.BulkUpdate(c.Context(), req, userID); err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to bulk update questions"))
+	}
+	return c.JSON(shared.Success(fiber.Map{"message": "Bulk questions updated successfully", "count": len(req.IDs)}))
+}
+
+func (r *Repository) BulkDelete(ctx context.Context, ids []uuid.UUID, userID uuid.UUID, isAdmin bool) error {
+	for _, id := range ids {
+		_ = r.Delete(ctx, id, userID, isAdmin)
+	}
+	return nil
+}
+
+func (s *Service) BulkDelete(ctx context.Context, ids []uuid.UUID, userID uuid.UUID, isAdmin bool) error {
+	return s.repo.BulkDelete(ctx, ids, userID, isAdmin)
+}
+
+func (h *Handler) BulkDelete(c *fiber.Ctx) error {
+	var req BulkIDsReq
+	if err := c.BodyParser(&req); err != nil || len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body or empty IDs"))
+	}
+	userIDStr, _ := c.Locals("user_id").(string)
+	userID, _ := uuid.Parse(userIDStr)
+	role, _ := c.Locals("role").(string)
+	isAdmin := middleware.HasAnyRole(role, "SUPER_ADMIN", "STAFF")
+
+	var uuids []uuid.UUID
+	for _, idStr := range req.IDs {
+		if u, err := uuid.Parse(idStr); err == nil {
+			uuids = append(uuids, u)
+		}
+	}
+	if err := h.svc.BulkDelete(c.Context(), uuids, userID, isAdmin); err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to bulk delete questions"))
+	}
+	return c.JSON(shared.Success(fiber.Map{"message": "Bulk questions deleted successfully", "count": len(uuids)}))
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -123,7 +124,12 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) 
 
 func (r *Repository) Create(ctx context.Context, u *User) error {
 	u.ID = uuid.New()
-	username := strings.ToLower(strings.Split(u.Email, "@")[0])
+	baseUsername := strings.ToLower(strings.Split(u.Email, "@")[0])
+	username := baseUsername
+	var count int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user WHERE username = $1`, username).Scan(&count); err == nil && count > 0 {
+		username = fmt.Sprintf("%s_%s", baseUsername, u.ID.String()[:8])
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -421,6 +427,7 @@ func NewService(repo *Repository, jwtSecret string) *Service {
 }
 
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error) {
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	if req.Email == "" || req.Password == "" || req.FullName == "" || req.Role == "" {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "All fields are required")
 	}
@@ -467,6 +474,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
+		slog.Error("register Create failed", "email", req.Email, "error", err)
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user")
 	}
 
@@ -479,12 +487,14 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, error) {
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	if req.Email == "" || req.Password == "" {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Email and password required")
 	}
 
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
+		slog.Error("login FindByEmail failed", "email", req.Email, "error", err)
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Database error")
 	}
 	if user == nil {

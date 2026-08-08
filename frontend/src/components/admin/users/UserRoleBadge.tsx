@@ -9,6 +9,7 @@ const roleVariant: Record<UserRole, "default" | "secondary" | "warning" | "destr
     GURU: "secondary",
     FINANCE: "default",
     SISWA: "outline",
+    SUPER_SISWA: "outline",
     INVESTOR: "default",
 };
 

@@ -12,29 +12,29 @@ import {
 export const academicService = {
     // Materials
     async getMaterials(params?: { subject_id?: string; category?: string }): Promise<Material[]> {
-        return api<Material[]>("/academic/materials", { params });
+        return api<Material[]>("/materials", { params });
     },
 
     async getMaterialById(id: string): Promise<Material> {
-        return api<Material>(`/academic/materials/${id}`);
+        return api<Material>(`/materials/${id}`);
     },
 
     async createMaterial(payload: Partial<Material>): Promise<Material> {
-        return api<Material>("/academic/materials", {
+        return api<Material>("/materials", {
             method: "POST",
             body: payload,
         });
     },
 
     async updateMaterial(id: string, payload: Partial<Material>): Promise<Material> {
-        return api<Material>(`/academic/materials/${id}`, {
+        return api<Material>(`/materials/${id}`, {
             method: "PUT",
             body: payload,
         });
     },
 
     async deleteMaterial(id: string): Promise<{ success: boolean }> {
-        return api<{ success: boolean }>(`/academic/materials/${id}`, {
+        return api<{ success: boolean }>(`/materials/${id}`, {
             method: "DELETE",
         });
     },

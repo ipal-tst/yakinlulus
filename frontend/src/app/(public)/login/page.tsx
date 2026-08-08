@@ -29,7 +29,7 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const res = await authService.login({ email, password });
+            const res = await authService.login({ email: email.trim(), password });
             setAuth(res.user, res.token);
 
             // Route based on role
@@ -39,7 +39,7 @@ export default function LoginPage() {
             else if (role === "GURU") router.push("/guru");
             else if (role === "FINANCE") router.push("/finance");
             else if (role === "INVESTOR") router.push("/investor");
-            else if (role === "SISWA") router.push("/siswa");
+            else if (role === "SISWA" || role === "SUPER_SISWA") router.push("/siswa");
             else router.push("/");
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Gagal masuk. Periksa email & kata sandi Anda.";

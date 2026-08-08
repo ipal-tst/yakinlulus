@@ -26,7 +26,6 @@ import (
 	"yakinlulus.id/backend/internal/content"
 	"yakinlulus.id/backend/internal/dashboard"
 	"yakinlulus.id/backend/internal/exam_packages"
-	"yakinlulus.id/backend/internal/ranking"
 	"yakinlulus.id/backend/internal/material"
 	"yakinlulus.id/backend/internal/media"
 	"yakinlulus.id/backend/internal/middleware"
@@ -34,12 +33,13 @@ import (
 	"yakinlulus.id/backend/internal/practice"
 	"yakinlulus.id/backend/internal/profile"
 	"yakinlulus.id/backend/internal/question_bank"
+	"yakinlulus.id/backend/internal/ranking"
 	"yakinlulus.id/backend/internal/school"
 	"yakinlulus.id/backend/internal/scoring"
 	"yakinlulus.id/backend/internal/shared"
-	"yakinlulus.id/backend/internal/subscription"                   
-	"yakinlulus.id/backend/internal/target_schools"                 
-	"yakinlulus.id/backend/internal/ws"                             
+	"yakinlulus.id/backend/internal/subscription"
+	"yakinlulus.id/backend/internal/target_schools"
+	"yakinlulus.id/backend/internal/ws"
 
 	"yakinlulus.id/backend/pkg/cache"
 	"yakinlulus.id/backend/pkg/config"
@@ -252,6 +252,8 @@ func main() {
 	go wsHub.Run()
 	wsHandler := ws.NewHandler(wsHub, cfg.JWT.Secret)
 
+	app.Static("/uploads", "./uploads")
+
 	// Register routes
 	api := app.Group("/api/v1")
 	authHandler.RegisterRoutes(api)
@@ -278,13 +280,12 @@ func main() {
 	wsHandler.RegisterRoutes(api)
 	pkgHandler.RegisterRoutes(api)
 	rankHandler.RegisterRoutes(api)
-	profileHandler.RegisterRoutes(api)                              
+	profileHandler.RegisterRoutes(api)
 	targetSchoolHandler.RegisterRoutes(api)
 
 	// CMS module
 	cmsHandler := cms.NewHandler(cms.NewService(cms.NewRepository(pool)), cfg.JWT.Secret)
-	cmsHandler.RegisterRoutes(api)                         
-
+	cmsHandler.RegisterRoutes(api)
 
 	addr := cfg.App.Host + ":" + itoa(cfg.App.Port)
 	slog.Info("Server starting", "addr", addr)
