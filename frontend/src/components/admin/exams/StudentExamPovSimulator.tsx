@@ -263,6 +263,7 @@ export function StudentExamPovSimulator({
                     difficulty: realQ.difficulty || "MEDIUM",
                     stem: realQ.content || "Naskah soal tanpa teks...",
                     imageUrl: extractedImgUrl,
+                    blocks: Array.isArray((realQ as any).blocks) && (realQ as any).blocks.length > 0 ? ((realQ as any).blocks as any[]) : undefined,
                     options: optionsFormatted.map((opt, oIdx) => ({
                         label: String.fromCharCode(65 + oIdx),
                         text: opt.text,
@@ -292,6 +293,8 @@ export function StudentExamPovSimulator({
                 code: template.code,
                 difficulty: template.difficulty,
                 stem: template.stem,
+                imageUrl: undefined as string | undefined,
+                blocks: undefined as any[] | undefined,
                 options: shuffledOptions.map((opt, oIdx) => ({
                     label: String.fromCharCode(65 + oIdx),
                     text: opt.text,
@@ -555,19 +558,53 @@ export function StudentExamPovSimulator({
 
                                     {/* Question Stem Text */}
                                     <div className="space-y-3">
-                                        <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap">
-                                            {activeQuestion.stem}
-                                        </p>
+                                        {activeQuestion.blocks && activeQuestion.blocks.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {activeQuestion.blocks.map((block: any, bIdx: number) => {
+                                                    const bType = (block.block_type || block.blockType || "PARAGRAPH").toUpperCase();
+                                                    const bContent = block.content || block.url || block.imageUrl || "";
 
-                                        {/* Question Image */}
-                                        {activeQuestion.imageUrl && (
-                                            <div className="rounded-2xl border border-border bg-muted/30 p-2 overflow-hidden flex justify-center items-center my-2 max-h-72">
-                                                <img
-                                                    src={activeQuestion.imageUrl}
-                                                    alt={`Gambar Soal #${activeQuestion.number}`}
-                                                    className="max-h-64 object-contain rounded-xl shadow-2xs"
-                                                />
+                                                    if (bType === "IMAGE" || bType === "PICTURE" || bType === "IMG") {
+                                                        return (
+                                                            <div key={bIdx} className="rounded-2xl border border-border bg-muted/30 p-2 overflow-hidden flex justify-center items-center my-2 max-h-72">
+                                                                <img
+                                                                    src={bContent}
+                                                                    alt={`Gambar Soal #${activeQuestion.number} Blok ${bIdx + 1}`}
+                                                                    className="max-h-64 object-contain rounded-xl shadow-2xs"
+                                                                    onError={(e) => {
+                                                                        (e.target as HTMLImageElement).alt = "Gambar tidak dapat dimuat";
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    if (!bContent || bContent.trim() === "") return null;
+
+                                                    return (
+                                                        <p key={bIdx} className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap">
+                                                            {bContent}
+                                                        </p>
+                                                    );
+                                                })}
                                             </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap">
+                                                    {activeQuestion.stem}
+                                                </p>
+
+                                                {/* Question Image */}
+                                                {activeQuestion.imageUrl && (
+                                                    <div className="rounded-2xl border border-border bg-muted/30 p-2 overflow-hidden flex justify-center items-center my-2 max-h-72">
+                                                        <img
+                                                            src={activeQuestion.imageUrl}
+                                                            alt={`Gambar Soal #${activeQuestion.number}`}
+                                                            className="max-h-64 object-contain rounded-xl shadow-2xs"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
 

@@ -4,47 +4,78 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"yakinlulus.id/backend/pkg/config"
+	"yakinlulus.id/backend/pkg/database"
 )
 
 func main() {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgresql://postgres:kqHtPV72xUL1PYv1@db.cjrhqywtwlmebthajrkx.supabase.co:5432/postgres?sslmode=require&connect_timeout=10"
+	ctx := context.Background()
+
+	cfg, err := config.Load("config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := database.NewPostgresPool(ctx, cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+		log.Fatalf("Failed to connect database: %v", err)
 	}
 	defer pool.Close()
 
+	var qCount int
+	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM question.question WHERE deleted_at IS NULL").Scan(&qCount)
+	if err != nil {
+		log.Fatalf("Query count failed: %v", err)
+	}
+	fmt.Printf("Total questions in DB: %d\n", qCount)
+
 	rows, err := pool.Query(ctx, `
-		SELECT q.id, q.created_at, v.version_no, COUNT(qb.id) as block_count
+		SELECT q.id, st.code, qv.id as version_id
 		FROM question.question q
-		JOIN question.question_version v ON v.id = q.current_version_id
-		LEFT JOIN question.question_block qb ON qb.question_version_id = v.id
+		LEFT JOIN question.question_status st ON st.id = q.status_id
+		LEFT JOIN question.question_version qv ON qv.id = q.current_version_id
 		WHERE q.deleted_at IS NULL
-		GROUP BY q.id, q.created_at, v.version_no
 		ORDER BY q.created_at DESC
+		LIMIT 10
 	`)
 	if err != nil {
-		log.Fatalf("Query error: %v", err)
+		log.Fatalf("Query questions failed: %v", err)
 	}
 	defer rows.Close()
 
-	fmt.Println("--- All Questions in Database ---")
+	fmt.Println("\n--- Questions ---")
 	for rows.Next() {
-		var id string
-		var createdAt time.Time
-		var verNo, blockCount int
-		if err := rows.Scan(&id, &createdAt, &verNo, &blockCount); err != nil {
-			log.Fatalf("Scan error: %v", err)
+		var qID, stCode string
+		var vID *string
+		if err := rows.Scan(&qID, &stCode, &vID); err == nil {
+			vIDStr := "NIL"
+			if vID != nil {
+				vIDStr = *vID
+			}
+			fmt.Printf("QID: %s | Status: %s | VersionID: %s\n", qID, stCode, vIDStr)
+
+			if vID != nil {
+				bRows, err := pool.Query(ctx, `
+					SELECT block_order, block_type, content
+					FROM question.question_block
+					WHERE question_version_id = $1::uuid
+					ORDER BY block_order
+				`, *vID)
+				if err == nil {
+					for bRows.Next() {
+						var bo int
+						var bt, bc string
+						if err := bRows.Scan(&bo, &bt, &bc); err == nil {
+							if len(bc) > 80 {
+								bc = bc[:80] + "..."
+							}
+							fmt.Printf("   -> Block #%d [%s]: %s\n", bo, bt, bc)
+						}
+					}
+					bRows.Close()
+				}
+			}
 		}
-		fmt.Printf("QID: %s | Created: %s | Ver: %d | BlocksInDB: %d\n", id, createdAt.Format("15:04:05"), verNo, blockCount)
 	}
 }

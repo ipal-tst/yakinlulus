@@ -431,10 +431,20 @@ func (r *Repository) Update(ctx context.Context, q *Question, opts []QuestionOpt
 		return err
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
-		VALUES ($1, 0, 'PARAGRAPH', $2)`, newVer, q.Content); err != nil {
-		return err
+	if len(q.Blocks) > 0 {
+		for i, b := range q.Blocks {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO question.question_block (question_version_id, block_order, block_type, content, asset_id)
+				VALUES ($1,$2,$3,$4,$5)`, newVer, i, b.BlockType, b.Content, b.AssetID); err != nil {
+				return err
+			}
+		}
+	} else if q.Content != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question.question_block (question_version_id, block_order, block_type, content)
+			VALUES ($1, 0, 'PARAGRAPH', $2)`, newVer, q.Content); err != nil {
+			return err
+		}
 	}
 	if q.Explanation != "" {
 		if _, err := tx.Exec(ctx, `
@@ -590,12 +600,7 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Question, err
 	q.Options = opts
 	blocks, _ := r.GetBlocks(ctx, id)
 	q.Blocks = blocks
-	for _, b := range blocks {
-		if b.BlockType == "IMAGE" && b.Content != "" {
-			q.ImageURL = &b.Content
-			break
-		}
-	}
+
 	return q, nil
 }
 
@@ -654,12 +659,7 @@ func (r *Repository) List(ctx context.Context, subjectID *uuid.UUID, gradeID *uu
 		q.Options = opts
 		blocks, _ := r.GetBlocks(ctx, q.ID)
 		q.Blocks = blocks
-		for _, b := range blocks {
-			if b.BlockType == "IMAGE" && b.Content != "" {
-				q.ImageURL = &b.Content
-				break
-			}
-		}
+
 		questions = append(questions, *q)
 	}
 	return questions, total, nil
