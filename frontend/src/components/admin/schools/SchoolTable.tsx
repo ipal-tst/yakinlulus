@@ -21,7 +21,7 @@ interface SchoolTableProps {
 }
 
 export function SchoolTable({ schools = [], onToggleStatus, onDelete, onEdit }: SchoolTableProps) {
-    const safeSchools = Array.isArray(schools) ? schools : (schools as any)?.items || [];
+    const safeSchools = Array.isArray(schools) ? schools : ((schools as unknown as { items?: School[] })?.items ?? []);
     const columns: Column<School>[] = [
         {
             header: "Nama Sekolah",
