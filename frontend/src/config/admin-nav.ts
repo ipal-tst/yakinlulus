@@ -67,7 +67,8 @@ const MASTER: AdminNavGroup = {
   roles: ["SUPER_ADMIN", "STAFF"],
   items: [
     { title: "Akademik (Level/Grade)", href: "/admin/academic", icon: GraduationCap, roles: ["SUPER_ADMIN", "STAFF"] },
-    { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2, roles: ["SUPER_ADMIN", "STAFF"] },
+    { title: "Kelola Sekolah", href: "/admin/schools", icon: Building2, roles: ["SUPER_ADMIN"] },
+    { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2, roles: ["STAFF"] },
     { title: "Target Sekolah", href: "/staff/target-schools", icon: Target, roles: ["SUPER_ADMIN", "STAFF"] },
   ],
 };

@@ -23,7 +23,7 @@ import {
     Trophy,
     Award,
     Target,
-    Bot,
+    CreditCard,
     FolderKanban,
     Receipt,
     TrendingUp,
@@ -42,12 +42,12 @@ const SISWA_NAV: NavItem[] = [
     { title: "Beranda", href: "/siswa", icon: LayoutDashboard },
     { title: "Belajar", href: "/materials", icon: BookOpen },
     { title: "Latihan", href: "/practice", icon: PenTool },
-    { title: "Try Out", href: "/exams", icon: FileCheck },
+    { title: "Ujian", href: "/exams", icon: FileCheck },
     { title: "Hasil", href: "/results", icon: Trophy },
     { title: "Peringkat", href: "/ranking", icon: Award },
-    { title: "Target Saya", href: "/targets", icon: Target },
-    { title: "Sertifikat", href: "/certificates", icon: Award },
-    { title: "AI Tutor", href: "/ai", icon: Bot },
+    { title: "Target", href: "/targets", icon: Target },
+    { title: "Membership", href: "/membership", icon: CreditCard },
+    { title: "Konfigurasi", href: "/settings", icon: Settings },
 ];
 
 const GURU_NAV: NavItem[] = [
@@ -86,7 +86,7 @@ const INVESTOR_NAV: NavItem[] = [
 const SUPER_ADMIN_NAV: NavItem[] = [
     { title: "Dashboard Admin", href: "/admin", icon: LayoutDashboard },
     { title: "Master Akademik", href: "/admin/academic", icon: GraduationCap },
-    { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2 },
+    { title: "Kelola Sekolah", href: "/admin/schools", icon: Building2 },
     { title: "Materi Pelajaran", href: "/admin/materials", icon: BookOpen },
     { title: "Bank Soal", href: "/admin/questions", icon: HelpCircle },
     { title: "Kelola Ujian", href: "/admin/exams", icon: FileCheck },
