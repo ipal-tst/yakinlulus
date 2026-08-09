@@ -101,17 +101,14 @@ func scanSchoolRows(rows pgx.Rows) ([]School, error) {
 }
 
 func (r *Repository) Create(ctx context.Context, sc *School) error {
-	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
-	sc.ID = uuid.New()
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO schools (id, school_name, school_code, npsn, education_level, address,
-		 province, regency, district, postal_code, phone, email, website, principal_name, accreditation, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'DRAFT')
-		 RETURNING created_at, updated_at`,
-		sc.ID, sc.SchoolName, sc.SchoolCode, sc.NPSN, sc.EducationLevel,
-		sc.Address, sc.Province, sc.Regency, sc.District, sc.PostalCode,
-		sc.Phone, sc.Email, sc.Website, sc.PrincipalName, sc.Accreditation,
-	).Scan(&sc.CreatedAt, &sc.UpdatedAt)
+		`INSERT INTO academic.school (npsn, name, education_level, province, city, district, address, phone, email, website, is_active)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)
+		 ON CONFLICT (npsn) WHERE npsn IS NOT NULL AND deleted_at IS NULL DO NOTHING
+		 RETURNING id, created_at, updated_at`,
+		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
+		sc.Address, sc.Phone, sc.Email, sc.Website,
+	).Scan(&sc.ID, &sc.CreatedAt, &sc.UpdatedAt)
 	return err
 }
 
@@ -119,7 +116,7 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*School, error
 	return scanSchool(r.pool.QueryRow(ctx,
 		`SELECT s.id, s.name AS school_name,
 		        COALESCE(s.npsn, '') AS school_code, s.npsn,
-		        '' AS education_level, s.address, s.province, s.city AS regency, s.district,
+		        COALESCE(s.education_level, '') AS education_level, s.address, s.province, s.city AS regency, s.district,
 		        NULL::text AS postal_code, s.phone, s.email, s.website,
 		        NULL::text AS principal_name, NULL::text AS accreditation,
 		        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
@@ -143,7 +140,7 @@ func (r *Repository) List(ctx context.Context, limit, offset int, search string)
 
 	query := `SELECT s.id, s.name AS school_name,
 	        COALESCE(s.npsn, '') AS school_code, s.npsn,
-	        '' AS education_level, s.address, s.province, s.city AS regency, s.district,
+	        COALESCE(s.education_level, '') AS education_level, s.address, s.province, s.city AS regency, s.district,
 	        NULL::text AS postal_code, s.phone, s.email, s.website,
 	        NULL::text AS principal_name, NULL::text AS accreditation,
 	        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
@@ -162,33 +159,26 @@ func (r *Repository) List(ctx context.Context, limit, offset int, search string)
 }
 
 func (r *Repository) Update(ctx context.Context, sc *School) error {
-	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
-	sc.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE schools SET school_name=$1, school_code=$2, npsn=$3, education_level=$4,
-		 address=$5, province=$6, regency=$7, district=$8, postal_code=$9,
-		 phone=$10, email=$11, website=$12, principal_name=$13, accreditation=$14,
-		 updated_at=$15
-		 WHERE id=$16 AND deleted_at IS NULL`,
-		sc.SchoolName, sc.SchoolCode, sc.NPSN, sc.EducationLevel,
-		sc.Address, sc.Province, sc.Regency, sc.District, sc.PostalCode,
-		sc.Phone, sc.Email, sc.Website, sc.PrincipalName, sc.Accreditation,
-		sc.UpdatedAt, sc.ID)
+		`UPDATE academic.school SET name=$1, education_level=$2, province=$3, city=$4, district=$5,
+		 address=$6, phone=$7, email=$8, website=$9, is_active=$10, updated_at=NOW()
+		 WHERE id=$11 AND deleted_at IS NULL`,
+		sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
+		sc.Address, sc.Phone, sc.Email, sc.Website,
+		sc.Status == "ACTIVE", sc.ID)
 	return err
 }
 
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	_, err := r.pool.Exec(ctx,
-		`UPDATE schools SET status=$1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL`,
-		status, id)
+		`UPDATE academic.school SET is_active=$1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL`,
+		status == "ACTIVE", id)
 	return err
 }
 
 func (r *Repository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	// TODO(batch4): legacy `schools` table — map to academic.school once writes are migrated.
 	_, err := r.pool.Exec(ctx,
-		`UPDATE schools SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
+		`UPDATE academic.school SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
 	return err
 }
 
