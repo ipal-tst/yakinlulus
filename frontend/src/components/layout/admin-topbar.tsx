@@ -14,6 +14,7 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbP
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CommandPalette } from "@/components/layout/command-palette";
 
 export function AdminTopbar() {
     const router = useRouter();
@@ -23,10 +24,21 @@ export function AdminTopbar() {
     const { toggleSidebar } = useUIStore();
     const [mounted, setMounted] = useState(false);
     const [unreadNotifications] = useState(0);
-    const [, setCommandOpen] = useState(false);
+    const [commandOpen, setCommandOpen] = useState(false);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => setMounted(true), []);
+
+    useEffect(() => {
+        const h = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault();
+                setCommandOpen((v) => !v);
+            }
+        };
+        window.addEventListener("keydown", h);
+        return () => window.removeEventListener("keydown", h);
+    }, []);
 
     const handleLogout = () => {
         logout();
@@ -118,6 +130,7 @@ export function AdminTopbar() {
                     </DropdownMenu>
                 </div>
             </div>
+            <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
         </header>
     );
 }
