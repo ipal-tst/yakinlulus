@@ -1,3 +1,6 @@
+import type { AdminDashboard, CBTMonitoring } from "@/types/admin";
+import type { AdminOverview } from "@/services/analytics.service";
+
 export type KPIValues = {
     students: number;
     teachers: number;
@@ -13,10 +16,10 @@ export type KPIValues = {
 export type ExamStatus = { label: "Draft" | "Published" | "Archived"; value: number };
 export type ScoreBracket = { name: string; value: number; color: string };
 
-export function dumpKPI(d: { kpi?: any; active_users?: any; school_stats?: any }): KPIValues {
-    const k = d.kpi ?? {};
-    const a = d.active_users ?? {};
-    const s = d.school_stats ?? {};
+export function dumpKPI(d?: Pick<AdminDashboard, "kpi" | "active_users" | "school_stats"> | null): KPIValues {
+    const k = d?.kpi ?? ({} as AdminDashboard["kpi"]);
+    const a = d?.active_users ?? ({} as AdminDashboard["active_users"]);
+    const s = d?.school_stats ?? ({} as AdminDashboard["school_stats"]);
     return {
         students: k.total_students ?? 0,
         teachers: k.total_teachers ?? 0,
@@ -31,17 +34,17 @@ export function dumpKPI(d: { kpi?: any; active_users?: any; school_stats?: any }
     };
 }
 
-export function mapExamStatus(m: { scheduled?: number; running?: number; finished?: number }): ExamStatus[] {
+export function mapExamStatus(m?: CBTMonitoring): ExamStatus[] {
     return [
-        { label: "Draft", value: m.scheduled ?? 0 },
-        { label: "Published", value: m.running ?? 0 },
-        { label: "Archived", value: m.finished ?? 0 },
+        { label: "Draft", value: m?.scheduled ?? 0 },
+        { label: "Published", value: m?.running ?? 0 },
+        { label: "Archived", value: m?.finished ?? 0 },
     ];
 }
 
 const BRACKET_COLORS = ["#2563eb", "#16a34a", "#f97316", "#7c3aed"];
 
-export function mapScoreDistribution(overview: any): ScoreBracket[] {
+export function mapScoreDistribution(overview?: AdminOverview): ScoreBracket[] {
     const sd = overview?.score_distribution;
     if (!sd) return [];
     const items: [string, number][] = [
