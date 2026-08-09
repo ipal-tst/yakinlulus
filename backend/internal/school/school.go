@@ -2,6 +2,7 @@ package school
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"yakinlulus.id/backend/internal/middleware"
@@ -160,10 +162,10 @@ func (r *Repository) List(ctx context.Context, limit, offset int, search string)
 
 func (r *Repository) Update(ctx context.Context, sc *School) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE academic.school SET name=$1, education_level=$2, province=$3, city=$4, district=$5,
-		 address=$6, phone=$7, email=$8, website=$9, is_active=$10, updated_at=NOW()
-		 WHERE id=$11 AND deleted_at IS NULL`,
-		sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
+		`UPDATE academic.school SET npsn=$1, name=$2, education_level=$3, province=$4, city=$5, district=$6,
+		 address=$7, phone=$8, email=$9, website=$10, is_active=$11, updated_at=NOW()
+		 WHERE id=$12 AND deleted_at IS NULL`,
+		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
 		sc.Address, sc.Phone, sc.Email, sc.Website,
 		sc.Status == "ACTIVE", sc.ID)
 	return err
@@ -268,6 +270,9 @@ func (s *Service) Create(ctx context.Context, req CreateSchoolReq) (*School, err
 		Accreditation:  req.Accreditation,
 	}
 	if err := s.repo.Create(ctx, sc); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fiber.NewError(409, "NPSN already exists")
+		}
 		return nil, err
 	}
 	_ = s.repo.UpsertSettings(ctx, &SchoolSetting{
@@ -341,40 +346,25 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq)
 		sc.Accreditation = req.Accreditation
 	}
 	if err := s.repo.Update(ctx, sc); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, fiber.NewError(409, "NPSN already exists")
+		}
 		return nil, err
 	}
 	return sc, nil
 }
 
 func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	sc, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return err
+	switch status {
+	case "ACTIVE", "INACTIVE":
+	default:
+		return fiber.NewError(400, "Invalid status: must be ACTIVE or INACTIVE")
 	}
-	valid := map[string][]string{
-		"DRAFT":                {"PENDING_VERIFICATION", "ARCHIVED"},
-		"PENDING_VERIFICATION": {"ACTIVE", "SUSPENDED", "ARCHIVED"},
-		"ACTIVE":               {"SUSPENDED", "ARCHIVED"},
-		"SUSPENDED":            {"ACTIVE", "ARCHIVED"},
-	}
-	allowed, ok := valid[sc.Status]
-	if !ok {
-		return fiber.NewError(400, "Invalid current status")
-	}
-	found := false
-	for _, s := range allowed {
-		if s == status {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fiber.NewError(400, "Invalid status transition from "+sc.Status+" to "+status)
-	}
-	if status == "ARCHIVED" {
+	if status == "INACTIVE" {
 		n, _ := s.repo.CountMembers(ctx, id)
 		if n > 0 {
-			return fiber.NewError(409, "Cannot archive school with active members")
+			return fiber.NewError(409, "Cannot deactivate school with active members")
 		}
 	}
 	return s.repo.UpdateStatus(ctx, id, status)
@@ -555,6 +545,9 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 	sc, err := h.svc.Create(c.Context(), req)
 	if err != nil {
+		if fe, ok := err.(*fiber.Error); ok {
+			return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to create school"))
 	}
 	return c.Status(201).JSON(shared.Success(sc))
