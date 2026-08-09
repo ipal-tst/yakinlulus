@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ export default function GuruMediaPage() {
     };
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -63,6 +63,6 @@ export default function GuruMediaPage() {
                     ))}
                 </div>
             </div>
-        </AppShell>
+
     );
 }

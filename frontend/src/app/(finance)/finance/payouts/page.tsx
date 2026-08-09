@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ export default function FinancePayoutsPage() {
     };
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <div>
                     <h1 className="font-heading text-2xl font-bold tracking-tight">Manajemen Payout & Royalti Guru</h1>
@@ -55,6 +55,6 @@ export default function FinancePayoutsPage() {
                     ))}
                 </Card>
             </div>
-        </AppShell>
+
     );
 }

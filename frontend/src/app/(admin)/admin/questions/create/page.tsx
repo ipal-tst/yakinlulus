@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,7 +166,7 @@ export default function CreateQuestionPage() {
     };
 
     return (
-        <AppShell>
+
             <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header Navigation */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -594,6 +594,6 @@ export default function CreateQuestionPage() {
                     </div>
                 </div>
             </div>
-        </AppShell>
+
     );
 }

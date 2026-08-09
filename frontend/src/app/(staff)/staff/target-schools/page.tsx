@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { TargetSchoolTable } from "@/components/admin/target-schools/TargetSchoolTable";
@@ -40,7 +40,7 @@ export default function TargetSchoolsPage() {
     });
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Target Sekolah & Kampus PTN"
@@ -90,6 +90,6 @@ export default function TargetSchoolsPage() {
                     onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
                 />
             </div>
-        </AppShell>
+
     );
 }

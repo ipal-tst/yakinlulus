@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,8 +91,8 @@ export default function QuestionBankPage() {
         });
     };
 
-    return (
-        <AppShell>
+return (
+        <>
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
@@ -199,7 +199,7 @@ export default function QuestionBankPage() {
                         </form>
                     </div>
                 </div>
-            )}
-        </AppShell>
+)}
+        </>
     );
 }

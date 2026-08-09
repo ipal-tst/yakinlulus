@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -248,7 +248,7 @@ export default function AdminQuestionsPage() {
     };
 
     return (
-        <AppShell>
+        <>
             <div className="space-y-6">
                 {/* Top Header & Header Actions */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -683,6 +683,6 @@ export default function AdminQuestionsPage() {
                     </div>
                 </div>
             )}
-        </AppShell>
+        </>
     );
 }

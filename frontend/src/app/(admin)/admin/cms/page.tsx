@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ export default function AdminCmsPage() {
     );
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Manajemen Konten (CMS)"
@@ -141,6 +141,6 @@ export default function AdminCmsPage() {
                     </TabsContent>
                 </Tabs>
             </div>
-        </AppShell>
+
     );
 }

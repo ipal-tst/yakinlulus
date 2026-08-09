@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ export default function FinanceTransactionsPage() {
     };
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
@@ -66,6 +66,6 @@ export default function FinanceTransactionsPage() {
                     ))}
                 </Card>
             </div>
-        </AppShell>
+
     );
 }

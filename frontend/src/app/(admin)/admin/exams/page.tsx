@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { academicService } from "@/services/academic.service";
 import { Exam } from "@/types";
 import { Card } from "@/components/ui/card";
@@ -159,7 +159,7 @@ export default function AdminExamsPage() {
     const publishedExams = examList.filter((e) => e.status !== "DRAFT").length;
 
     return (
-        <AppShell>
+
             <div className="space-y-6 font-sans">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -660,6 +660,6 @@ export default function AdminExamsPage() {
                     </div>
                 )}
             </div>
-        </AppShell>
+
     );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, Fragment } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -605,7 +605,7 @@ export default function QuestionImportPage() {
 
 
     return (
-        <AppShell>
+
             <div className="space-y-6 max-w-7xl mx-auto pb-12">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -2743,6 +2743,6 @@ export default function QuestionImportPage() {
                     </Dialog>
                 )}
             </div >
-        </AppShell >
+
     );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { OverviewKPISection } from "@/components/admin/analytics/OverviewKPISection";
 import { ExamReportsTable } from "@/components/admin/analytics/ExamReportsTable";
@@ -27,7 +27,7 @@ export default function AdminAnalyticsPage() {
     const reports = reportsQuery.data || [];
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Analitik & Laporan Komprehensif"
@@ -67,6 +67,6 @@ export default function AdminAnalyticsPage() {
                     </>
                 )}
             </div>
-        </AppShell>
+
     );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { StatsCard } from "@/components/data-display/stats-card";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export default function StaffDashboardPage() {
     }, []);
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <div>
                     <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard Staff & Ops</h1>
@@ -169,6 +169,6 @@ export default function StaffDashboardPage() {
                     </Card>
                 </div>
             </div>
-        </AppShell>
+
     );
 }

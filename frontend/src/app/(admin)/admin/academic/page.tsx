@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Filter, Plus, ChevronRight, Home, AlertCircle, BookOpen } from "lucide-react";
@@ -217,7 +217,7 @@ export default function AdminAcademicPage() {
   const isAnyError = levelsQuery.isError || curriculumsQuery.isError || programsQuery.isError || allSubjectsQuery.isError;
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
         <PageHeader
           title="Master Akademik"
@@ -457,6 +457,6 @@ export default function AdminAcademicPage() {
         }}
         editing={editingProgram}
       />
-    </AppShell>
+    </>
   );
 }

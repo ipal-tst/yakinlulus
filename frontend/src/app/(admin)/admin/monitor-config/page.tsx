@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HealthStatusGrid } from "@/components/admin/admin/HealthStatusGrid";
@@ -40,7 +40,7 @@ export default function MonitorConfigPage() {
     const auditLogs = Array.isArray(auditLogsQuery.data) ? auditLogsQuery.data : auditLogsQuery.data?.items || [];
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Monitoring &amp; Konfigurasi"
@@ -120,6 +120,6 @@ export default function MonitorConfigPage() {
                     </TabsContent>
                 </Tabs>
             </div>
-        </AppShell>
+
     );
 }

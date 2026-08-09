@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { academicMasterService } from "@/services/academic-master.service";
 import { academicService } from "@/services/academic.service";
 import { ExamCategory, ScoringSystem, ExamSubtestRule } from "@/types";
@@ -363,8 +363,8 @@ export default function CreateExamPage() {
 
     const activeSubtestForModal = subtests.find((st) => st.id === activePoolSubtestId);
 
-    return (
-        <AppShell>
+return (
+        <>
             <div className="flex flex-col font-sans min-h-screen">
                 {/* Top Navigation Bar */}
                 <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-md px-4 sm:px-6 py-3 flex items-center justify-between shadow-2xs">
@@ -832,8 +832,8 @@ export default function CreateExamPage() {
                 onClose={() => setActivePoolSubtestId(null)}
                 subtestName={activeSubtestForModal?.subtest_name || "Subtes"}
                 initialSelectedIds={activeSubtestForModal?.pool_question_ids || []}
-                onSave={handleSavePoolSelectionForSubtest}
+onSave={handleSavePoolSelectionForSubtest}
             />
-        </AppShell>
+        </>
     );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { AuditStatsCards } from "@/components/admin/audit/AuditStatsCards";
 import { AuditLogTable } from "@/components/admin/audit/AuditLogTable";
@@ -27,7 +27,7 @@ export default function AuditLogsPage() {
     const error = statsQuery.error || logsQuery.error;
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Audit Log System & Keamanan"
@@ -64,6 +64,6 @@ export default function AuditLogsPage() {
                     </>
                 )}
             </div>
-        </AppShell>
+
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +35,7 @@ export default function AdminDashboardPage() {
     };
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="Dashboard Admin"
@@ -88,6 +88,6 @@ export default function AdminDashboardPage() {
                 <AdminQuickActions />
                 <AdminRecentActivity items={dashQuery.data?.recent_activity} isLoading={dashQuery.isLoading} />
             </div>
-        </AppShell>
+
     );
 }

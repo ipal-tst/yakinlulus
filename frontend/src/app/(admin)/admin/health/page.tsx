@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { HealthStatusGrid } from "@/components/admin/admin/HealthStatusGrid";
 import { LogsViewer } from "@/components/admin/admin/LogsViewer";
@@ -27,7 +27,7 @@ export default function AdminHealthPage() {
     const error = healthQuery.error || logsQuery.error;
 
     return (
-        <AppShell>
+
             <div className="space-y-6">
                 <PageHeader
                     title="System Health & Application Logs"
@@ -67,6 +67,6 @@ export default function AdminHealthPage() {
                     </>
                 )}
             </div>
-        </AppShell>
+
     );
 }

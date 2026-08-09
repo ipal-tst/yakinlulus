@@ -4,7 +4,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "@/components/layout/app-shell";
+
 import { academicMasterService } from "@/services/academic-master.service";
 import { academicService } from "@/services/academic.service";
 import { ExamCategory, ScoringSystem, ExamSubtestRule } from "@/types";
@@ -294,18 +294,18 @@ export default function EditExamPage({ params }: EditExamPageProps) {
 
     if (isLoadingExam) {
         return (
-            <AppShell>
+
                 <div className="min-h-[400px] flex items-center justify-center p-6">
                     <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" /> Memuat data paket ujian...
                     </div>
                 </div>
-            </AppShell>
+
         );
     }
 
-    return (
-        <AppShell>
+return (
+        <>
             <div className="flex flex-col font-sans">
                 {/* Top Navigation Bar */}
                 <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-md px-4 sm:px-6 py-3 flex items-center justify-between shadow-2xs">
@@ -765,8 +765,8 @@ export default function EditExamPage({ params }: EditExamPageProps) {
                 onClose={() => setActivePoolSubtestId(null)}
                 subtestName={activeSubtestForModal?.subtest_name || "Subtes"}
                 initialSelectedIds={activeSubtestForModal?.pool_question_ids || []}
-                onSave={handleSavePoolSelectionForSubtest}
+onSave={handleSavePoolSelectionForSubtest}
             />
-        </AppShell>
+        </>
     );
 }
