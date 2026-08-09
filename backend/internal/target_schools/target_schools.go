@@ -3,7 +3,7 @@ package target_schools
 import (
 	"context"
 	"encoding/json"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,7 +16,26 @@ import (
 )
 
 type TargetSchool struct {
-	ID            uuid.UUID `json:"id"`
+	ID             uuid.UUID  `json:"id"`
+	SchoolID       *uuid.UUID `json:"school_id,omitempty"`
+	Name           string     `json:"name"`
+	Level          string     `json:"level"`
+	MinScore       *int       `json:"min_score,omitempty"`
+	MaxScore       *int       `json:"max_score,omitempty"`
+	MaxTotalScore  int        `json:"max_total_score"`
+	Subjects       []string   `json:"subjects"`
+	AcademicYear   *string    `json:"academic_year,omitempty"`
+	IsActive       bool       `json:"is_active"`
+	Province       string     `json:"province,omitempty"`
+	City           string     `json:"city,omitempty"`
+	District       string     `json:"district,omitempty"`
+	EducationLevel string     `json:"education_level,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type SaveSchoolRequest struct {
+	SchoolID      uuid.UUID `json:"school_id"`
 	Name          string    `json:"name"`
 	Level         string    `json:"level"`
 	MinScore      *int      `json:"min_score,omitempty"`
@@ -24,30 +43,19 @@ type TargetSchool struct {
 	MaxTotalScore int       `json:"max_total_score"`
 	Subjects      []string  `json:"subjects"`
 	AcademicYear  *string   `json:"academic_year,omitempty"`
-	IsActive      bool      `json:"is_active"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-}
-
-type SaveSchoolRequest struct {
-	Name          string   `json:"name"`
-	Level         string   `json:"level"`
-	MinScore      *int     `json:"min_score,omitempty"`
-	MaxScore      *int     `json:"max_score,omitempty"`
-	MaxTotalScore int      `json:"max_total_score"`
-	Subjects      []string `json:"subjects"`
-	AcademicYear  *string  `json:"academic_year,omitempty"`
-	IsActive      *bool    `json:"is_active,omitempty"`
+	IsActive      *bool     `json:"is_active,omitempty"`
 }
 
 func validateSaveRequest(req SaveSchoolRequest) error {
-	if strings.TrimSpace(req.Name) == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "name required")
+	if req.SchoolID == uuid.Nil {
+		return fiber.NewError(fiber.StatusBadRequest, "school_id required")
 	}
-	switch req.Level {
-	case "SMP", "SMA", "UNIVERSITY":
-	default:
-		return fiber.NewError(fiber.StatusBadRequest, "level must be SMP/SMA/UNIVERSITY")
+	if req.Level != "" {
+		switch req.Level {
+		case "SMP", "SMA", "UNIVERSITY":
+		default:
+			return fiber.NewError(fiber.StatusBadRequest, "level must be SMP/SMA/UNIVERSITY")
+		}
 	}
 	if req.MaxTotalScore < 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "max_total_score cannot be negative")
@@ -61,16 +69,24 @@ type Repository struct{ pool *pgxpool.Pool }
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-const schoolCols = `id, name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active, created_at, updated_at`
-
 const schoolTable = "academic.target_school"
+
+// joinedCols: LEFT JOIN katalog school. school_id nullable -> pointer saat scan.
+const joinedCols = `ts.id, COALESCE(ts.name, s.name) AS name, ts.level, ts.min_score, ts.max_score,
+	ts.max_total_score, ts.subjects, ts.academic_year, ts.is_active, ts.created_at, ts.updated_at,
+	ts.school_id, COALESCE(s.province,'') AS province, COALESCE(s.city,'') AS city,
+	COALESCE(s.district,'') AS district, COALESCE(s.education_level,'') AS education_level`
+
+const joinedFrom = ` FROM academic.target_school ts
+	LEFT JOIN academic.school s ON s.id = ts.school_id AND s.deleted_at IS NULL`
 
 func scanSchool(row pgx.Row) (*TargetSchool, error) {
 	var s TargetSchool
 	var subjects []byte
 	var min, max *int
 	var year *string
-	err := row.Scan(&s.ID, &s.Name, &s.Level, &min, &max, &s.MaxTotalScore, &subjects, &year, &s.IsActive, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Name, &s.Level, &min, &max, &s.MaxTotalScore, &subjects, &year, &s.IsActive, &s.CreatedAt, &s.UpdatedAt,
+		&s.SchoolID, &s.Province, &s.City, &s.District, &s.EducationLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +101,26 @@ func scanSchool(row pgx.Row) (*TargetSchool, error) {
 	return &s, nil
 }
 
-func (r *Repository) List(ctx context.Context, level string) ([]TargetSchool, error) {
-	query := `SELECT ` + schoolCols + ` FROM ` + schoolTable + ` WHERE is_active = true AND deleted_at IS NULL`
+func (r *Repository) List(ctx context.Context, level, province, q string) ([]TargetSchool, error) {
+	where := "ts.is_active = true AND ts.deleted_at IS NULL"
 	args := []interface{}{}
+	n := 1
 	if level != "" {
-		query += ` AND level = $1`
+		where += fmt.Sprintf(" AND ts.level = $%d", n)
 		args = append(args, level)
+		n++
 	}
-	query += ` ORDER BY name`
+	if province != "" {
+		where += fmt.Sprintf(" AND COALESCE(s.province,'') ILIKE $%d", n)
+		args = append(args, "%"+province+"%")
+		n++
+	}
+	if q != "" {
+		where += fmt.Sprintf(" AND (COALESCE(ts.name, s.name) ILIKE $%d OR COALESCE(s.name,'') ILIKE $%d)", n, n)
+		args = append(args, "%"+q+"%")
+		n++
+	}
+	query := `SELECT ` + joinedCols + joinedFrom + ` WHERE ` + where + ` ORDER BY name`
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -110,10 +138,32 @@ func (r *Repository) List(ctx context.Context, level string) ([]TargetSchool, er
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*TargetSchool, error) {
-	return scanSchool(r.pool.QueryRow(ctx, `SELECT `+schoolCols+` FROM `+schoolTable+` WHERE id = $1 AND deleted_at IS NULL`, id))
+	return scanSchool(r.pool.QueryRow(ctx, `SELECT `+joinedCols+joinedFrom+` WHERE ts.id = $1 AND ts.deleted_at IS NULL`, id))
+}
+
+// resolveSchool mengambil nama + level + wilayah dari katalog.
+func (r *Repository) resolveSchool(ctx context.Context, schoolID uuid.UUID) (name string, level string, province, city, district string, err error) {
+	err = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(name,''), COALESCE(education_level,''),
+		       COALESCE(province,''), COALESCE(city,''), COALESCE(district,'')
+		FROM academic.school
+		WHERE id = $1 AND deleted_at IS NULL AND is_active = true`, schoolID).
+		Scan(&name, &level, &province, &city, &district)
+	return
 }
 
 func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*TargetSchool, error) {
+	if err := validateSaveRequest(req); err != nil {
+		return nil, err
+	}
+	name, lvl, _, _, _, err := r.resolveSchool(ctx, req.SchoolID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "school not found or inactive")
+	}
+	if req.Level != "" && req.Level != lvl {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "level mismatch: target level must match school level")
+	}
+	req.Name = name // nama selalu dari katalog, jangan percaya input bebas
 	active := true
 	if req.IsActive != nil {
 		active = *req.IsActive
@@ -123,10 +173,10 @@ func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*Target
 		subjects = []byte("[]")
 	}
 	var id uuid.UUID
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO `+schoolTable+` (name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-		req.Name, req.Level, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, active,
+	err = r.pool.QueryRow(ctx,
+		`INSERT INTO `+schoolTable+` (school_id, name, level, min_score, max_score, max_total_score, subjects, academic_year, is_active)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+		req.SchoolID, req.Name, lvl, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, active,
 	).Scan(&id)
 	if err != nil {
 		return nil, err
@@ -135,16 +185,27 @@ func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*Target
 }
 
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SaveSchoolRequest) (*TargetSchool, error) {
+	if err := validateSaveRequest(req); err != nil {
+		return nil, err
+	}
+	name, lvl, _, _, _, err := r.resolveSchool(ctx, req.SchoolID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "school not found or inactive")
+	}
+	if req.Level != "" && req.Level != lvl {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "level mismatch: target level must match school level")
+	}
+	req.Name = name
 	subjects, _ := json.Marshal(req.Subjects)
 	if subjects == nil {
 		subjects = []byte("[]")
 	}
-	_, err := r.pool.Exec(ctx,
+	_, err = r.pool.Exec(ctx,
 		`UPDATE `+schoolTable+` SET name=$2, level=$3, min_score=$4, max_score=$5,
 		   max_total_score=$6, subjects=$7, academic_year=$8,
 		   is_active=COALESCE($9, is_active), updated_at=NOW()
 		 WHERE id=$1`,
-		id, req.Name, req.Level, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, req.IsActive)
+		id, req.Name, lvl, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, req.IsActive)
 	if err != nil {
 		return nil, err
 	}
@@ -162,8 +223,8 @@ type Service struct{ repo *Repository }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-func (s *Service) ListSchools(ctx context.Context, level string) ([]TargetSchool, error) {
-	return s.repo.List(ctx, level)
+func (s *Service) ListSchools(ctx context.Context, level, province, q string) ([]TargetSchool, error) {
+	return s.repo.List(ctx, level, province, q)
 }
 func (s *Service) GetSchool(ctx context.Context, id uuid.UUID) (*TargetSchool, error) {
 	return s.repo.GetByID(ctx, id)
@@ -206,7 +267,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 func (h *Handler) List(c *fiber.Ctx) error {
-	schools, err := h.svc.ListSchools(c.Context(), c.Query("level"))
+	schools, err := h.svc.ListSchools(c.Context(), c.Query("level"), c.Query("province"), c.Query("q"))
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list target schools"))
 	}
