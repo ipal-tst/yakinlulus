@@ -103,12 +103,12 @@ const FINANCE: AdminNavGroup = {
   collapsible: true,
   roles: ["SUPER_ADMIN", "FINANCE"],
   items: [
-    { title: "Paket Membership", href: "/finance/plans", icon: CreditCard, roles: ["SUPER_ADMIN", "FINANCE"], badge: "Segera" },
-    { title: "Pelanggan", href: "/finance/subscribers", icon: Users, roles: ["SUPER_ADMIN", "FINANCE"], badge: "Segera" },
-    { title: "Pembayaran & Invoice", href: "/finance/payments", icon: Receipt, roles: ["SUPER_ADMIN", "FINANCE"], badge: "Segera" },
+    { title: "Paket Membership", href: "/finance/plans", icon: CreditCard, roles: ["SUPER_ADMIN", "FINANCE"] },
+    { title: "Pelanggan", href: "/finance/subscribers", icon: Users, roles: ["SUPER_ADMIN", "FINANCE"] },
+    { title: "Pembayaran & Invoice", href: "/finance/payments", icon: Receipt, roles: ["SUPER_ADMIN", "FINANCE"] },
     { title: "Transaksi", href: "/finance/transactions", icon: Wallet, roles: ["SUPER_ADMIN", "FINANCE"] },
     { title: "Payout", href: "/finance/payouts", icon: Wallet, roles: ["SUPER_ADMIN", "FINANCE"] },
-    { title: "Laporan Keuangan", href: "/finance/reports", icon: TrendingUp, roles: ["SUPER_ADMIN", "FINANCE"], badge: "Segera" },
+    { title: "Laporan Keuangan", href: "/finance/reports", icon: TrendingUp, roles: ["SUPER_ADMIN", "FINANCE"] },
   ],
 };
 
@@ -120,7 +120,7 @@ const ANALISIS: AdminNavGroup = {
   items: [
     { title: "Analytics", href: "/admin/analytics", icon: BarChart3, roles: ["SUPER_ADMIN", "STAFF"] },
     { title: "Investor Board", href: "/investor", icon: BarChart3, roles: ["SUPER_ADMIN", "INVESTOR"] },
-    { title: "Financial Reports", href: "/investor/reports", icon: TrendingUp, roles: ["SUPER_ADMIN", "INVESTOR"], badge: "Segera" },
+    { title: "Financial Reports", href: "/investor/reports", icon: TrendingUp, roles: ["SUPER_ADMIN", "INVESTOR"] },
   ],
 };
 
