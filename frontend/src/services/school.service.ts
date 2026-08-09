@@ -6,6 +6,7 @@ export interface School {
     name: string;
     code?: string;
     npsn?: string;
+    // education_level kini nyata dari backend (katalog sekolah, Task 3)
     education_level?: string;
     province?: string;
     regency?: string;

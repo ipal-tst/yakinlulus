@@ -5,6 +5,10 @@ export interface TargetSchool {
     id: string;
     name: string;
     level: string;
+    school_id?: string;
+    province?: string;
+    city?: string;
+    district?: string;
     min_score?: number;
     max_score?: number;
     max_total_score: number;
@@ -16,8 +20,9 @@ export interface TargetSchool {
 }
 
 export interface TargetSchoolPayload {
-    name: string;
-    level: string;
+    name?: string;
+    level?: string;
+    school_id: string;
     min_score?: number;
     max_score?: number;
     max_total_score: number;
@@ -27,8 +32,10 @@ export interface TargetSchoolPayload {
 }
 
 export const targetSchoolService = {
-    async listTargetSchools(): Promise<TargetSchool[]> {
-        return api<TargetSchool[]>("/target-schools");
+    async listTargetSchools(
+        params?: { level?: string; province?: string; q?: string }
+    ): Promise<TargetSchool[]> {
+        return api<TargetSchool[]>("/target-schools", { params });
     },
 
     async createTargetSchool(payload: TargetSchoolPayload): Promise<TargetSchool> {
