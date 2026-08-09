@@ -32,6 +32,7 @@ export function SchoolsTab() {
         mutationFn: schoolService.createSchool,
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["admin-schools"] });
+            qc.invalidateQueries({ queryKey: ["admin-schools-catalog"] });
             setFormOpen(false);
         },
     });

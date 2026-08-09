@@ -4,6 +4,7 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export function TargetSchoolFormDialog({
     const effectiveLevel = level || initial?.level || "SMA";
     const maxTotal = initial?.max_total_score ?? defaultMaxTotal(effectiveLevel);
     const isEditing = Boolean(initial);
+    const queryClient = useQueryClient();
 
     const schema = useMemo(
         () =>
@@ -166,6 +168,7 @@ export function TargetSchoolFormDialog({
             });
             setValue("school_id", school.id, { shouldValidate: true });
             setCreateOpen(false);
+            queryClient.invalidateQueries({ queryKey: ["admin-schools-catalog"] });
         } catch (err) {
             const e = err instanceof ApiError ? err : null;
             setCreateError(

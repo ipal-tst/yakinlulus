@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { TargetSchoolTable } from "@/components/admin/schools/target-school-table";
 import { TargetSchoolFormDialog } from "@/components/admin/schools/target-school-form-dialog";
 import { targetSchoolService, TargetSchool, TargetSchoolPayload } from "@/services/target-school.service";
-import { schoolService } from "@/services/school.service";
+import { schoolService, School } from "@/services/school.service";
 import { sortedProvinces } from "@/lib/target-school-mappers";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,11 @@ import { Plus, AlertCircle, Target } from "lucide-react";
 
 const LEVEL_OPTIONS = ["SMP", "SMA", "UNIVERSITY"];
 const ALL = "all";
+
+function unwrapSchools(data: School[] | { items?: School[] } | null | undefined): School[] {
+    if (Array.isArray(data)) return data;
+    return data?.items ?? [];
+}
 
 export function TargetSchoolsTab() {
     const qc = useQueryClient();
@@ -43,7 +48,7 @@ export function TargetSchoolsTab() {
     });
 
     const provinces = useMemo(
-        () => sortedProvinces(Array.isArray(catalogSchools) ? catalogSchools : []),
+        () => sortedProvinces(unwrapSchools(catalogSchools)),
         [catalogSchools]
     );
 
@@ -74,8 +79,20 @@ export function TargetSchoolsTab() {
     });
 
     const toggleMutation = useMutation({
-        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-            targetSchoolService.updateTargetSchool(id, { is_active: isActive }),
+        mutationFn: ({ id, target }: { id: string; target: TargetSchool }) => {
+            const payload: TargetSchoolPayload = {
+                school_id: target.school_id as string,
+                name: target.name,
+                level: target.level,
+                min_score: target.min_score ?? undefined,
+                max_score: target.max_score ?? undefined,
+                max_total_score: target.max_total_score,
+                subjects: target.subjects ?? [],
+                academic_year: target.academic_year ?? undefined,
+                is_active: !target.is_active,
+            };
+            return targetSchoolService.updateTargetSchool(id, payload);
+        },
         onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-target-schools"] }),
     });
 
@@ -159,7 +176,7 @@ export function TargetSchoolsTab() {
             ) : empty ? (
                 <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Target className="h-6 w-6" />
+                        <Target className="h-4 w-4" />
                     </div>
                     <p className="font-semibold text-foreground">Belum ada target sekolah</p>
                     <p className="text-sm text-muted-foreground max-w-md">
@@ -175,7 +192,7 @@ export function TargetSchoolsTab() {
                     onEdit={handleEdit}
                     onDelete={(s) => setDeleteTarget(s)}
                     onToggle={(s) =>
-                        toggleMutation.mutate({ id: s.id, isActive: !s.is_active })
+                        toggleMutation.mutate({ id: s.id, target: s })
                     }
                 />
             )}
