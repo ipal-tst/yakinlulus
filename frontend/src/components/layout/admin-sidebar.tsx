@@ -21,8 +21,6 @@ export function AdminSidebar() {
     const pathname = usePathname();
     const [filter, setFilter] = useState("");
 
-    const collapsed = sidebarCollapsed;
-
     const handleLogout = () => {
         logout();
         router.push("/login");
@@ -31,7 +29,7 @@ export function AdminSidebar() {
     const groups = user ? getAdminNav(user.role) : [];
     const dash = user ? dashboardHref(user.role) : "/login";
 
-    const content = (
+    const renderContent = (collapsed: boolean) => (
         <>
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Brand Header */}
@@ -204,10 +202,10 @@ export function AdminSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-30 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col justify-between hidden md:flex",
-                    collapsed ? "w-[72px]" : "w-[280px]"
+                    sidebarCollapsed ? "w-[72px]" : "w-[280px]"
                 )}
             >
-                {content}
+                {renderContent(sidebarCollapsed)}
             </aside>
             <Sheet>
                 <SheetTrigger
@@ -218,7 +216,7 @@ export function AdminSidebar() {
                     <ChevronRight className="h-5 w-5" />
                 </SheetTrigger>
                 <SheetContent side="left" className="w-[280px] p-0">
-                    <div className="flex flex-col h-full">{content}</div>
+                    <div className="flex flex-col h-full">{renderContent(false)}</div>
                 </SheetContent>
             </Sheet>
         </>
