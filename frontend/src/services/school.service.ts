@@ -20,7 +20,6 @@ export interface School {
 
 export interface SchoolPayload {
     name: string;
-    code?: string;
     npsn?: string;
     education_level?: string;
     province?: string;
@@ -28,7 +27,6 @@ export interface SchoolPayload {
     address?: string;
     phone?: string;
     school_name?: string;
-    school_code?: string;
 }
 
 export const schoolService = {
@@ -40,7 +38,6 @@ export const schoolService = {
         const body = {
             ...payload,
             school_name: payload.name || payload.school_name,
-            school_code: payload.code || payload.school_code,
         };
         return api<School>("/schools", { method: "POST", body });
     },
@@ -49,7 +46,6 @@ export const schoolService = {
         const body = {
             ...payload,
             school_name: payload.name || payload.school_name,
-            school_code: payload.code || payload.school_code,
         };
         return api<School>(`/schools/${id}`, { method: "PUT", body });
     },

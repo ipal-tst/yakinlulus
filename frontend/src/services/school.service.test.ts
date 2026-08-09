@@ -18,7 +18,7 @@ describe("schoolService", () => {
   it("POSTs /schools", async () => {
     apiMock.mockResolvedValue({ id: "s1" });
     await schoolService.createSchool({ name: "SMA X" } as any);
-    expect(apiMock).toHaveBeenCalledWith("/schools", { method: "POST", body: { name: "SMA X", school_name: "SMA X", school_code: undefined } });
+    expect(apiMock).toHaveBeenCalledWith("/schools", { method: "POST", body: { name: "SMA X", school_name: "SMA X" } });
   });
 
   it("PATCHes /schools/:id/status", async () => {

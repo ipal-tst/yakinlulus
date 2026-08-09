@@ -13,9 +13,8 @@ import { School, SchoolPayload } from "@/services/school.service";
 
 const schema = z.object({
     name: z.string().min(1, "Nama sekolah wajib diisi"),
-    code: z.string().optional(),
     npsn: z.string().optional(),
-    education_level: z.string().optional(),
+    education_level: z.enum(["SMP", "SMA", "UNIVERSITY"]),
     province: z.string().optional(),
     regency: z.string().optional(),
     address: z.string().optional(),
@@ -44,9 +43,8 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, sch
         if (open) {
             reset({
                 name: school?.name ?? "",
-                code: school?.code ?? "",
                 npsn: school?.npsn ?? "",
-                education_level: school?.education_level ?? "SMA",
+                education_level: (school?.education_level as "SMP" | "SMA" | "UNIVERSITY") ?? "SMA",
                 province: school?.province ?? "",
                 regency: school?.regency ?? "",
                 address: school?.address ?? "",
@@ -58,7 +56,6 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, sch
     const handleFormSubmit = (data: FormValues) => {
         onSubmit({
             name: data.name,
-            code: data.code,
             npsn: data.npsn,
             education_level: data.education_level,
             province: data.province,
@@ -84,28 +81,22 @@ export function SchoolFormDialog({ open, loading = false, onClose, onSubmit, sch
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-foreground">Kode (Opsional)</label>
-                            <Input {...register("code")} className="h-11" placeholder="SMAN1JKT" />
-                        </div>
-                        <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-foreground">NPSN (Opsional)</label>
                             <Input {...register("npsn")} className="h-11" />
                         </div>
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-foreground">Jenjang</label>
-                        <Select value={watch("education_level")} onValueChange={(v: string | null) => setValue("education_level", v ?? undefined)}>
-                            <SelectTrigger className="h-11 w-full">
-                                <SelectValue placeholder="Pilih jenjang" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="SD">SD</SelectItem>
-                                <SelectItem value="SMP">SMP</SelectItem>
-                                <SelectItem value="SMA">SMA</SelectItem>
-                                <SelectItem value="SMK">SMK</SelectItem>
-                                <SelectItem value="UTBK">UTBK/Umum</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">Jenjang</label>
+                            <Select value={watch("education_level")} onValueChange={(v: string | null) => setValue("education_level", (v as "SMP" | "SMA" | "UNIVERSITY") ?? "SMA")}>
+                                <SelectTrigger className="h-11 w-full">
+                                    <SelectValue placeholder="Pilih jenjang" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="SMP">SMP</SelectItem>
+                                    <SelectItem value="SMA">SMA</SelectItem>
+                                    <SelectItem value="UNIVERSITY">UNIVERSITY</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
