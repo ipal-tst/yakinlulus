@@ -1,6 +1,7 @@
 package cbt_engine
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -458,6 +459,9 @@ func (h *Handler) DeleteExam(c *fiber.Ctx) error {
 	}
 
 	if err := h.svc.DeleteExam(c.Context(), id); err != nil {
+		if errors.Is(err, content.ErrOnlyDraftCanBeDeleted) {
+			return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, err.Error()))
+		}
 		return c.Status(http.StatusInternalServerError).JSON(shared.Error(shared.ErrInternal, "Failed to delete exam"))
 	}
 

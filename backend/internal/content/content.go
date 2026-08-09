@@ -2,10 +2,14 @@ package content
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrOnlyDraftCanBeDeleted = errors.New("hanya ujian berstatus DRAFT yang dapat dihapus")
+
 
 // ========== BASE CONTENT ==========
 

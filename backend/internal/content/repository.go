@@ -1983,7 +1983,21 @@ func (r *repository) updateExamContent(ctx context.Context, id uuid.UUID, req Up
 }
 
 func (r *repository) softDeleteExam(ctx context.Context, contentID uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE cbt.exam SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, contentID)
+	var statusCode string
+	err := r.pool.QueryRow(ctx, `
+		SELECT COALESCE(st.code, 'DRAFT')
+		FROM cbt.exam m
+		LEFT JOIN cbt.exam_status st ON st.id = m.status_id
+		WHERE m.id = $1 AND m.deleted_at IS NULL`, contentID).Scan(&statusCode)
+	if err != nil {
+		return err
+	}
+
+	if strings.ToUpper(strings.TrimSpace(statusCode)) != "DRAFT" {
+		return ErrOnlyDraftCanBeDeleted
+	}
+
+	tag, err := r.pool.Exec(ctx, `DELETE FROM cbt.exam WHERE id = $1`, contentID)
 	if err != nil {
 		return err
 	}

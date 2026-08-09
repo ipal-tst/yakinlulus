@@ -1,6 +1,8 @@
 package content
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
@@ -150,6 +152,9 @@ func (h *Handler) DeleteContent(c *fiber.Ctx) error {
 	}
 
 	if err := h.repo.DeleteContent(c.Context(), id); err != nil {
+		if errors.Is(err, ErrOnlyDraftCanBeDeleted) {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
+		}
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete content"))
 	}
 	return c.JSON(shared.Success(nil))

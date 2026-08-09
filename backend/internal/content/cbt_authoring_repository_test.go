@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -317,17 +318,17 @@ func TestCBTExamAuthoringLifecycle(t *testing.T) {
 		t.Errorf("PassingScore after partial update = %v, want preserved 50", upd2.Exam.PassingScore)
 	}
 
-	// DeleteExam via the service path (DeleteContent) soft-deletes + filters.
+	// DeleteExam via the service path (DeleteContent) hard-deletes DRAFT exams.
 	if err := r.DeleteContent(ctx, examID); err != nil {
 		t.Fatalf("DeleteContent(exam): %v", err)
 	}
 	if _, err := r.GetExam(ctx, examID); err == nil {
-		t.Error("GetExam after delete should error (deleted_at filtered)")
+		t.Error("GetExam after delete should error (exam hard deleted)")
 	}
-	var deletedAt *interface{}
-	_ = p.QueryRow(ctx, `SELECT deleted_at FROM cbt.exam WHERE id = $1`, examID).Scan(&deletedAt)
-	if deletedAt == nil {
-		t.Error("deleted_at not set on exam soft delete")
+	var count int
+	_ = p.QueryRow(ctx, `SELECT COUNT(*) FROM cbt.exam WHERE id = $1`, examID).Scan(&count)
+	if count != 0 {
+		t.Error("exam row still exists after DRAFT hard delete")
 	}
 	listAfter, _, err := r.ListExams(ctx, ExamFilter{ContentFilter: ContentFilter{Limit: 20, Offset: 0}})
 	if err != nil {
@@ -336,6 +337,34 @@ func TestCBTExamAuthoringLifecycle(t *testing.T) {
 	for _, it := range listAfter {
 		if it.Content.ID == examID {
 			t.Error("deleted exam still listed")
+		}
+	}
+
+	// Test that deleting a non-DRAFT exam returns ErrOnlyDraftCanBeDeleted
+	pubBase := &Content{
+		ContentType: ContentTypeExam,
+		GradeID:     uuid.Nil,
+		SubjectID:   subjectID,
+		Title:       "Test Non-Draft Exam",
+		Status:      StatusDraft,
+		CreatedBy:   owner,
+	}
+	if err := r.CreateContent(ctx, pubBase); err != nil {
+		t.Fatalf("CreateContent (for publish test): %v", err)
+	}
+	pubExamID := pubBase.ID
+	if err := r.CreateExam(ctx, &Exam{ContentID: pubExamID}); err != nil {
+		t.Fatalf("CreateExam (for publish test): %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = p.Exec(ctx, `DELETE FROM cbt.exam WHERE id = $1`, pubExamID)
+	})
+	var pubStatusID uuid.UUID
+	_ = p.QueryRow(ctx, `SELECT id FROM cbt.exam_status WHERE code = 'PUBLISHED' LIMIT 1`).Scan(&pubStatusID)
+	if pubStatusID != uuid.Nil {
+		_, _ = p.Exec(ctx, `UPDATE cbt.exam SET status_id = $1 WHERE id = $2`, pubStatusID, pubExamID)
+		if err := r.DeleteContent(ctx, pubExamID); !errors.Is(err, ErrOnlyDraftCanBeDeleted) {
+			t.Errorf("DeleteContent on PUBLISHED exam = %v, want %v", err, ErrOnlyDraftCanBeDeleted)
 		}
 	}
 }
