@@ -46,10 +46,16 @@ type SaveSchoolRequest struct {
 	IsActive      *bool     `json:"is_active,omitempty"`
 }
 
+// validateSaveRequest: create — school_id wajib (row baru harus dari katalog).
 func validateSaveRequest(req SaveSchoolRequest) error {
 	if req.SchoolID == uuid.Nil {
 		return fiber.NewError(fiber.StatusBadRequest, "school_id required")
 	}
+	return validateSaveUpdateRequest(req)
+}
+
+// validateSaveUpdateRequest: update — school_id opsional (legacy row boleh NULL).
+func validateSaveUpdateRequest(req SaveSchoolRequest) error {
 	if req.Level != "" {
 		switch req.Level {
 		case "SMP", "SMA", "UNIVERSITY":
@@ -59,6 +65,18 @@ func validateSaveRequest(req SaveSchoolRequest) error {
 	}
 	if req.MaxTotalScore < 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "max_total_score cannot be negative")
+	}
+	if req.MinScore != nil && *req.MinScore < 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "min_score cannot be negative")
+	}
+	if req.MaxScore != nil && *req.MaxScore < 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "max_score cannot be negative")
+	}
+	if req.MinScore != nil && req.MaxScore != nil && *req.MaxScore < *req.MinScore {
+		return fiber.NewError(fiber.StatusBadRequest, "max_score cannot be less than min_score")
+	}
+	if req.MaxTotalScore > 0 && req.MaxScore != nil && *req.MaxScore > req.MaxTotalScore {
+		return fiber.NewError(fiber.StatusBadRequest, "max_score cannot exceed max_total_score")
 	}
 	return nil
 }
@@ -185,17 +203,31 @@ func (r *Repository) Create(ctx context.Context, req SaveSchoolRequest) (*Target
 }
 
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SaveSchoolRequest) (*TargetSchool, error) {
-	if err := validateSaveRequest(req); err != nil {
+	if err := validateSaveUpdateRequest(req); err != nil {
 		return nil, err
 	}
-	name, lvl, _, _, _, err := r.resolveSchool(ctx, req.SchoolID)
+	var rowSchoolID *uuid.UUID
+	var rowLevel, rowName string
+	err := r.pool.QueryRow(ctx,
+		`SELECT school_id, level, name FROM `+schoolTable+` WHERE id = $1`, id,
+	).Scan(&rowSchoolID, &rowLevel, &rowName)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "school not found or inactive")
+		return nil, err
 	}
-	if req.Level != "" && req.Level != lvl {
+	name := rowName
+	lvl := rowLevel
+	if req.SchoolID != uuid.Nil {
+		catalogName, catalogLevel, _, _, _, rerr := r.resolveSchool(ctx, req.SchoolID)
+		if rerr != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "school not found or inactive")
+		}
+		if req.Level != "" && req.Level != catalogLevel {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "level mismatch: target level must match school level")
+		}
+		name, lvl = catalogName, catalogLevel
+	} else if req.Level != "" && req.Level != rowLevel {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "level mismatch: target level must match school level")
 	}
-	req.Name = name
 	subjects, _ := json.Marshal(req.Subjects)
 	if subjects == nil {
 		subjects = []byte("[]")
@@ -205,7 +237,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req SaveSchoolReq
 		   max_total_score=$6, subjects=$7, academic_year=$8,
 		   is_active=COALESCE($9, is_active), updated_at=NOW()
 		 WHERE id=$1`,
-		id, req.Name, lvl, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, req.IsActive)
+		id, name, lvl, req.MinScore, req.MaxScore, req.MaxTotalScore, subjects, req.AcademicYear, req.IsActive)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +268,7 @@ func (s *Service) CreateSchool(ctx context.Context, req SaveSchoolRequest) (*Tar
 	return s.repo.Create(ctx, req)
 }
 func (s *Service) UpdateSchool(ctx context.Context, id uuid.UUID, req SaveSchoolRequest) (*TargetSchool, error) {
-	if err := validateSaveRequest(req); err != nil {
+	if err := validateSaveUpdateRequest(req); err != nil {
 		return nil, err
 	}
 	return s.repo.Update(ctx, id, req)

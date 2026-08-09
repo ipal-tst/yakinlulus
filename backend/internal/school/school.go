@@ -255,7 +255,6 @@ func NewService(repo *Repository) *Service {
 func (s *Service) Create(ctx context.Context, req CreateSchoolReq) (*School, error) {
 	sc := &School{
 		SchoolName:     req.SchoolName,
-		SchoolCode:     req.SchoolCode,
 		NPSN:           req.NPSN,
 		EducationLevel: req.EducationLevel,
 		Address:        req.Address,
@@ -305,9 +304,6 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq)
 	}
 	if req.SchoolName != nil {
 		sc.SchoolName = *req.SchoolName
-	}
-	if req.SchoolCode != nil {
-		sc.SchoolCode = *req.SchoolCode
 	}
 	if req.NPSN != nil {
 		sc.NPSN = req.NPSN
@@ -455,7 +451,6 @@ func (s *Service) GetBrandingByID(ctx context.Context, id uuid.UUID) (*SchoolBra
 
 type CreateSchoolReq struct {
 	SchoolName     string  `json:"school_name"`
-	SchoolCode     string  `json:"school_code"`
 	NPSN           *string `json:"npsn,omitempty"`
 	EducationLevel string  `json:"education_level"`
 	Address        *string `json:"address,omitempty"`
@@ -472,7 +467,6 @@ type CreateSchoolReq struct {
 
 type UpdateSchoolReq struct {
 	SchoolName     *string `json:"school_name,omitempty"`
-	SchoolCode     *string `json:"school_code,omitempty"`
 	NPSN           *string `json:"npsn,omitempty"`
 	EducationLevel *string `json:"education_level,omitempty"`
 	Address        *string `json:"address,omitempty"`
@@ -540,8 +534,8 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
 	}
-	if req.SchoolName == "" || req.SchoolCode == "" || req.EducationLevel == "" {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "school_name, school_code, education_level required"))
+	if req.SchoolName == "" || req.EducationLevel == "" {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "school_name, education_level required"))
 	}
 	sc, err := h.svc.Create(c.Context(), req)
 	if err != nil {
