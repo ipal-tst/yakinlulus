@@ -1,88 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { StatsCard } from "@/components/data-display/stats-card";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { dashboardService } from "@/services/dashboard.service";
-import { AdminDashboard } from "@/types/admin";
-import { Users, Building2, Target, Bell, ArrowRight, Shield, Database, HardDrive, Activity } from "lucide-react";
+import { Users, Building2, Target, ArrowRight, Shield, Database, HardDrive, Activity, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function StaffDashboardPage() {
-    const [data, setData] = useState<AdminDashboard | null>(null);
+    const dashQuery = useQuery({
+        queryKey: ["staff-dashboard"],
+        queryFn: () => dashboardService.getAdminDashboard(),
+        staleTime: 30_000,
+        refetchOnWindowFocus: true,
+    });
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const res = await dashboardService.getAdminDashboard();
-                setData(res);
-            } catch {
-                setData({
-                    kpi: {
-                        total_users: 15420,
-                        active_today: 1240,
-                        total_schools: 85,
-                        total_teachers: 320,
-                        total_students: 12500,
-                        total_exams: 450,
-                        total_materials: 1200,
-                        total_questions: 15000,
-                    },
-                    system_health: {
-                        api_status: "healthy",
-                        db_status: "healthy",
-                        storage_usage: 45,
-                        uptime_hours: 720,
-                    },
-                    active_users: {
-                        online_now: 1240,
-                        active_24h: 5200,
-                    },
-                    school_stats: {
-                        total: 85,
-                        active: 78,
-                        verified: 72,
-                    },
-                    cbt_monitoring: {
-                        scheduled: 12,
-                        running: 3,
-                        finished: 15,
-                    },
-                    recent_activity: [
-                        {
-                            type: "CREATE_USER",
-                            message: "Staff Admin created Siswa Baru (Ahmad)",
-                            created_at: "10 menit yang lalu",
-                        },
-                        {
-                            type: "UPDATE_SCHOOL",
-                            message: "Staff Admin updated SMA Negeri 1 Jakarta",
-                            created_at: "1 jam yang lalu",
-                        },
-                    ],
-                });
-            }
-        }
-        loadData();
-    }, []);
+    const data = dashQuery.data ?? null;
+    const refetchAll = () => {
+        dashQuery.refetch();
+    };
 
     return (
-
-            <div className="space-y-6">
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
                 <div>
                     <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard Staff & Ops</h1>
                     <p className="text-sm text-muted-foreground">Ringkasan operasional platform, registrasi sekolah, dan audit log.</p>
                 </div>
+                <Button variant="outline" size="sm" onClick={refetchAll} className="rounded-lg">
+                    <RefreshCw className={dashQuery.isFetching ? "animate-spin" : ""} />
+                    Muat Ulang
+                </Button>
+            </div>
 
-                {/* Stats */}
+            {dashQuery.error && (
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>Gagal memuat data dashboard. Periksa koneksi lalu coba lagi.</span>
+                    <Button variant="ghost" size="sm" onClick={refetchAll} className="ml-auto rounded-lg">
+                        Coba Lagi
+                    </Button>
+                </div>
+            )}
+
+            {/* Stats */}
+            {dashQuery.isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[0, 1, 2].map((i) => (
+                        <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+                    ))}
+                </div>
+            ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <StatsCard
                         title="Total Pengguna Terdaftar"
                         value={data?.kpi.total_users || 0}
                         icon={Users}
-                        trend={{ value: 8.2, label: "minggu ini" }}
                     />
                     <StatsCard
                         title="Sekolah Mitramu"
@@ -95,9 +72,17 @@ export default function StaffDashboardPage() {
                         icon={Target}
                     />
                 </div>
+            )}
 
-                {/* System Health */}
-                {data?.system_health && (
+            {/* System Health */}
+            {dashQuery.isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    {[0, 1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+                    ))}
+                </div>
+            ) : (
+                data?.system_health && (
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <Card className="p-4 hover:border-primary transition-colors">
                             <div className="flex items-center gap-3">
@@ -136,39 +121,39 @@ export default function StaffDashboardPage() {
                             </div>
                         </Card>
                     </div>
-                )}
+                )
+            )}
 
-                {/* Quick Menu */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Card className="p-4 hover:border-primary transition-colors">
-                        <Link href="/staff/users" className="flex items-center justify-between">
-                            <div>
-                                <h4 className="font-heading font-semibold text-sm">Kelola User</h4>
-                                <p className="text-xs text-muted-foreground">Aktifkan/nonaktifkan akun</p>
-                            </div>
-                            <ArrowRight className="h-4 w-4 text-primary" />
-                        </Link>
-                    </Card>
-                    <Card className="p-4 hover:border-primary transition-colors">
-                        <Link href="/staff/schools" className="flex items-center justify-between">
-                            <div>
-                                <h4 className="font-heading font-semibold text-sm">Kelola Sekolah</h4>
-                                <p className="text-xs text-muted-foreground">Mitra sekolah & data siswa</p>
-                            </div>
-                            <ArrowRight className="h-4 w-4 text-primary" />
-                        </Link>
-                    </Card>
-                    <Card className="p-4 hover:border-primary transition-colors">
-                        <Link href="/staff/notifications" className="flex items-center justify-between">
-                            <div>
-                                <h4 className="font-heading font-semibold text-sm">Broadcast Notifikasi</h4>
-                                <p className="text-xs text-muted-foreground">Kirim pengumuman massal</p>
-                            </div>
-                            <ArrowRight className="h-4 w-4 text-primary" />
-                        </Link>
-                    </Card>
-                </div>
+            {/* Quick Menu */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="p-4 hover:border-primary transition-colors">
+                    <Link href="/staff/users" className="flex items-center justify-between">
+                        <div>
+                            <h4 className="font-heading font-semibold text-sm">Kelola User</h4>
+                            <p className="text-xs text-muted-foreground">Aktifkan/nonaktifkan akun</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-primary" />
+                    </Link>
+                </Card>
+                <Card className="p-4 hover:border-primary transition-colors">
+                    <Link href="/staff/schools" className="flex items-center justify-between">
+                        <div>
+                            <h4 className="font-heading font-semibold text-sm">Kelola Sekolah</h4>
+                            <p className="text-xs text-muted-foreground">Mitra sekolah & data siswa</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-primary" />
+                    </Link>
+                </Card>
+                <Card className="p-4 hover:border-primary transition-colors">
+                    <Link href="/staff/notifications" className="flex items-center justify-between">
+                        <div>
+                            <h4 className="font-heading font-semibold text-sm">Broadcast Notifikasi</h4>
+                            <p className="text-xs text-muted-foreground">Kirim pengumuman massal</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-primary" />
+                    </Link>
+                </Card>
             </div>
-
+        </div>
     );
 }

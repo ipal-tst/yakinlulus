@@ -21,6 +21,7 @@ export interface User {
     major?: string;
     education_level?: string;
     grade?: string;
+    membership_status?: "ACTIVE" | "INACTIVE" | "TRIAL";
     created_at: string;
     updated_at: string;
 }
@@ -335,6 +336,18 @@ export interface RankingItem {
     school_name: string;
     score: number;
     avatar_url?: string;
+}
+
+// Exam Package / Membership
+export interface ExamPackage {
+    id: string;
+    code: string;
+    name: string;
+    education_level: string;
+    grade_id?: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface TargetSchool {

@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SchoolSelect } from "@/components/admin/schools/school-select";
 import { ApiError } from "@/lib/api";
 import { schoolService } from "@/services/school.service";
@@ -47,9 +48,12 @@ export function TargetSchoolFormDialog({
     level,
     onCreateSchool,
 }: TargetSchoolFormDialogProps) {
-    const effectiveLevel = level || "SMA";
-    const maxTotal = defaultMaxTotal(effectiveLevel);
     const queryClient = useQueryClient();
+    const [effectiveLevel, setEffectiveLevel] = useState<string>(level || "SMA");
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createBusy, setCreateBusy] = useState(false);
+    const [createError, setCreateError] = useState("");
+    const maxTotal = defaultMaxTotal(effectiveLevel);
 
     const schema = z
         .object({
@@ -88,8 +92,11 @@ export function TargetSchoolFormDialog({
     });
 
     useEffect(() => {
-        if (open) reset();
-    }, [open, reset]);
+        if (open) {
+            setEffectiveLevel(level || "SMA");
+            reset();
+        }
+    }, [open, level, reset]);
 
     const handleFormSubmit = (data: FormValues) => {
         const subjects = (data.subjectsRaw || "")
@@ -109,9 +116,6 @@ export function TargetSchoolFormDialog({
     };
 
     // --- create school in-form (tombol "+ Baru") ---
-    const [createOpen, setCreateOpen] = useState(false);
-    const [createBusy, setCreateBusy] = useState(false);
-    const [createError, setCreateError] = useState("");
     const createForm = useForm<CreateValues>({
         resolver: zodResolver(createSchema),
         defaultValues: { name: "", npsn: "", province: "", regency: "" },
@@ -172,9 +176,24 @@ export function TargetSchoolFormDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-foreground">Jenjang</label>
-                                <div className="flex h-11 items-center rounded-xl border border-border bg-muted/40 px-3 text-sm font-medium text-foreground">
-                                    {levelLabels[effectiveLevel] ?? effectiveLevel}
-                                </div>
+                                {level ? (
+                                    <div className="flex h-11 items-center rounded-xl border border-border bg-muted/40 px-3 text-sm font-medium text-foreground">
+                                        {levelLabels[effectiveLevel] ?? effectiveLevel}
+                                    </div>
+                                ) : (
+                                    <Select value={effectiveLevel} onValueChange={(v) => { if (v) setEffectiveLevel(v); }}>
+                                        <SelectTrigger className="h-11 w-full">
+                                            <SelectValue placeholder="Pilih jenjang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Object.keys(levelLabels).map((lvl) => (
+                                                <SelectItem key={lvl} value={lvl}>
+                                                    {levelLabels[lvl]}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-foreground">Skor Maksimal</label>

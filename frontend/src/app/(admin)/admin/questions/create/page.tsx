@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { academicMasterService } from "@/services/academic-master.service";
+import { questionService } from "@/services/question.service";
+import { QuestionItem } from "@/types";
 import { DifficultyLevel, QuestionType, BloomsLevel } from "@/types/question-bank";
 
 export default function CreateQuestionPage() {
@@ -158,11 +160,40 @@ export default function CreateQuestionPage() {
     };
 
     const handleSubmit = async (status: "DRAFT" | "PUBLISHED") => {
+        if (!content.trim()) {
+            alert("Narasi soal belum diisi.");
+            return;
+        }
+        if (!options.some((o) => o.isCorrect)) {
+            alert("Belum ada opsi yang ditandai sebagai kunci jawaban.");
+            return;
+        }
+
+        const payload: Partial<QuestionItem> = {
+            content,
+            subject_name: classification.subject,
+            grade_level: classification.grade,
+            difficulty: metadata.difficulty,
+            status,
+            options: options
+                .filter((o) => o.text.trim())
+                .map((o, idx) => ({
+                    id: `${o.label}_${idx}`,
+                    text: o.text,
+                    is_correct: o.isCorrect,
+                    explanation: o.isCorrect ? explanation : undefined,
+                })),
+        };
+
         setIsSaving(true);
-        await new Promise((res) => setTimeout(res, 800));
-        setIsSaving(false);
-        alert(`Berhasil menyimpan soal dengan status ${status}!`);
-        router.push("/admin/questions");
+        try {
+            await questionService.createQuestion(payload);
+            router.push("/admin/questions");
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Gagal menyimpan soal. Coba lagi.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (

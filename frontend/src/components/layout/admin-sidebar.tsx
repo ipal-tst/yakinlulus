@@ -105,9 +105,12 @@ export function AdminSidebar() {
                         const GroupIcon = group.icon;
 
                         return (
-                            <Collapsible key={group.title} defaultOpen={!collapsedGroups.includes(group.title)}>
+                            <Collapsible
+                                key={group.title}
+                                open={!collapsedGroups.includes(group.title)}
+                                onOpenChange={() => toggleGroup(group.title)}
+                            >
                                 <CollapsibleTrigger
-                                    onClick={() => toggleGroup(group.title)}
                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
                                 >
                                     <Button asChild size="icon" variant="ghost" className="h-5 w-5 p-0">

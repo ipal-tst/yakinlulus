@@ -6,7 +6,7 @@ import {
     ExamResult,
     RankingItem,
     TargetSchool,
-    PaginatedData,
+    ExamPackage,
 } from "@/types";
 
 function normalizeExam(e: any): Exam {
@@ -209,5 +209,11 @@ export const academicService = {
             method: "POST",
             body: payload,
         });
+    },
+
+    // Exam Packages / Membership
+    async getExamPackages(params?: { education_level?: string }): Promise<ExamPackage[]> {
+        const res = await api<ExamPackage[] | { items: ExamPackage[] }>("/exam-packages", { params });
+        return Array.isArray(res) ? res : (res?.items ?? []);
     },
 };

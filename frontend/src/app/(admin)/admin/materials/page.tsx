@@ -22,6 +22,8 @@ import {
     Video,
     FileText,
     Sparkles,
+    AlertTriangle,
+    RefreshCw,
 } from "lucide-react";
 
 export default function AdminMaterialsPage() {
@@ -40,68 +42,13 @@ export default function AdminMaterialsPage() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewItem, setPreviewItem] = useState<Material | null>(null);
 
-    // Initial mock backup materials
-    const mockMaterials: Material[] = [
-        {
-            id: "m-1",
-            title: "Konsep Dasar & Formula Cepat Penalaran Matematika UTBK",
-            subject_name: "Penalaran Matematika",
-            category: "TEORI",
-            reading_time_minutes: 15,
-            content: "Penalaran matematika menguji kemampuan logika kuantitatif. Pahami persamaan kuadrat, deret aritmatika, dan interpretasi grafik data secara cepat.\n\n$$f(x) = ax^2 + bx + c$$\n\nSifat diskriminan $D = b^2 - 4ac$ menentukan akar real.",
-            status: "PUBLISHED",
-            is_completed: true,
-            created_at: new Date().toISOString(),
-        },
-        {
-            id: "m-2",
-            title: "Strategi Memahami Teks & Gagasan Utama Bahasa Indonesia SNBT",
-            subject_name: "Literasi Bahasa Indonesia",
-            category: "STRATEGI",
-            reading_time_minutes: 20,
-            content: "Ide pokok paragraf merupakan inti dari sebuah wacana. Tentukan kalimat utama di awal (deduktif) atau di akhir (induktif) dengan cepat tanpa membaca ulang seluruh paragraf.",
-            status: "PUBLISHED",
-            is_completed: false,
-            created_at: new Date().toISOString(),
-        },
-        {
-            id: "m-3",
-            title: "Trik Cepat Soal Penalaran Umum & Pola Barisan Angka",
-            subject_name: "Penalaran Umum",
-            category: "TRIK_CEPAT",
-            reading_time_minutes: 10,
-            content: "Pola deret angka bertingkat dan hubungan kuantitas $P$ vs $Q$. Gunakan eliminasi opsi ekstrem untuk menghemat waktu ujian.",
-            status: "DRAFT",
-            is_completed: false,
-            created_at: new Date().toISOString(),
-        },
-        {
-            id: "m-4",
-            title: "Rangkuman Hukum Newton & Dinamika Gerak Lurus",
-            subject_name: "Fisika",
-            category: "TEORI",
-            reading_time_minutes: 25,
-            content: "Hukum II Newton $\\Sigma F = m \\cdot a$. Analisis diagram gaya bebas pada bidang miring licin dan kasar.",
-            status: "PUBLISHED",
-            is_completed: false,
-            created_at: new Date().toISOString(),
-        },
-    ];
-
     // Data Fetching Query
-    const { data: fetchedMaterials = [], isLoading } = useQuery({
+    const { data: fetchedMaterials = [], isLoading, isError, refetch } = useQuery({
         queryKey: ["admin-materials-list"],
-        queryFn: async () => {
-            try {
-                const res = await academicService.getMaterials();
-                return Array.isArray(res) && res.length > 0 ? res : mockMaterials;
-            } catch {
-                return mockMaterials;
-            }
-        },
+        queryFn: () => academicService.getMaterials(),
     });
 
-    const materials = fetchedMaterials.length > 0 ? fetchedMaterials : mockMaterials;
+    const materials = fetchedMaterials;
 
     // Filter Logic
     const filteredMaterials = materials.filter((m) => {
@@ -190,6 +137,29 @@ export default function AdminMaterialsPage() {
                     onOpenAuthoring={handleOpenCreate}
                     onOpenImport={handleOpenImport}
                 />
+
+                {/* Error Banner */}
+                {isError && (
+                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                        <div className="flex items-start gap-3 text-xs">
+                            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                            <div>
+                                <p className="font-bold text-destructive">Gagal Memuat Daftar Materi</p>
+                                <p className="text-muted-foreground">
+                                    Data tidak dapat diambil dari server. Periksa koneksi lalu muat ulang.
+                                </p>
+                            </div>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => refetch()}
+                            className="shrink-0 rounded-xl text-xs gap-1.5"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" /> Muat Ulang
+                        </Button>
+                    </div>
+                )}
 
                 {/* Material Grid List */}
                 {isLoading ? (

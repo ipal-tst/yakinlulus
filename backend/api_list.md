@@ -258,6 +258,16 @@
 
 ---
 
+## ✅ Finance (3 endpoints) — Sprint 18
+
+| # | Method | Path | Auth | Role | Status |
+|---|--------|------|------|------|--------|
+| 142 | GET | `/finance/payouts` | JWT | SUPER_ADMIN/STAFF/FINANCE | ✅ |
+| 143 | POST | `/finance/payouts/:id/approve` | JWT | SUPER_ADMIN/STAFF/FINANCE | ✅ |
+| 144 | GET | `/finance/transactions` | JWT | SUPER_ADMIN/STAFF/FINANCE | ✅ |
+
+---
+
 ## ✅ WebSocket (2 endpoints)
 
 | # | Method | Path | Auth | Role | Status |
@@ -303,6 +313,7 @@
 | **Dashboard** | **3** | **Sprint 16 ✅** |
 | **Exam Packages** | **7** | **Sprint 17 ✅** |
 | **Ranking** | **1** | **Sprint 17 ✅** |
+| **Finance** | **3** | **Sprint 18 ✅** |
 | **Practice** | **5** | **Sprint 16 ✅** |
 | **AI Tutor** | **5** | **Sprint 16 ✅** |
 | **TOTAL** | **149** | |

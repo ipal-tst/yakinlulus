@@ -8,7 +8,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 79230000,
+    "latency_ms": 72648000,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"id\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"email\":\"admin@yakinlulus.id\",\"full_name\":\"Super Admin YakinLulus\",\"role\":\"SUPER_ADMIN\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:25.202799+07:00\",\"updated_at\":\"2026-08-06T20:23:25.202799+07:00\"}}"
   },
@@ -21,7 +21,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 133753400,
+    "latency_ms": 157110600,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"8a08a31b-9aef-4358-873f-f7e9e80fc8b8\",\"email\":\"supersiswa@yakinlulus.id\",\"full_name\":\"Super Siswa (Testing)\",\"role\":\"SUPER_SISWA\",\"is_active\":true,\"created_at\":\"2026-08-08T11:08:19.104574+07:00\",\"updated_at\":\"2026-08-08T11:08:19.104574+07:00\"},{\"id\":\"a9850acf-b89e-490d-bc98-f90001ef83f3\",\"email\":\"murid@yakinlulus.id\",\"full_name\":\"Ahmad Pratama\",\"role\":\"SISWA\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:26.264027+07:00\",\"updated_at\":\"2026-08-07T18:59:55.999103+07:00\"},{\"id\":\"6f54ddc5-52d5-4735-832e-b05b2f742a77\",\"email\":\"guru.siti@yakinlulus.id\",\"full_name\":\"Siti Rahmawati, S.Si\",\"role\":\"GURU\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:26.081788+07:00\",\"updated_at\":\"2026-08-06T20:23:26.081788+07:00\"},{\"id\":\"7b687c80-f330-4789-a183-d84ab776dc2f\",\"email\":\"guru.budi@yakinlulus.id\",\"full_name\":\"Drs. Budi Santoso, M.Pd\",\"role\":\"GURU\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:25.894241+07:00\",\"updated_at\":\"2026-08-06T20:23:25.894241+07:00\"},{\"id\":\"f7115ab9-ece8-4e92-abe2-f616a82f229b\",\"email\":\"finance@yakinlulus.id\",\"full_name\":\"Staf Keuangan YakinLulus\",\"role\":\"FINANCE\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:25.705808+07:00\",\"updated_at\":\"2026-08-06T20:23:25.705808+07:00\"},{\"id\":\"5bd07bed-5f3b-4a7a-8f1f-42f2beefa940\",\"email\":\"staff@yakinlulus.id\",\"full_name\":\"Staf Akademik YakinLulus\",\"role\":\"STAFF\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:25.517792+07:00\",\"updated_at\":\"2026-08-06T20:23:25.517792+07:00\"},{\"id\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"email\":\"admin@yakinlulus.id\",\"full_name\":\"Super Admin YakinLulus\",\"role\":\"SUPER_ADMIN\",\"is_active\":true,\"created_at\":\"2026-08-06T20:23:25.202799+07:00\",\"updated_at\":\"2026-08-06T20:23:25.202799+07:00\"}],\"meta\":{\"page\":1,\"limit\":20,\"total\":7,\"total_pages\":1,\"has_next\":false,\"has_previous\":false}}"
   },
@@ -34,7 +34,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 425416100,
+    "latency_ms": 147585400,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"8a08a31b-9aef-4358-873f-f7e9e80fc8b8\",\"email\":\"supersiswa@yakinlulus.id\",\"full_name\":\"Super Siswa (Testing)\",\"role\":\"SUPER_SISWA\",\"is_active\":true,\"created_at\":\"2026-08-08T11:08:19.104574+07:00\",\"updated_at\":\"2026-08-08T11:08:19.104574+07:00\"}],\"meta\":{\"page\":1,\"limit\":20,\"total\":1,\"total_pages\":1,\"has_next\":false,\"has_previous\":false}}"
   },
@@ -47,7 +47,7 @@
     "status_code": 401,
     "expected_status": 401,
     "passed": true,
-    "latency_ms": 577700,
+    "latency_ms": 1040100,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Missing authentication token\",\"error_code\":\"UNAUTHORIZED\"}"
   },
@@ -60,7 +60,7 @@
     "status_code": 403,
     "expected_status": 403,
     "passed": true,
-    "latency_ms": 581700,
+    "latency_ms": 526100,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Insufficient permissions\",\"error_code\":\"FORBIDDEN\"}"
   },
@@ -73,9 +73,9 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 66890700,
+    "latency_ms": 72320800,
     "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"b40f9c3c-8be3-416f-ba4e-14a61e1a9b09\",\"name\":\"Sekolah Dasar\",\"code\":\"SD\",\"display_order\":10,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.918582+07:00\",\"updated_at\":\"2026-08-09T02:29:03.630518+07:00\"},{\"id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"name\":\"Sekolah Menengah Pertama\",\"code\":\"SMP\",\"display_order\":20,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.951542+07:00\",\"updated_at\":\"2026-08-09T02:29:03.630518+07:00\"},{\"id\":\"84098837-84ac-4c83-803c-7784a84cdfbf\",\"name\":\"Sekolah Menengah Atas\",\"code\":\"SMA\",\"display_order\":30,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.984561+07:00\",\"updated_at\":\"2026-08-09T02:29:03.630518+07:00\"},{\"id\":\"f3e41421-0f5e-40b8-8640-71313de439cb\",\"name\":\"Gap Year\",\"code\":\"GAPYEAR\",\"display_order\":40,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:58.017587+07:00\",\"updated_at\":\"2026-08-09T02:29:03.630518+07:00\"}]}"
+    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"b40f9c3c-8be3-416f-ba4e-14a61e1a9b09\",\"name\":\"Sekolah Dasar\",\"code\":\"SD\",\"display_order\":10,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.918582+07:00\",\"updated_at\":\"2026-08-10T05:52:14.621923+07:00\"},{\"id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"name\":\"Sekolah Menengah Pertama\",\"code\":\"SMP\",\"display_order\":20,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.951542+07:00\",\"updated_at\":\"2026-08-10T05:52:14.621923+07:00\"},{\"id\":\"84098837-84ac-4c83-803c-7784a84cdfbf\",\"name\":\"Sekolah Menengah Atas\",\"code\":\"SMA\",\"display_order\":30,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:57.984561+07:00\",\"updated_at\":\"2026-08-10T05:52:14.621923+07:00\"},{\"id\":\"f3e41421-0f5e-40b8-8640-71313de439cb\",\"name\":\"Gap Year\",\"code\":\"GAPYEAR\",\"display_order\":40,\"is_active\":true,\"created_at\":\"2026-08-05T17:10:58.017587+07:00\",\"updated_at\":\"2026-08-10T05:52:14.621923+07:00\"}]}"
   },
   {
     "module": "Academic",
@@ -86,7 +86,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 80543500,
+    "latency_ms": 95419900,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"level_id\":\"b40f9c3c-8be3-416f-ba4e-14a61e1a9b09\",\"level_code\":\"SD\",\"level_name\":\"Sekolah Dasar\",\"name\":\"Matematika\",\"code\":\"MTK\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:30.541758+07:00\",\"updated_at\":\"2026-08-07T21:16:30.541758+07:00\"},{\"id\":\"543b7f6a-149e-44a3-bf7a-6dac382bf825\",\"level_id\":\"b40f9c3c-8be3-416f-ba4e-14a61e1a9b09\",\"level_code\":\"SD\",\"level_name\":\"Sekolah Dasar\",\"name\":\"Bahasa Indonesia\",\"code\":\"bind\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:21.732346+07:00\",\"updated_at\":\"2026-08-07T21:16:21.732346+07:00\"},{\"id\":\"be1f316b-982c-46e0-93ec-ec9cfb63dfe9\",\"level_id\":\"b40f9c3c-8be3-416f-ba4e-14a61e1a9b09\",\"level_code\":\"SD\",\"level_name\":\"Sekolah Dasar\",\"name\":\"IPAS\",\"code\":\"IPAS\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:26.101403+07:00\",\"updated_at\":\"2026-08-07T21:16:26.101403+07:00\"},{\"id\":\"02bafb79-41b5-4cd1-9172-328044e9c0cd\",\"level_id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"level_code\":\"SMP\",\"level_name\":\"Sekolah Menengah Pertama\",\"name\":\"Bahasa Indonesia SMP\",\"code\":\"bind-smp\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:34.383749+07:00\",\"updated_at\":\"2026-08-07T21:16:34.383749+07:00\"},{\"id\":\"05f880bf-968d-40c5-8527-eb378af06d68\",\"level_id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"level_code\":\"SMP\",\"level_name\":\"Sekolah Menengah Pertama\",\"name\":\"Matematika SMP\",\"code\":\"mtk-smp\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:41.703079+07:00\",\"updated_at\":\"2026-08-07T21:16:41.703079+07:00\"},{\"id\":\"30ed8fdb-2943-49be-9dc8-5b88692ce548\",\"level_id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"level_code\":\"SMP\",\"level_name\":\"Sekolah Menengah Pertama\",\"name\":\"Bahasa Inggris SMP\",\"code\":\"bing-smp\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:37.094775+07:00\",\"updated_at\":\"2026-08-07T21:16:37.094775+07:00\"},{\"id\":\"769647a2-fdd9-434a-a7c8-ff0dfb0ac6c1\",\"level_id\":\"487c6acf-23f1-458a-89a8-fc5ce55048c6\",\"level_code\":\"SMP\",\"level_name\":\"Sekolah Menengah Pertama\",\"name\":\"IPA SMP\",\"code\":\"ipa-smp\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:39.300993+07:00\",\"updated_at\":\"2026-08-07T21:16:39.300993+07:00\"},{\"id\":\"68e3801e-3066-4db4-bf02-72a4d164d4d3\",\"level_id\":\"84098837-84ac-4c83-803c-7784a84cdfbf\",\"level_code\":\"SMA\",\"level_name\":\"Sekolah Menengah Atas\",\"name\":\"Bahasa Indonesia SMA\",\"code\":\"bind-sma\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:43.834135+07:00\",\"updated_at\":\"2026-08-07T21:16:43.834135+07:00\"},{\"id\":\"d2c7bb12-93db-4428-9950-bbe7c4e8d305\",\"level_id\":\"84098837-84ac-4c83-803c-7784a84cdfbf\",\"level_code\":\"SMA\",\"level_name\":\"Sekolah Menengah Atas\",\"name\":\"Bahasa Inggris SMA\",\"code\":\"bing-sma\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:45.843101+07:00\",\"updated_at\":\"2026-08-07T21:16:45.843101+07:00\"},{\"id\":\"f305acc4-9807-490f-9be9-0b5c5b31b848\",\"level_id\":\"84098837-84ac-4c83-803c-7784a84cdfbf\",\"level_code\":\"SMA\",\"level_name\":\"Sekolah Menengah Atas\",\"name\":\"Matematika SMA\",\"code\":\"mtk-sma\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-07T21:16:47.867094+07:00\",\"updated_at\":\"2026-08-07T21:16:47.867094+07:00\"},{\"id\":\"3f7f96ac-e40b-44ef-9b18-46d92ce02494\",\"level_id\":\"00000000-0000-0000-0000-000000000000\",\"name\":\"Mapel Uji\",\"code\":\"MPL_UJI_538de8\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T17:38:54.723528+07:00\",\"updated_at\":\"2026-08-06T17:38:54.723528+07:00\"},{\"id\":\"4ab2e641-394d-42bf-a2ce-7599dbecf8b3\",\"level_id\":\"00000000-0000-0000-0000-000000000000\",\"name\":\"Mapel Uji\",\"code\":\"MPL_UJI_80d2eb\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T17:37:19.662238+07:00\",\"updated_at\":\"2026-08-06T17:37:19.662238+07:00\"},{\"id\":\"a331e5fc-1f6c-4035-9947-47f66e99ffee\",\"level_id\":\"00000000-0000-0000-0000-000000000000\",\"name\":\"Mapel Uji\",\"code\":\"MPL_UJI_ef8b59\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T14:26:45.736615+07:00\",\"updated_at\":\"2026-08-06T14:26:45.736615+07:00\"},{\"id\":\"dc4cfdff-2538-4058-a71b-2d1eb1b0863f\",\"level_id\":\"00000000-0000-0000-0000-000000000000\",\"name\":\"Mapel Uji\",\"code\":\"MPL_UJI_b1373c\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T14:16:33.38252+07:00\",\"updated_at\":\"2026-08-06T14:16:33.38252+07:00\"},{\"id\":\"e9890c85-ef72-4660-bedf-092a07d0bf4e\",\"level_id\":\"00000000-0000-0000-0000-000000000000\",\"name\":\"Mapel Uji\",\"code\":\"MPL_UJI_f6c16b\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T17:39:58.187763+07:00\",\"updated_at\":\"2026-08-06T17:39:58.187763+07:00\"}]}"
   },
@@ -99,7 +99,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 76612500,
+    "latency_ms": 69655300,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"49240f90-07ad-4aa4-8e99-c1572ffe6c62\",\"name\":\"Default Curriculum\",\"code\":\"DEFAULT\",\"description\":\"\",\"is_active\":true,\"display_order\":0,\"created_at\":\"2026-08-06T14:16:33.520506+07:00\",\"updated_at\":\"2026-08-06T14:16:33.520506+07:00\"}]}"
   },
@@ -112,7 +112,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 78621500,
+    "latency_ms": 82677900,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Subject not found\",\"error_code\":\"NOT_FOUND\"}"
   },
@@ -125,7 +125,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 1710915800,
+    "latency_ms": 1532953500,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Keliling sebuah persegi panjang dengan panjang 12 cm dan lebar 8 cm adalah ...\",\"image_url\":\"\",\"difficulty\":\"EASY\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Keliling = 2 × (p+l) = 2 × (12+8) = 2 × 20 = 40 cm.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:57.592257+07:00\",\"created_at\":\"2026-08-08T22:16:39.105115+07:00\",\"updated_at\":\"2026-08-08T22:27:57.592257+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"72e61893-dd22-47d1-8829-949ffd8117aa\",\"question_id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"label\":\"A\",\"content\":\"20 cm\",\"is_correct\":false,\"display_order\":0},{\"id\":\"58deed44-e2c2-487b-8ad2-f13b939d9565\",\"question_id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"label\":\"B\",\"content\":\"32 cm\",\"is_correct\":false,\"display_order\":1},{\"id\":\"a31b0021-1988-472b-a432-ead84328a743\",\"question_id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"label\":\"C\",\"content\":\"40 cm\",\"is_correct\":true,\"display_order\":2},{\"id\":\"b95fddef-86d5-40de-aa39-5ca8fec0393d\",\"question_id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"label\":\"D\",\"content\":\"48 cm\",\"is_correct\":false,\"display_order\":3},{\"id\":\"ded7b9a2-9813-42e2-b0aa-942c3943ac92\",\"question_id\":\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"label\":\"E\",\"content\":\"96 cm\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Keliling sebuah persegi panjang dengan panjang 12 cm dan lebar 8 cm adalah ...\"}]},{\"id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Dua buah dadu dilempar bersamaan. Peluang munculnya jumlah mata dadu sama dengan 8 adalah ...\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Ruang sampel = 36. Pasangan mata dadu berjumlah 8: (2,6),(3,5),(4,4),(5,3),(6,2) = 5 kejadian. Peluang = 5/36.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:58.24621+07:00\",\"created_at\":\"2026-08-08T22:16:38.036745+07:00\",\"updated_at\":\"2026-08-08T22:27:58.24621+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"af8830f1-885f-4939-8170-643811f0dde0\",\"question_id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"label\":\"A\",\"content\":\"1/9\",\"is_correct\":false,\"display_order\":0},{\"id\":\"d8382ef6-1228-4627-95fa-3d456be0fa30\",\"question_id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"label\":\"B\",\"content\":\"5/36\",\"is_correct\":true,\"display_order\":1},{\"id\":\"cd37c8f4-f4cd-4823-8f52-4b41e36cea12\",\"question_id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"label\":\"C\",\"content\":\"1/6\",\"is_correct\":false,\"display_order\":2},{\"id\":\"ee922600-fde9-407d-9f1f-29430d91e1b1\",\"question_id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"label\":\"D\",\"content\":\"7/36\",\"is_correct\":false,\"display_order\":3},{\"id\":\"e1119480-f1b9-44b2-9f34-b0245957c74c\",\"question_id\":\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"label\":\"E\",\"content\":\"1/4\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Dua buah dadu dilempar bersamaan. Peluang munculnya jumlah mata dadu sama dengan 8 adalah ...\"}]},{\"id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Perhatikan data: 4, 6, 6, 8, 10. Manakah pernyataan berikut yang BENAR? (pilih semua yang benar)\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"MULTIPLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Data terurut: 4,6,6,8,10. Modus=6 (paling sering muncul), Median=6 (nilai tengah), Mean=34/5=6,8, dan Range=10−4=6 (bukan 4), sehingga pernyataan D salah dan C salah.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:58.66746+07:00\",\"created_at\":\"2026-08-08T22:16:36.83538+07:00\",\"updated_at\":\"2026-08-08T22:27:58.66746+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"4dcada44-6d12-4ece-ba32-79e4fb60350a\",\"question_id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"label\":\"A\",\"content\":\"Modus data adalah 6\",\"is_correct\":true,\"display_order\":0},{\"id\":\"f9afb906-4054-48e7-b759-0908bbcf9665\",\"question_id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"label\":\"B\",\"content\":\"Median data adalah 6\",\"is_correct\":true,\"display_order\":1},{\"id\":\"e3b4faa4-5503-4695-8a73-0d28830111e3\",\"question_id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"label\":\"C\",\"content\":\"Mean data adalah 7\",\"is_correct\":false,\"display_order\":2},{\"id\":\"55783c78-ba1f-4a53-bfa8-db61471c7970\",\"question_id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"label\":\"D\",\"content\":\"Range data adalah 4\",\"is_correct\":false,\"display_order\":3},{\"id\":\"07041c55-c5ed-4d06-9cfc-49397b75f151\",\"question_id\":\"10232455-33fa-471d-90b5-302f372c1c04\",\"label\":\"E\",\"content\":\"Mean data adalah 6,8\",\"is_correct\":true,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Perhatikan data: 4, 6, 6, 8, 10. Manakah pernyataan berikut yang BENAR? (pilih semua yang benar)\"}]},{\"id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Data nilai ujian: 70, 75, 80, 85, 90. Rata-rata (mean) dari data tersebut adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Rata-rata = (70+75+80+85+90)/5 = 400/5 = 80.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:59.087906+07:00\",\"created_at\":\"2026-08-08T22:16:35.729987+07:00\",\"updated_at\":\"2026-08-08T22:27:59.087906+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"5f66859e-6d40-4f08-b35a-0b835404ef97\",\"question_id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"label\":\"A\",\"content\":\"75\",\"is_correct\":false,\"display_order\":0},{\"id\":\"999f5eaa-cbb0-4960-99a5-d6d6257fc60e\",\"question_id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"label\":\"B\",\"content\":\"78\",\"is_correct\":false,\"display_order\":1},{\"id\":\"709ed147-6a7e-48e7-b7b1-733f54d35c5f\",\"question_id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"label\":\"C\",\"content\":\"80\",\"is_correct\":true,\"display_order\":2},{\"id\":\"5f803126-635d-442f-b9aa-91a0d2b9d8ff\",\"question_id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"label\":\"D\",\"content\":\"82\",\"is_correct\":false,\"display_order\":3},{\"id\":\"222c8242-0068-4e26-a388-7fbea2c86379\",\"question_id\":\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"label\":\"E\",\"content\":\"85\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Data nilai ujian: 70, 75, 80, 85, 90. Rata-rata (mean) dari data tersebut adalah ...\"}]},{\"id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Hasil dari ∫(4x³ − 2x + 1) dx adalah ...\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"∫4x³ dx = x⁴, ∫−2x dx = −x², ∫1 dx = x. Totalnya x⁴ − x² + x + C.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:59.510371+07:00\",\"created_at\":\"2026-08-08T22:16:34.638253+07:00\",\"updated_at\":\"2026-08-08T22:27:59.510371+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"db503dae-13f5-4096-a9ed-20193139a798\",\"question_id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"label\":\"A\",\"content\":\"x⁴ − x² + x + C\",\"is_correct\":true,\"display_order\":0},{\"id\":\"a63fa6ce-73d9-4f91-bb1a-f5bddc400e49\",\"question_id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"label\":\"B\",\"content\":\"4x⁴ − x² + x + C\",\"is_correct\":false,\"display_order\":1},{\"id\":\"06a6cda5-d34c-4401-bc62-3b50d6f5fb5b\",\"question_id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"label\":\"C\",\"content\":\"x⁴ − 2x² + x + C\",\"is_correct\":false,\"display_order\":2},{\"id\":\"f6efc07b-8935-4033-8f52-22d8018ed6b4\",\"question_id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"label\":\"D\",\"content\":\"x⁴ − x² + C\",\"is_correct\":false,\"display_order\":3},{\"id\":\"3acf1ff4-bc7a-449d-a399-bfb5c604b4e6\",\"question_id\":\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"label\":\"E\",\"content\":\"4x⁴ − 2x² + x + C\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Hasil dari ∫(4x³ − 2x + 1) dx adalah ...\"}]},{\"id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Fungsi f(x) = x³ − 3x² − 9x + 5 memiliki titik stasioner pada x = ...\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"f'(x) = 3x²−6x−9 = 3(x²−2x−3) = 3(x−3)(x+1). f'(x)=0 → x=3 atau x=−1.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:27:59.931478+07:00\",\"created_at\":\"2026-08-08T22:16:33.474641+07:00\",\"updated_at\":\"2026-08-08T22:27:59.931478+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"768e2c43-1e42-4318-b36a-88a59ff88416\",\"question_id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"label\":\"A\",\"content\":\"-1 atau 3\",\"is_correct\":true,\"display_order\":0},{\"id\":\"a454ee53-f63d-45b7-85b2-30bbcd852411\",\"question_id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"label\":\"B\",\"content\":\"1 atau -3\",\"is_correct\":false,\"display_order\":1},{\"id\":\"42f50776-c8ec-410b-9e55-e2c76b481295\",\"question_id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"label\":\"C\",\"content\":\"-3 atau 1\",\"is_correct\":false,\"display_order\":2},{\"id\":\"9fae057d-da5b-4189-98cc-830bdafcb555\",\"question_id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"label\":\"D\",\"content\":\"3 atau 9\",\"is_correct\":false,\"display_order\":3},{\"id\":\"28654935-0bbb-4290-9628-eeba335fc493\",\"question_id\":\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"label\":\"E\",\"content\":\"-9 atau 1\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Fungsi f(x) = x³ − 3x² − 9x + 5 memiliki titik stasioner pada x = ...\"}]},{\"id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Turunan pertama dari f(x) = 3x² − 5x + 2 adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Gunakan aturan pangkat: d/dx(3x²)=6x, d/dx(−5x)=−5, d/dx(2)=0, sehingga f'(x) = 6x − 5.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:00.354261+07:00\",\"created_at\":\"2026-08-08T22:16:32.234471+07:00\",\"updated_at\":\"2026-08-08T22:28:00.354261+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"e6378b92-f7a3-4749-9622-2574c86ffa5b\",\"question_id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"label\":\"A\",\"content\":\"6x − 5\",\"is_correct\":true,\"display_order\":0},{\"id\":\"f127c559-fb60-4d1e-8a9c-a072831d1d65\",\"question_id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"label\":\"B\",\"content\":\"3x − 5\",\"is_correct\":false,\"display_order\":1},{\"id\":\"ee9f27be-31eb-4d89-981a-de8278d29c5e\",\"question_id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"label\":\"C\",\"content\":\"6x + 5\",\"is_correct\":false,\"display_order\":2},{\"id\":\"fde43ef8-24b9-41a3-900f-29a2e90a5d37\",\"question_id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"label\":\"D\",\"content\":\"3x² − 5\",\"is_correct\":false,\"display_order\":3},{\"id\":\"0d8e4798-1fa8-4a1d-b6b0-f4e53e44309b\",\"question_id\":\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"label\":\"E\",\"content\":\"6x\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Turunan pertama dari f(x) = 3x² − 5x + 2 adalah ...\"}]},{\"id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Nilai dari lim x→2 (x²−4)/(x−2) adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Faktorkan pembilang: x²−4 = (x−2)(x+2). Setelah faktor (x−2) dicoret, limit menjadi x+2, sehingga saat x=2 hasilnya 4.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:00.776665+07:00\",\"created_at\":\"2026-08-08T22:16:31.171408+07:00\",\"updated_at\":\"2026-08-08T22:28:00.776665+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"4305a9ba-4581-45be-9989-f9cd4bdb07a4\",\"question_id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"label\":\"A\",\"content\":\"0\",\"is_correct\":false,\"display_order\":0},{\"id\":\"04a9ad81-1fa0-46f5-9399-3b1e2c47d7b0\",\"question_id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"label\":\"B\",\"content\":\"2\",\"is_correct\":false,\"display_order\":1},{\"id\":\"8413633d-ff44-46c6-b4df-a8c4150bbf4e\",\"question_id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"label\":\"C\",\"content\":\"4\",\"is_correct\":true,\"display_order\":2},{\"id\":\"d82ef059-d910-44e1-bd38-50d59ff36deb\",\"question_id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"label\":\"D\",\"content\":\"6\",\"is_correct\":false,\"display_order\":3},{\"id\":\"f0a960a1-9e74-48e9-9937-784302c3bf9f\",\"question_id\":\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"label\":\"E\",\"content\":\"tak terdefinisi\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Nilai dari lim x→2 (x²−4)/(x−2) adalah ...\"}]},{\"id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Besar (panjang) vektor a = (6, 8) adalah ...\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"|a| = √(6²+8²) = √(36+64) = √100 = 10.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:01.201078+07:00\",\"created_at\":\"2026-08-08T22:16:29.916448+07:00\",\"updated_at\":\"2026-08-08T22:28:01.201078+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"d6c47aba-f2d4-4274-97c7-5e9985ca816a\",\"question_id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"label\":\"A\",\"content\":\"8\",\"is_correct\":false,\"display_order\":0},{\"id\":\"444060aa-2ab3-4f95-b2a1-7c71a99455df\",\"question_id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"label\":\"B\",\"content\":\"9\",\"is_correct\":false,\"display_order\":1},{\"id\":\"a9c3bfb8-c7eb-4327-9861-970e030bf94f\",\"question_id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"label\":\"C\",\"content\":\"10\",\"is_correct\":true,\"display_order\":2},{\"id\":\"f102dd8c-4744-442a-adfe-490cfa9d5cf3\",\"question_id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"label\":\"D\",\"content\":\"12\",\"is_correct\":false,\"display_order\":3},{\"id\":\"e71130b8-94fb-4593-b9b8-b3652c7b0fc8\",\"question_id\":\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"label\":\"E\",\"content\":\"14\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Besar (panjang) vektor a = (6, 8) adalah ...\"}]},{\"id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Diketahui vektor a = (3, 4) dan b = (1, 2). Hasil dari a·b (perkalian titik/dot product) adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"a·b = (3×1) + (4×2) = 3 + 8 = 11.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:01.621106+07:00\",\"created_at\":\"2026-08-08T22:16:28.841692+07:00\",\"updated_at\":\"2026-08-08T22:28:01.621106+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"b5f2de4e-7311-48b4-b11f-f9241ff55d66\",\"question_id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"label\":\"A\",\"content\":\"7\",\"is_correct\":false,\"display_order\":0},{\"id\":\"dbfcbb5d-4201-4474-a06e-fcdc57d0c5f8\",\"question_id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"label\":\"B\",\"content\":\"9\",\"is_correct\":false,\"display_order\":1},{\"id\":\"1e8c857b-57e7-428e-bebd-ea0ab4cca25b\",\"question_id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"label\":\"C\",\"content\":\"11\",\"is_correct\":true,\"display_order\":2},{\"id\":\"0a519c9c-cdc9-48d2-9b10-2a8aa242ebfe\",\"question_id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"label\":\"D\",\"content\":\"13\",\"is_correct\":false,\"display_order\":3},{\"id\":\"a32f6779-a6dc-4772-b943-3eb84056c23d\",\"question_id\":\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"label\":\"E\",\"content\":\"15\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Diketahui vektor a = (3, 4) dan b = (1, 2). Hasil dari a·b (perkalian titik/dot product) adalah ...\"}]},{\"id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Diketahui matriks A = [[2, 1], [3, 4]]. Determinan matriks A adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"det(A) = ad − bc = (2×4) − (1×3) = 8 − 3 = 5.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:02.042051+07:00\",\"created_at\":\"2026-08-08T22:16:27.731379+07:00\",\"updated_at\":\"2026-08-08T22:28:02.042051+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"0a50b71b-d830-48d2-9eb4-fa12814af603\",\"question_id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"label\":\"A\",\"content\":\"3\",\"is_correct\":false,\"display_order\":0},{\"id\":\"d91a4b4c-7ae1-4336-b09a-1b447f18eae8\",\"question_id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"label\":\"B\",\"content\":\"5\",\"is_correct\":true,\"display_order\":1},{\"id\":\"a9b3b327-1d39-4565-97f2-391e0239a856\",\"question_id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"label\":\"C\",\"content\":\"7\",\"is_correct\":false,\"display_order\":2},{\"id\":\"ed8ab85e-9fc6-40b5-a76b-97a1f0668715\",\"question_id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"label\":\"D\",\"content\":\"9\",\"is_correct\":false,\"display_order\":3},{\"id\":\"f2d03265-b648-4440-83fd-514408cac08d\",\"question_id\":\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"label\":\"E\",\"content\":\"11\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Diketahui matriks A = [[2, 1], [3, 4]]. Determinan matriks A adalah ...\"}]},{\"id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Jumlah 6 suku pertama dari deret geometri 2, 6, 18, ... adalah ...\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Sn = a(rⁿ−1)/(r−1) dengan a=2, r=3, n=6: S6 = 2(3⁶−1)/(3−1) = 2(729−1)/2 = 728.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:02.46803+07:00\",\"created_at\":\"2026-08-08T22:16:26.656039+07:00\",\"updated_at\":\"2026-08-08T22:28:02.46803+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"08cfd526-59d2-4ebf-bd7d-96acd0bab02f\",\"question_id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"label\":\"A\",\"content\":\"720\",\"is_correct\":false,\"display_order\":0},{\"id\":\"e6293920-83bf-44f4-8f50-a4c3561f1736\",\"question_id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"label\":\"B\",\"content\":\"724\",\"is_correct\":false,\"display_order\":1},{\"id\":\"ab03e574-bda5-46a7-bba6-375fedaaab80\",\"question_id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"label\":\"C\",\"content\":\"726\",\"is_correct\":false,\"display_order\":2},{\"id\":\"ed97bd8d-b20d-4678-8409-a045fba075e2\",\"question_id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"label\":\"D\",\"content\":\"728\",\"is_correct\":true,\"display_order\":3},{\"id\":\"0e0003a9-78ca-4ffd-ab4b-123a9a5f3bba\",\"question_id\":\"9741647c-465e-4712-92c8-5de2853c046d\",\"label\":\"E\",\"content\":\"730\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Jumlah 6 suku pertama dari deret geometri 2, 6, 18, ... adalah ...\"}]},{\"id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Suku ke-10 dari barisan aritmetika 3, 7, 11, 15, ... adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Un = a + (n−1)b = 3 + (10−1)×4 = 3 + 36 = 39.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:02.889617+07:00\",\"created_at\":\"2026-08-08T22:16:25.586526+07:00\",\"updated_at\":\"2026-08-08T22:28:02.889617+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"9eaca528-8200-4914-b5be-2357045de7d9\",\"question_id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"label\":\"A\",\"content\":\"35\",\"is_correct\":false,\"display_order\":0},{\"id\":\"6dedfe91-6de6-4431-b1ef-0d09462a2956\",\"question_id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"label\":\"B\",\"content\":\"37\",\"is_correct\":false,\"display_order\":1},{\"id\":\"f71ed8eb-28bb-4e34-8bab-c10e7c6b0c0a\",\"question_id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"label\":\"C\",\"content\":\"39\",\"is_correct\":true,\"display_order\":2},{\"id\":\"3a23320d-370c-44a2-99a9-3259de473307\",\"question_id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"label\":\"D\",\"content\":\"41\",\"is_correct\":false,\"display_order\":3},{\"id\":\"92b9e046-ecd7-4670-9009-d0db2b983826\",\"question_id\":\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"label\":\"E\",\"content\":\"43\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Suku ke-10 dari barisan aritmetika 3, 7, 11, 15, ... adalah ...\"}]},{\"id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Nilai x yang memenuhi persamaan 2 sin x = 1 untuk 0° ≤ x ≤ 360° adalah ... (pilih semua yang benar)\",\"image_url\":\"\",\"difficulty\":\"HARD\",\"question_type\":\"MULTIPLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"2 sin x = 1 → sin x = 1/2. Pada rentang 0°–360°, sin x = 1/2 dipenuhi di kuadran I (30°) dan kuadran II (150°).\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:03.311611+07:00\",\"created_at\":\"2026-08-08T22:16:24.506534+07:00\",\"updated_at\":\"2026-08-08T22:28:03.311611+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"f92b83b2-451d-4a35-9448-a66be5b44c16\",\"question_id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"label\":\"A\",\"content\":\"30°\",\"is_correct\":true,\"display_order\":0},{\"id\":\"996e8fc4-b3b3-45ce-9df7-2b64d206de3c\",\"question_id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"label\":\"B\",\"content\":\"60°\",\"is_correct\":false,\"display_order\":1},{\"id\":\"e948d113-7643-4d78-9698-242a6efabe51\",\"question_id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"label\":\"C\",\"content\":\"150°\",\"is_correct\":true,\"display_order\":2},{\"id\":\"2ac57e09-f262-4af2-91f4-986faf03937b\",\"question_id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"label\":\"D\",\"content\":\"210°\",\"is_correct\":false,\"display_order\":3},{\"id\":\"9c3cbde9-b64c-42d2-9456-2f8053997ede\",\"question_id\":\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"label\":\"E\",\"content\":\"330°\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Nilai x yang memenuhi persamaan 2 sin x = 1 untuk 0° ≤ x ≤ 360° adalah ... (pilih semua yang benar)\"}]},{\"id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Jika sin x = 3/5 dan x adalah sudut lancip, maka nilai cos x adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Gunakan identitas sin²x + cos²x = 1: cos x = √(1 − 9/25) = √(16/25) = 4/5.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:03.731692+07:00\",\"created_at\":\"2026-08-08T22:16:23.419625+07:00\",\"updated_at\":\"2026-08-08T22:28:03.731692+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"f75786d1-cd94-4c68-a855-8d750320696e\",\"question_id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"label\":\"A\",\"content\":\"3/5\",\"is_correct\":false,\"display_order\":0},{\"id\":\"734be4ca-20d7-40ee-99d3-3921d0ddf1a6\",\"question_id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"label\":\"B\",\"content\":\"4/5\",\"is_correct\":true,\"display_order\":1},{\"id\":\"17133b7f-aebb-4ba4-8751-b223d15c0036\",\"question_id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"label\":\"C\",\"content\":\"5/4\",\"is_correct\":false,\"display_order\":2},{\"id\":\"28c9018f-aaa9-4256-80b9-52813579fe0f\",\"question_id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"label\":\"D\",\"content\":\"5/3\",\"is_correct\":false,\"display_order\":3},{\"id\":\"06e9a724-c950-4fb5-a14a-dc5c985a84bf\",\"question_id\":\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"label\":\"E\",\"content\":\"3/4\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Jika sin x = 3/5 dan x adalah sudut lancip, maka nilai cos x adalah ...\"}]},{\"id\":\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Tentukan apakah setiap pernyataan mengenai nilai trigonometri sudut istimewa berikut BENAR atau SALAH:\",\"image_url\":\"\",\"difficulty\":\"EASY\",\"question_type\":\"TRUE_FALSE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"sin 30° = 1/2 (benar), cos 60° = 1/2 (benar), tan 45° = 1 (benar). sin 90° = 1, bukan 0, sehingga pernyataan D salah.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:04.151014+07:00\",\"created_at\":\"2026-08-08T22:16:22.404391+07:00\",\"updated_at\":\"2026-08-08T22:28:04.151014+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"e54f391a-04a3-4471-8668-c71ed0960f59\",\"question_id\":\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"label\":\"A\",\"content\":\"sin 30° = 1/2\",\"is_correct\":true,\"display_order\":0},{\"id\":\"6f89647a-fd59-4a0c-a21e-af23a300be5b\",\"question_id\":\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"label\":\"B\",\"content\":\"cos 60° = 1/2\",\"is_correct\":true,\"display_order\":1},{\"id\":\"57fccf6c-7545-4e6f-a801-29a9ef3b3c53\",\"question_id\":\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"label\":\"C\",\"content\":\"tan 45° = 1\",\"is_correct\":true,\"display_order\":2},{\"id\":\"1e2810e4-145f-420a-8c4e-b60a93d3d487\",\"question_id\":\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"label\":\"D\",\"content\":\"sin 90° = 0\",\"is_correct\":true,\"display_order\":3}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Tentukan apakah setiap pernyataan mengenai nilai trigonometri sudut istimewa berikut BENAR atau SALAH:\"}]},{\"id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Nilai dari ²log 8 + ²log 4 adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"²log 8 = 3 dan ²log 4 = 2, sehingga jumlahnya 5. Cara lain: ²log(8×4) = ²log 32 = 5.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:04.572143+07:00\",\"created_at\":\"2026-08-08T22:16:21.320437+07:00\",\"updated_at\":\"2026-08-08T22:28:04.572143+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"9d22182e-c944-4f9d-8d18-20ac5992ef92\",\"question_id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"label\":\"A\",\"content\":\"3\",\"is_correct\":false,\"display_order\":0},{\"id\":\"c6f44e7a-2f6e-44cc-bc27-f7d6f2b8ea30\",\"question_id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"label\":\"B\",\"content\":\"4\",\"is_correct\":false,\"display_order\":1},{\"id\":\"3a787091-fad3-4e7e-ae3d-3e8ac1bd691a\",\"question_id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"label\":\"C\",\"content\":\"5\",\"is_correct\":true,\"display_order\":2},{\"id\":\"8be91670-1e0a-4525-b16e-74a9746bd940\",\"question_id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"label\":\"D\",\"content\":\"6\",\"is_correct\":false,\"display_order\":3},{\"id\":\"1fe725aa-3429-440a-a22a-f9ae718493d5\",\"question_id\":\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"label\":\"E\",\"content\":\"7\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Nilai dari ²log 8 + ²log 4 adalah ...\"}]},{\"id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Bentuk sederhana dari 2⁵ × 2³ adalah ...\",\"image_url\":\"\",\"difficulty\":\"EASY\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"2⁵ × 2³ = 2⁵⁺³ = 2⁸ = 256.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:04.991677+07:00\",\"created_at\":\"2026-08-08T22:16:20.243683+07:00\",\"updated_at\":\"2026-08-08T22:28:04.991677+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"4b4108a7-b3b1-4257-9923-e98c5022f498\",\"question_id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"label\":\"A\",\"content\":\"256\",\"is_correct\":true,\"display_order\":0},{\"id\":\"09fbed5f-23df-42b5-aa50-c4902fe2d80a\",\"question_id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"label\":\"B\",\"content\":\"64\",\"is_correct\":false,\"display_order\":1},{\"id\":\"a2601768-097b-431d-b617-e42189967be0\",\"question_id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"label\":\"C\",\"content\":\"16\",\"is_correct\":false,\"display_order\":2},{\"id\":\"a200d2a8-6391-4736-85a6-5377b6ea7eb9\",\"question_id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"label\":\"D\",\"content\":\"128\",\"is_correct\":false,\"display_order\":3},{\"id\":\"49a2d0e0-5953-49b8-8fe8-034d0775a007\",\"question_id\":\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"label\":\"E\",\"content\":\"32\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Bentuk sederhana dari 2⁵ × 2³ adalah ...\"}]},{\"id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Nilai maksimum dari fungsi f(x) = −x² + 4x + 5 adalah ...\",\"image_url\":\"\",\"difficulty\":\"MEDIUM\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Absis titik puncak x = −b/2a = −4/(2×−1) = 2. Nilai maksimum f(2) = −4+8+5 = 9.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:05.418569+07:00\",\"created_at\":\"2026-08-08T22:16:19.162793+07:00\",\"updated_at\":\"2026-08-08T22:28:05.418569+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"6e888733-4a78-4f55-904e-710f99da248f\",\"question_id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"label\":\"A\",\"content\":\"5\",\"is_correct\":false,\"display_order\":0},{\"id\":\"613a20d0-9b5a-4722-8007-dab5e8467e73\",\"question_id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"label\":\"B\",\"content\":\"7\",\"is_correct\":false,\"display_order\":1},{\"id\":\"b29193b8-84b5-4b86-9e3c-ca4842134461\",\"question_id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"label\":\"C\",\"content\":\"9\",\"is_correct\":true,\"display_order\":2},{\"id\":\"2cc7215e-823e-4ffc-953d-b2c10d0b5db5\",\"question_id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"label\":\"D\",\"content\":\"11\",\"is_correct\":false,\"display_order\":3},{\"id\":\"34eda994-d56b-4bad-b81b-962c9901b44a\",\"question_id\":\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"label\":\"E\",\"content\":\"13\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Nilai maksimum dari fungsi f(x) = −x² + 4x + 5 adalah ...\"}]},{\"id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"content\":\"Akar-akar dari persamaan kuadrat x² − 5x + 6 = 0 adalah ...\",\"image_url\":\"\",\"difficulty\":\"EASY\",\"question_type\":\"SINGLE_CHOICE\",\"language\":\"id\",\"score\":1,\"negative_score\":0,\"explanation\":\"Faktorkan x²−5x+6 = (x−2)(x−3) = 0, sehingga diperoleh x = 2 atau x = 3.\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"published_at\":\"2026-08-08T22:28:05.837299+07:00\",\"created_at\":\"2026-08-08T22:16:17.379399+07:00\",\"updated_at\":\"2026-08-08T22:28:05.837299+07:00\",\"subject_name\":\"Matematika\",\"options\":[{\"id\":\"34bc211f-ae74-401d-9aad-a10adac4feb1\",\"question_id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"label\":\"A\",\"content\":\"2 dan 3\",\"is_correct\":true,\"display_order\":0},{\"id\":\"09aa5d26-b0dd-4522-88ce-97aad739b627\",\"question_id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"label\":\"B\",\"content\":\"1 dan 6\",\"is_correct\":false,\"display_order\":1},{\"id\":\"56bb282a-d94f-47bc-a0dc-24ec7b72e5f7\",\"question_id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"label\":\"C\",\"content\":\"-2 dan -3\",\"is_correct\":false,\"display_order\":2},{\"id\":\"bd7096fd-a199-4c77-942c-2399a41dc2be\",\"question_id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"label\":\"D\",\"content\":\"2 dan -3\",\"is_correct\":false,\"display_order\":3},{\"id\":\"122c7749-d4d4-4cad-b762-7c9479ff7b04\",\"question_id\":\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"label\":\"E\",\"content\":\"-2 dan 3\",\"is_correct\":false,\"display_order\":4}],\"blocks\":[{\"block_type\":\"PARAGRAPH\",\"content\":\"Akar-akar dari persamaan kuadrat x² − 5x + 6 = 0 adalah ...\"}]}],\"meta\":{\"page\":1,\"limit\":20,\"total\":23,\"total_pages\":2,\"has_next\":true,\"has_previous\":false}}"
   },
@@ -135,12 +135,12 @@
     "method": "GET",
     "path": "/questions/export",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 400,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 1664546500,
-    "message": "OK",
-    "response_body": "content,difficulty,subject_id,chapter_id,explanation\n\"Keliling sebuah persegi panjang dengan panjang 12 cm dan lebar 8 cm adalah ...\",EASY,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Keliling = 2 × (p+l) = 2 × (12+8) = 2 × 20 = 40 cm.\"\n\"Dua buah dadu dilempar bersamaan. Peluang munculnya jumlah mata dadu sama dengan 8 adalah ...\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Ruang sampel = 36. Pasangan mata dadu berjumlah 8: (2,6),(3,5),(4,4),(5,3),(6,2) = 5 kejadian. Peluang = 5/36.\"\n\"Perhatikan data: 4, 6, 6, 8, 10. Manakah pernyataan berikut yang BENAR? (pilih semua yang benar)\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Data terurut: 4,6,6,8,10. Modus=6 (paling sering muncul), Median=6 (nilai tengah), Mean=34/5=6,8, dan Range=10−4=6 (bukan 4), sehingga pernyataan D salah dan C salah.\"\n\"Data nilai ujian: 70, 75, 80, 85, 90. Rata-rata (mean) dari data tersebut adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Rata-rata = (70+75+80+85+90)/5 = 400/5 = 80.\"\n\"Hasil dari ∫(4x³ − 2x + 1) dx adalah ...\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"∫4x³ dx = x⁴, ∫−2x dx = −x², ∫1 dx = x. Totalnya x⁴ − x² + x + C.\"\n\"Fungsi f(x) = x³ − 3x² − 9x + 5 memiliki titik stasioner pada x = ...\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"f'(x) = 3x²−6x−9 = 3(x²−2x−3) = 3(x−3)(x+1). f'(x)=0 → x=3 atau x=−1.\"\n\"Turunan pertama dari f(x) = 3x² − 5x + 2 adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Gunakan aturan pangkat: d/dx(3x²)=6x, d/dx(−5x)=−5, d/dx(2)=0, sehingga f'(x) = 6x − 5.\"\n\"Nilai dari lim x→2 (x²−4)/(x−2) adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Faktorkan pembilang: x²−4 = (x−2)(x+2). Setelah faktor (x−2) dicoret, limit menjadi x+2, sehingga saat x=2 hasilnya 4.\"\n\"Besar (panjang) vektor a = (6, 8) adalah ...\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"|a| = √(6²+8²) = √(36+64) = √100 = 10.\"\n\"Diketahui vektor a = (3, 4) dan b = (1, 2). Hasil dari a·b (perkalian titik/dot product) adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"a·b = (3×1) + (4×2) = 3 + 8 = 11.\"\n\"Diketahui matriks A = [[2, 1], [3, 4]]. Determinan matriks A adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"det(A) = ad − bc = (2×4) − (1×3) = 8 − 3 = 5.\"\n\"Jumlah 6 suku pertama dari deret geometri 2, 6, 18, ... adalah ...\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Sn = a(rⁿ−1)/(r−1) dengan a=2, r=3, n=6: S6 = 2(3⁶−1)/(3−1) = 2(729−1)/2 = 728.\"\n\"Suku ke-10 dari barisan aritmetika 3, 7, 11, 15, ... adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Un = a + (n−1)b = 3 + (10−1)×4 = 3 + 36 = 39.\"\n\"Nilai x yang memenuhi persamaan 2 sin x = 1 untuk 0° ≤ x ≤ 360° adalah ... (pilih semua yang benar)\",HARD,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"2 sin x = 1 → sin x = 1/2. Pada rentang 0°–360°, sin x = 1/2 dipenuhi di kuadran I (30°) dan kuadran II (150°).\"\n\"Jika sin x = 3/5 dan x adalah sudut lancip, maka nilai cos x adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Gunakan identitas sin²x + cos²x = 1: cos x = √(1 − 9/25) = √(16/25) = 4/5.\"\n\"Tentukan apakah setiap pernyataan mengenai nilai trigonometri sudut istimewa berikut BENAR atau SALAH:\",EASY,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"sin 30° = 1/2 (benar), cos 60° = 1/2 (benar), tan 45° = 1 (benar). sin 90° = 1, bukan 0, sehingga pernyataan D salah.\"\n\"Nilai dari ²log 8 + ²log 4 adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"²log 8 = 3 dan ²log 4 = 2, sehingga jumlahnya 5. Cara lain: ²log(8×4) = ²log 32 = 5.\"\n\"Bentuk sederhana dari 2⁵ × 2³ adalah ...\",EASY,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"2⁵ × 2³ = 2⁵⁺³ = 2⁸ = 256.\"\n\"Nilai maksimum dari fungsi f(x) = −x² + 4x + 5 adalah ...\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Absis titik puncak x = −b/2a = −4/(2×−1) = 2. Nilai maksimum f(2) = −4+8+5 = 9.\"\n\"Akar-akar dari persamaan kuadrat x² − 5x + 6 = 0 adalah ...\",EASY,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Faktorkan x²−5x+6 = (x−2)(x−3) = 0, sehingga diperoleh x = 2 atau x = 3.\"\n\"Perhatikan grafik fungsi kuadrat berikut.\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Grafik memotong sumbu-x di x=-1 dan x=3, sesuai akar dari x²−2x−3=(x+1)(x−3)=0.\"\n\"Perhatikan gambar lingkaran berikut.\",MEDIUM,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"L = πr² = 22/7 × 7² = 22/7 × 49 = 154 cm².\"\n\"Perhatikan gambar segitiga siku-siku berikut.\",EASY,0a180f25-63a5-4602-9e4a-64bf2e99e957,,\"Gunakan teorema Pythagoras: c = √(6²+8²) = √(36+64) = √100 = 10 cm.\"\n"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 400",
+    "response_body": "{\"success\":false,\"message\":\"Invalid question ID\",\"error_code\":\"VALIDATION_ERROR\"}"
   },
   {
     "module": "Question Bank",
@@ -151,7 +151,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 67520000,
+    "latency_ms": 92672700,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Question not found\",\"error_code\":\"NOT_FOUND\"}"
   },
@@ -164,9 +164,9 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 144832800,
+    "latency_ms": 192137600,
     "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"87a5d72d-f795-4192-a2b9-28642d68abd5\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"TEST 2\",\"body\":\"TEST 2\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T02:25:52.846517+07:00\",\"updated_at\":\"2026-08-09T02:25:52.846517+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"TEST 2\",\"duration_minutes\":60,\"passing_score\":50,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UJIAN_HARIAN\",\"default_mode\":\"SANTAI\",\"difficulty\":\"HOTS\",\"grade_level\":\"Sekolah Menengah Pertama\",\"scoring_system\":\"STANDARD_POINTS\",\"subtests\":[{\"duration_minutes\":45,\"id\":\"st-pm\",\"pool_question_ids\":[\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"10232455-33fa-471d-90b5-302f372c1c04\",\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"9741647c-465e-4712-92c8-5de2853c046d\",\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\",\"748bee85-8b17-40b2-b8b2-4d30c02035cc\",\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\"],\"sample_question_count\":10,\"shuffle_options\":true,\"shuffle_questions\":true,\"subtest_name\":\"matematika\"}],\"total_questions\":10}},{\"id\":\"ee9ae561-0ca4-4ec4-8309-d23ad8be9ae0\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"test baru\",\"body\":\"test new\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T01:36:16.154775+07:00\",\"updated_at\":\"2026-08-09T01:36:16.154775+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"test new\",\"duration_minutes\":60,\"passing_score\":75,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"TRYOUT_NASIONAL\",\"default_mode\":\"SANTAI\",\"difficulty\":\"HOTS\",\"grade_level\":\"Sekolah Menengah Pertama\",\"scoring_system\":\"STANDARD_POINTS\",\"subtests\":[{\"duration_minutes\":45,\"id\":\"st-pm\",\"pool_question_ids\":[\"bebc8757-1411-4418-9e4a-4449cfd62819\",\"c5177d84-d596-43b5-9be1-fadae61dd4cb\",\"10232455-33fa-471d-90b5-302f372c1c04\",\"00d33bdc-dccf-47c4-a782-754d57494bf9\",\"88eb8226-2805-4b50-83e6-1a938784fbe9\",\"fa556e2d-73a7-47b1-9910-84ac44b77dad\",\"8fda42a2-793e-4e07-945e-1b8b41621bd7\",\"1ed973ba-51c0-4056-a694-34e761f6b6ef\",\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\",\"be040e89-1d0b-4673-80c0-744d0d317f6c\",\"cd67946f-14fd-4569-aa22-bda5afae3a4b\",\"9741647c-465e-4712-92c8-5de2853c046d\",\"c2f39db4-a708-4b37-a63f-4cd367a76358\",\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\",\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\",\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\",\"79e6ec85-9161-4c3e-8b39-525108c5ce99\",\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\",\"c0687012-63cb-4f99-85e5-2c5f755481f1\",\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\",\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\",\"748bee85-8b17-40b2-b8b2-4d30c02035cc\",\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\"],\"sample_question_count\":10,\"shuffle_options\":true,\"shuffle_questions\":true,\"subtest_name\":\"matematika\"}],\"total_questions\":10}},{\"id\":\"35047277-8d30-4d03-a2d8-2f9c6aee0e07\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"test TTK\",\"body\":\"TET\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T01:23:13.07694+07:00\",\"updated_at\":\"2026-08-09T01:23:13.07694+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"TET\",\"duration_minutes\":100,\"passing_score\":100,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"81ae927d-4082-4291-acba-141056b4382c\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"test TKA\",\"body\":\"test TKA\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T01:18:25.3559+07:00\",\"updated_at\":\"2026-08-09T01:40:26.257188+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"test TKA\",\"duration_minutes\":120,\"passing_score\":600,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"default_mode\":\"SIMULASI\",\"difficulty\":\"MEDIUM\",\"duration_minutes\":120,\"grade_level\":\"12 SMA / UTBK\",\"passing_score\":600,\"scoring_system\":\"STANDARD_POINTS\",\"subtests\":[{\"duration_minutes\":45,\"id\":\"st-1\",\"pool_question_ids\":[],\"sample_question_count\":0,\"shuffle_options\":true,\"shuffle_questions\":true,\"subtest_name\":\"Penalaran Matematika\"},{\"duration_minutes\":45,\"id\":\"st-2\",\"pool_question_ids\":[],\"sample_question_count\":0,\"shuffle_options\":true,\"shuffle_questions\":true,\"subtest_name\":\"Literasi Bahasa Indonesia\"}],\"total_questions\":0}},{\"id\":\"87ca6569-2f0f-4cf2-8ed5-f2f4301d9592\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"TEST TKA\",\"body\":\"test saja\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T22:31:59.001926+07:00\",\"updated_at\":\"2026-08-08T22:32:46.402102+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"test saja\",\"duration_minutes\":120,\"passing_score\":80,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"2d70e1b7-cc19-4771-bc7b-1f7cc04cb1fd\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"TKA\",\"body\":\"Mulai pembuatan ujian dari awal dengan kustomisasi total subtes, durasi, pool soal, dan aturan penilaian.\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T22:03:25.759089+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Mulai pembuatan ujian dari awal dengan kustomisasi total subtes, durasi, pool soal, dan aturan penilaian.\",\"duration_minutes\":90,\"passing_score\":75,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"b4714735-6fc5-4501-85e2-d431149faeb1\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"test mtk smp\",\"body\":\"Mulai pembuatan ujian dari awal dengan kustomisasi total subtes, durasi, pool soal, dan aturan penilaian.\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T21:55:14.537231+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Mulai pembuatan ujian dari awal dengan kustomisasi total subtes, durasi, pool soal, dan aturan penilaian.\",\"duration_minutes\":100,\"passing_score\":70,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"063a5507-4396-4f88-9a41-fd71fdf86465\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"body\":\"Ujian atau latihan khusus 1 mata pelajaran spesifik untuk mengukur penguasaan materi per subjek.\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T21:50:13.126028+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Ujian atau latihan khusus 1 mata pelajaran spesifik untuk mengukur penguasaan materi per subjek.\",\"duration_minutes\":70,\"passing_score\":70,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"46afeeec-92b9-41e6-8649-4052b16b8eaa\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"UTBK SNBT 2026 Akbar (IRT Standar BP3)\",\"body\":\"Simulasi Ujian UTBK SNBT lengkap 7 subtes (TPS, Literasi Indonesia \\u0026 Inggris, Penalaran Matematika) dengan penilaian Item Response Theory (IRT).\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T21:40:12.284606+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Simulasi Ujian UTBK SNBT lengkap 7 subtes (TPS, Literasi Indonesia \\u0026 Inggris, Penalaran Matematika) dengan penilaian Item Response Theory (IRT).\",\"duration_minutes\":195,\"passing_score\":650,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"1ac8ea85-46fc-4ca4-b746-761390b9b038\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"body\":\"Ujian atau latihan khusus 1 mata pelajaran spesifik untuk mengukur penguasaan materi per subjek.\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T21:39:34.570403+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Ujian atau latihan khusus 1 mata pelajaran spesifik untuk mengukur penguasaan materi per subjek.\",\"duration_minutes\":60,\"passing_score\":70,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}},{\"id\":\"51a187fc-6d3e-4539-9ea7-992fd721eff1\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"PTS / UAS Paket Multi-Mapel Sekolah\",\"body\":\"Ujian gabungan beberapa mata pelajaran (Matematika, Fisika, Kimia, dll) untuk evaluasi semester sekolah dengan skor 0-100.\",\"status\":\"DRAFT\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T20:34:53.712647+07:00\",\"updated_at\":\"2026-08-09T01:34:11.975267+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"Ujian gabungan beberapa mata pelajaran (Matematika, Fisika, Kimia, dll) untuk evaluasi semester sekolah dengan skor 0-100.\",\"duration_minutes\":120,\"passing_score\":75,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0,\"blueprint\":{\"category\":\"UTBK_SNBT\",\"grade_level\":\"12 SMA / UTBK\",\"scoring_system\":\"IRT\",\"total_questions\":0}}],\"meta\":{\"page\":1,\"limit\":20,\"total\":11,\"total_pages\":1,\"has_next\":false,\"has_previous\":false}}"
+    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"id\":\"87a5d72d-f795-4192-a2b9-28642d68abd5\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"TEST 2\",\"body\":\"\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T02:25:52.846517+07:00\",\"updated_at\":\"2026-08-09T15:27:59.022083+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"\",\"duration_minutes\":120,\"passing_score\":600,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0},{\"id\":\"ee9ae561-0ca4-4ec4-8309-d23ad8be9ae0\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"test baru\",\"body\":\" \\u003c!--BP:{\\\"category\\\":\\\"TRYOUT_NASIONAL\\\",\\\"default_mode\\\":\\\"SIMULASI\\\",\\\"difficulty\\\":\\\"MEDIUM\\\",\\\"duration_minutes\\\":120,\\\"grade_level\\\":\\\"12 SMA / UTBK\\\",\\\"passing_score\\\":600,\\\"scoring_system\\\":\\\"STANDARD_POINTS\\\",\\\"subtests\\\":[{\\\"duration_minutes\\\":45,\\\"id\\\":\\\"st-1\\\",\\\"pool_question_ids\\\":[\\\"bebc8757-1411-4418-9e4a-4449cfd62819\\\",\\\"c5177d84-d596-43b5-9be1-fadae61dd4cb\\\",\\\"10232455-33fa-471d-90b5-302f372c1c04\\\",\\\"00d33bdc-dccf-47c4-a782-754d57494bf9\\\",\\\"88eb8226-2805-4b50-83e6-1a938784fbe9\\\",\\\"fa556e2d-73a7-47b1-9910-84ac44b77dad\\\",\\\"8fda42a2-793e-4e07-945e-1b8b41621bd7\\\",\\\"1ed973ba-51c0-4056-a694-34e761f6b6ef\\\",\\\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\\\",\\\"be040e89-1d0b-4673-80c0-744d0d317f6c\\\",\\\"cd67946f-14fd-4569-aa22-bda5afae3a4b\\\",\\\"9741647c-465e-4712-92c8-5de2853c046d\\\",\\\"c2f39db4-a708-4b37-a63f-4cd367a76358\\\",\\\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\\\",\\\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\\\",\\\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\\\",\\\"79e6ec85-9161-4c3e-8b39-525108c5ce99\\\",\\\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\\\",\\\"c0687012-63cb-4f99-85e5-2c5f755481f1\\\",\\\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\\\",\\\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\\\",\\\"748bee85-8b17-40b2-b8b2-4d30c02035cc\\\",\\\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\\\"],\\\"sample_question_count\\\":23,\\\"shuffle_options\\\":true,\\\"shuffle_questions\\\":true,\\\"subtest_name\\\":\\\"Penalaran Matematika\\\"},{\\\"duration_minutes\\\":45,\\\"id\\\":\\\"st-2\\\",\\\"pool_question_ids\\\":[\\\"bebc8757-1411-4418-9e4a-4449cfd62819\\\",\\\"c5177d84-d596-43b5-9be1-fadae61dd4cb\\\",\\\"10232455-33fa-471d-90b5-302f372c1c04\\\",\\\"00d33bdc-dccf-47c4-a782-754d57494bf9\\\",\\\"88eb8226-2805-4b50-83e6-1a938784fbe9\\\",\\\"fa556e2d-73a7-47b1-9910-84ac44b77dad\\\",\\\"8fda42a2-793e-4e07-945e-1b8b41621bd7\\\",\\\"1ed973ba-51c0-4056-a694-34e761f6b6ef\\\",\\\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\\\",\\\"be040e89-1d0b-4673-80c0-744d0d317f6c\\\",\\\"cd67946f-14fd-4569-aa22-bda5afae3a4b\\\",\\\"9741647c-465e-4712-92c8-5de2853c046d\\\",\\\"c2f39db4-a708-4b37-a63f-4cd367a76358\\\",\\\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\\\",\\\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\\\",\\\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\\\",\\\"79e6ec85-9161-4c3e-8b39-525108c5ce99\\\",\\\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\\\",\\\"c0687012-63cb-4f99-85e5-2c5f755481f1\\\",\\\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\\\",\\\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\\\",\\\"748bee85-8b17-40b2-b8b2-4d30c02035cc\\\",\\\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\\\"],\\\"sample_question_count\\\":23,\\\"shuffle_options\\\":true,\\\"shuffle_questions\\\":true,\\\"subtest_name\\\":\\\"Literasi Bahasa Indonesia\\\"}],\\\"total_questions\\\":46}--\\u003e\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-09T01:36:16.154775+07:00\",\"updated_at\":\"2026-08-09T02:32:33.365159+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\" \\u003c!--BP:{\\\"category\\\":\\\"TRYOUT_NASIONAL\\\",\\\"default_mode\\\":\\\"SIMULASI\\\",\\\"difficulty\\\":\\\"MEDIUM\\\",\\\"duration_minutes\\\":120,\\\"grade_level\\\":\\\"12 SMA / UTBK\\\",\\\"passing_score\\\":600,\\\"scoring_system\\\":\\\"STANDARD_POINTS\\\",\\\"subtests\\\":[{\\\"duration_minutes\\\":45,\\\"id\\\":\\\"st-1\\\",\\\"pool_question_ids\\\":[\\\"bebc8757-1411-4418-9e4a-4449cfd62819\\\",\\\"c5177d84-d596-43b5-9be1-fadae61dd4cb\\\",\\\"10232455-33fa-471d-90b5-302f372c1c04\\\",\\\"00d33bdc-dccf-47c4-a782-754d57494bf9\\\",\\\"88eb8226-2805-4b50-83e6-1a938784fbe9\\\",\\\"fa556e2d-73a7-47b1-9910-84ac44b77dad\\\",\\\"8fda42a2-793e-4e07-945e-1b8b41621bd7\\\",\\\"1ed973ba-51c0-4056-a694-34e761f6b6ef\\\",\\\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\\\",\\\"be040e89-1d0b-4673-80c0-744d0d317f6c\\\",\\\"cd67946f-14fd-4569-aa22-bda5afae3a4b\\\",\\\"9741647c-465e-4712-92c8-5de2853c046d\\\",\\\"c2f39db4-a708-4b37-a63f-4cd367a76358\\\",\\\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\\\",\\\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\\\",\\\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\\\",\\\"79e6ec85-9161-4c3e-8b39-525108c5ce99\\\",\\\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\\\",\\\"c0687012-63cb-4f99-85e5-2c5f755481f1\\\",\\\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\\\",\\\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\\\",\\\"748bee85-8b17-40b2-b8b2-4d30c02035cc\\\",\\\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\\\"],\\\"sample_question_count\\\":23,\\\"shuffle_options\\\":true,\\\"shuffle_questions\\\":true,\\\"subtest_name\\\":\\\"Penalaran Matematika\\\"},{\\\"duration_minutes\\\":45,\\\"id\\\":\\\"st-2\\\",\\\"pool_question_ids\\\":[\\\"bebc8757-1411-4418-9e4a-4449cfd62819\\\",\\\"c5177d84-d596-43b5-9be1-fadae61dd4cb\\\",\\\"10232455-33fa-471d-90b5-302f372c1c04\\\",\\\"00d33bdc-dccf-47c4-a782-754d57494bf9\\\",\\\"88eb8226-2805-4b50-83e6-1a938784fbe9\\\",\\\"fa556e2d-73a7-47b1-9910-84ac44b77dad\\\",\\\"8fda42a2-793e-4e07-945e-1b8b41621bd7\\\",\\\"1ed973ba-51c0-4056-a694-34e761f6b6ef\\\",\\\"610304ea-5748-4f1b-a15a-cb9c3ce40f61\\\",\\\"be040e89-1d0b-4673-80c0-744d0d317f6c\\\",\\\"cd67946f-14fd-4569-aa22-bda5afae3a4b\\\",\\\"9741647c-465e-4712-92c8-5de2853c046d\\\",\\\"c2f39db4-a708-4b37-a63f-4cd367a76358\\\",\\\"56f31b5f-1a44-4868-ae4f-af83c0078ffa\\\",\\\"f5d6732b-0a1a-495c-9d79-0f0ad4587a05\\\",\\\"96cb9ee1-c4cd-44e4-94b1-6f0e0730d858\\\",\\\"79e6ec85-9161-4c3e-8b39-525108c5ce99\\\",\\\"870bfabc-58ec-4b44-9524-1ec150c7e9d1\\\",\\\"c0687012-63cb-4f99-85e5-2c5f755481f1\\\",\\\"3373f5ad-86d8-4647-90a4-bc8b4852fbbc\\\",\\\"84c9b511-88df-49c5-9e64-ee5bbc7f0c7f\\\",\\\"748bee85-8b17-40b2-b8b2-4d30c02035cc\\\",\\\"e9fb2a9a-cf8a-4d84-8eeb-c76285526257\\\"],\\\"sample_question_count\\\":23,\\\"shuffle_options\\\":true,\\\"shuffle_questions\\\":true,\\\"subtest_name\\\":\\\"Literasi Bahasa Indonesia\\\"}],\\\"total_questions\\\":46}--\\u003e\",\"duration_minutes\":120,\"passing_score\":600,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0},{\"id\":\"51a187fc-6d3e-4539-9ea7-992fd721eff1\",\"content_type\":\"EXAM\",\"grade_id\":\"00000000-0000-0000-0000-000000000000\",\"subject_id\":\"0a180f25-63a5-4602-9e4a-64bf2e99e957\",\"title\":\"PTS / UAS Paket Multi-Mapel Sekolah\",\"body\":\"\",\"status\":\"PUBLISHED\",\"created_by\":\"4c2b4abe-df41-4ccb-8793-9050ad96c779\",\"created_at\":\"2026-08-08T20:34:53.712647+07:00\",\"updated_at\":\"2026-08-09T02:32:05.687326+07:00\",\"content_id\":\"00000000-0000-0000-0000-000000000000\",\"description\":\"\",\"duration_minutes\":0,\"passing_score\":0,\"shuffle_questions\":false,\"shuffle_options\":false,\"max_attempts\":1,\"negative_marking\":0}],\"meta\":{\"page\":1,\"limit\":20,\"total\":3,\"total_pages\":1,\"has_next\":false,\"has_previous\":false}}"
   },
   {
     "module": "CBT Engine",
@@ -177,7 +177,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 72039100,
+    "latency_ms": 76600900,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Exam not found\",\"error_code\":\"NOT_FOUND\"}"
   },
@@ -190,7 +190,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 590400,
+    "latency_ms": 1230100,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Cannot GET /api/v1/exams/00000000-0000-0000-0000-000000000000/rule\",\"error_code\":\"NOT_FOUND\"}"
   },
@@ -203,7 +203,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 76563300,
+    "latency_ms": 77039600,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Blueprint not found\",\"error_code\":\"NOT_FOUND\"}"
   },
@@ -216,7 +216,7 @@
     "status_code": 404,
     "expected_status": 404,
     "passed": true,
-    "latency_ms": 71435000,
+    "latency_ms": 63824800,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Exam not found\",\"error_code\":\"Exam not found\"}"
   },
@@ -229,7 +229,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 94929400,
+    "latency_ms": 75462700,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"auto_submitted\":0}}"
   },
@@ -242,7 +242,7 @@
     "status_code": 403,
     "expected_status": 403,
     "passed": true,
-    "latency_ms": 588500,
+    "latency_ms": 535000,
     "message": "OK",
     "response_body": "{\"success\":false,\"message\":\"Insufficient permissions\",\"error_code\":\"FORBIDDEN\"}"
   },
@@ -255,7 +255,7 @@
     "status_code": 200,
     "expected_status": 200,
     "passed": true,
-    "latency_ms": 158551300,
+    "latency_ms": 146133700,
     "message": "OK",
     "response_body": "{\"success\":true,\"message\":\"\",\"data\":null,\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
   },
@@ -265,12 +265,12 @@
     "method": "GET",
     "path": "/results/00000000-0000-0000-0000-000000000000",
     "expected_role": "SISWA",
-    "status_code": 404,
+    "status_code": 429,
     "expected_status": 404,
-    "passed": true,
-    "latency_ms": 79920400,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Result not found\",\"error_code\":\"NOT_FOUND\"}"
+    "passed": false,
+    "latency_ms": 538000,
+    "message": "Expected status 404, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Analytics",
@@ -278,12 +278,12 @@
     "method": "GET",
     "path": "/analytics/admin/reports/exams",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 157236200,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[{\"exam_id\":\"87a5d72d-f795-4192-a2b9-28642d68abd5\",\"title\":\"TEST 2\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"ee9ae561-0ca4-4ec4-8309-d23ad8be9ae0\",\"title\":\"test baru\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"35047277-8d30-4d03-a2d8-2f9c6aee0e07\",\"title\":\"test TTK\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"81ae927d-4082-4291-acba-141056b4382c\",\"title\":\"test TKA\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"87ca6569-2f0f-4cf2-8ed5-f2f4301d9592\",\"title\":\"TEST TKA\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"2d70e1b7-cc19-4771-bc7b-1f7cc04cb1fd\",\"title\":\"TKA\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"b4714735-6fc5-4501-85e2-d431149faeb1\",\"title\":\"test mtk smp\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"063a5507-4396-4f88-9a41-fd71fdf86465\",\"title\":\"Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"46afeeec-92b9-41e6-8649-4052b16b8eaa\",\"title\":\"UTBK SNBT 2026 Akbar (IRT Standar BP3)\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"1ac8ea85-46fc-4ca4-b746-761390b9b038\",\"title\":\"Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0},{\"exam_id\":\"51a187fc-6d3e-4539-9ea7-992fd721eff1\",\"title\":\"PTS / UAS Paket Multi-Mapel Sekolah\",\"total_participants\":0,\"total_started\":0,\"total_finished\":0,\"average_score\":0,\"pass_rate\":0}],\"meta\":{\"page\":1,\"limit\":20,\"total\":11,\"total_pages\":1,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 522300,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Analytics",
@@ -291,12 +291,12 @@
     "method": "GET",
     "path": "/analytics/students/00000000-0000-0000-0000-000000000000",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 519522200,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"total_exams_taken\":0,\"average_score\":0,\"total_passed\":0,\"total_failed\":0,\"total_questions\":0,\"total_correct\":0,\"total_wrong\":0,\"total_unanswered\":0,\"accuracy\":0}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Analytics",
@@ -304,12 +304,12 @@
     "method": "GET",
     "path": "/analytics/admin/reports/exams",
     "expected_role": "SISWA",
-    "status_code": 403,
+    "status_code": 429,
     "expected_status": 403,
-    "passed": true,
-    "latency_ms": 578700,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Insufficient permissions\",\"error_code\":\"FORBIDDEN\"}"
+    "passed": false,
+    "latency_ms": 547600,
+    "message": "Expected status 403, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Media",
@@ -317,12 +317,12 @@
     "method": "GET",
     "path": "/media/entity/question/00000000-0000-0000-0000-000000000000",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 157314100,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":null,\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Media",
@@ -330,12 +330,12 @@
     "method": "GET",
     "path": "/media/00000000-0000-0000-0000-000000000000",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 404,
+    "status_code": 429,
     "expected_status": 404,
-    "passed": true,
-    "latency_ms": 77500200,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Media not found\",\"error_code\":\"NOT_FOUND\"}"
+    "passed": false,
+    "latency_ms": 563400,
+    "message": "Expected status 404, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Material",
@@ -343,12 +343,12 @@
     "method": "GET",
     "path": "/materials/",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 310810200,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[],\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Material",
@@ -356,12 +356,12 @@
     "method": "GET",
     "path": "/materials/progress",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 152915200,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[],\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Material",
@@ -369,12 +369,12 @@
     "method": "GET",
     "path": "/materials/00000000-0000-0000-0000-000000000000",
     "expected_role": "SISWA",
-    "status_code": 404,
+    "status_code": 429,
     "expected_status": 404,
-    "passed": true,
-    "latency_ms": 92986800,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Material not found\",\"error_code\":\"NOT_FOUND\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 404, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "School",
@@ -382,12 +382,12 @@
     "method": "GET",
     "path": "/schools",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 151725400,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":null,\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 541000,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "School",
@@ -395,12 +395,12 @@
     "method": "GET",
     "path": "/schools/00000000-0000-0000-0000-000000000000/branding",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 500,
+    "status_code": 429,
     "expected_status": 500,
-    "passed": true,
-    "latency_ms": 40068500,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Failed to get branding\",\"error_code\":\"INTERNAL_ERROR\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 500, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "School",
@@ -408,12 +408,12 @@
     "method": "GET",
     "path": "/schools/00000000-0000-0000-0000-000000000000/settings",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 500,
+    "status_code": 429,
     "expected_status": 500,
-    "passed": true,
-    "latency_ms": 40251000,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Failed to get settings\",\"error_code\":\"INTERNAL_ERROR\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 500, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Notifications",
@@ -421,12 +421,12 @@
     "method": "GET",
     "path": "/notifications",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 160954100,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":null,\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 512900,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Notifications",
@@ -434,12 +434,12 @@
     "method": "GET",
     "path": "/notifications/unread-count",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 81353100,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"unread_count\":0}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Notifications",
@@ -447,12 +447,12 @@
     "method": "GET",
     "path": "/notification-templates",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 77520900,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[]}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Notifications",
@@ -460,12 +460,12 @@
     "method": "GET",
     "path": "/notification-templates",
     "expected_role": "SISWA",
-    "status_code": 403,
+    "status_code": 429,
     "expected_status": 403,
-    "passed": true,
-    "latency_ms": 700900,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Insufficient permissions\",\"error_code\":\"FORBIDDEN\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 403, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Dashboard",
@@ -473,12 +473,12 @@
     "method": "GET",
     "path": "/dashboard/student",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 833903600,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"greeting\":{\"full_name\":\"Ahmad Pratama\",\"greeting\":\"Selamat Pagi\",\"date\":\"Sunday, 9 August 2026\",\"motivation\":\"Kunci kesuksesan adalah konsistensi.\"},\"today_goal\":{\"target_materials\":3,\"completed_materials\":0,\"target_questions\":10,\"answered_questions\":0,\"progress_pct\":0},\"learning_progress\":null,\"weekly_activity\":null,\"upcoming_exams\":[{\"exam_id\":\"87ca6569-2f0f-4cf2-8ed5-f2f4301d9592\",\"title\":\"TEST TKA\",\"subject_name\":\"\",\"scheduled_date\":\"2026-08-08 15:31:59.001926+00\",\"duration_minutes\":120,\"status\":\"PUBLISHED\"}],\"exam_stats\":{\"total_completed\":0,\"average_score\":0,\"highest_score\":0,\"national_rank\":0},\"recent_activity\":null}}"
+    "passed": false,
+    "latency_ms": 515200,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Dashboard",
@@ -486,12 +486,12 @@
     "method": "GET",
     "path": "/dashboard/teacher",
     "expected_role": "GURU",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 478475200,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"greeting\":{\"full_name\":\"Drs. Budi Santoso, M.Pd\",\"greeting\":\"Selamat Pagi\",\"date\":\"Sunday, 9 August 2026\",\"motivation\":\"Tetap semangat mendidik generasi penerus bangsa!\"},\"today_schedule\":[],\"quick_actions\":[{\"label\":\"Buat Ujian Baru\",\"icon\":\"file-plus\",\"path\":\"/exams/create\"},{\"label\":\"Tambah Soal\",\"icon\":\"help-circle\",\"path\":\"/questions/create\"},{\"label\":\"Lihat Laporan\",\"icon\":\"bar-chart\",\"path\":\"/reports\"},{\"label\":\"Buat Materi\",\"icon\":\"book-open\",\"path\":\"/materials/create\"}],\"my_classes\":[],\"upcoming_exams\":null,\"student_progress\":null,\"question_bank_stat\":{\"total\":0,\"draft\":0,\"published\":0},\"recent_activity\":null}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Dashboard",
@@ -499,12 +499,12 @@
     "method": "GET",
     "path": "/dashboard/admin",
     "expected_role": "SUPER_ADMIN",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 1130037400,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"kpi\":{\"total_users\":7,\"active_today\":0,\"total_schools\":0,\"total_teachers\":2,\"total_students\":1,\"total_exams\":11,\"total_materials\":0,\"total_questions\":23},\"system_health\":{\"api_status\":\"healthy\",\"db_status\":\"healthy\",\"storage_usage\":0,\"uptime_hours\":0},\"active_users\":{\"online_now\":0,\"active_24h\":0},\"school_stats\":{\"total\":0,\"active\":0,\"verified\":0},\"cbt_monitoring\":{\"scheduled\":10,\"running\":1,\"finished\":0},\"recent_activity\":[{\"type\":\"exam\",\"message\":\"Ujian baru: TEST 2\",\"created_at\":\"2026-08-09T02:25:52.846517+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: test baru\",\"created_at\":\"2026-08-09T01:36:16.154775+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: test TTK\",\"created_at\":\"2026-08-09T01:23:13.07694+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: test TKA\",\"created_at\":\"2026-08-09T01:18:25.3559+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: TEST TKA\",\"created_at\":\"2026-08-08T22:31:59.001926+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: TKA\",\"created_at\":\"2026-08-08T22:03:25.759089+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: test mtk smp\",\"created_at\":\"2026-08-08T21:55:14.537231+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"created_at\":\"2026-08-08T21:50:13.126028+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: UTBK SNBT 2026 Akbar (IRT Standar BP3)\",\"created_at\":\"2026-08-08T21:40:12.284606+07:00\"},{\"type\":\"exam\",\"message\":\"Ujian baru: Ujian Per-Mapel / Ujian Harian (Single Mapel)\",\"created_at\":\"2026-08-08T21:39:34.570403+07:00\"}]}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Dashboard",
@@ -512,12 +512,12 @@
     "method": "GET",
     "path": "/dashboard/admin",
     "expected_role": "SISWA",
-    "status_code": 403,
+    "status_code": 429,
     "expected_status": 403,
-    "passed": true,
-    "latency_ms": 1371400,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Insufficient permissions\",\"error_code\":\"FORBIDDEN\"}"
+    "passed": false,
+    "latency_ms": 519000,
+    "message": "Expected status 403, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Exam Packages",
@@ -525,12 +525,12 @@
     "method": "GET",
     "path": "/exam-packages",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 75951500,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[]}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Exam Packages",
@@ -538,12 +538,12 @@
     "method": "GET",
     "path": "/leaderboard",
     "expected_role": "SISWA",
-    "status_code": 400,
+    "status_code": 429,
     "expected_status": 400,
-    "passed": true,
-    "latency_ms": 2215700,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"package_id is required and must be a valid UUID\",\"error_code\":\"VALIDATION_ERROR\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 400, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Exam Packages",
@@ -551,12 +551,12 @@
     "method": "GET",
     "path": "/exam-packages/00000000-0000-0000-0000-000000000000/exams",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 76790700,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":[]}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Practice \u0026 AI",
@@ -564,12 +564,12 @@
     "method": "GET",
     "path": "/practice/sessions",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 141938500,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":null,\"meta\":{\"page\":1,\"limit\":20,\"total\":0,\"total_pages\":0,\"has_next\":false,\"has_previous\":false}}"
+    "passed": false,
+    "latency_ms": 517200,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Practice \u0026 AI",
@@ -577,12 +577,12 @@
     "method": "GET",
     "path": "/practice/stats",
     "expected_role": "SISWA",
-    "status_code": 200,
+    "status_code": 429,
     "expected_status": 200,
-    "passed": true,
-    "latency_ms": 68001800,
-    "message": "OK",
-    "response_body": "{\"success\":true,\"message\":\"\",\"data\":{\"total_sessions\":0,\"total_questions\":0,\"total_correct\":0,\"average_score\":0,\"accuracy\":0}}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 200, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   },
   {
     "module": "Practice \u0026 AI",
@@ -590,11 +590,11 @@
     "method": "POST",
     "path": "/ai/tutor/conversations",
     "expected_role": "SISWA",
-    "status_code": 500,
+    "status_code": 429,
     "expected_status": 500,
-    "passed": true,
-    "latency_ms": 43118000,
-    "message": "OK",
-    "response_body": "{\"success\":false,\"message\":\"Failed to list conversations\",\"error_code\":\"INTERNAL_ERROR\"}"
+    "passed": false,
+    "latency_ms": 0,
+    "message": "Expected status 500, got 429",
+    "response_body": "{\"success\":false,\"message\":\"Too many requests\",\"error_code\":\"RATE_LIMITED\"}"
   }
 ]

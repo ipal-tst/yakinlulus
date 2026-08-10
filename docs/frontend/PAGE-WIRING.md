@@ -15,29 +15,36 @@ refresh via `/auth/refresh` before expiry, attach to every request.
 
 ## 1. SISWA (Student)
 
-**Top nav:** Belajar (Materials) · Latihan (Practice) · Try Out (Exams) · Hasil (Results) ·
-Peringkat (Ranking) · AI Tutor · Profil
+**Top nav:** Belajar (Materials) · Latihan (Practice) · Ujian (Exams) · Hasil (Results) ·
+Peringkat (Ranking) · Target · Membership · Konfigurasi
 
 | Page | Frontend route | Purpose | Backend endpoints |
 |---|---|---|---|
 | Login / Register | `/login`, `/register` | auth | `POST /auth/login`, `POST /auth/register` |
-| Home (student) | `/` | overview | `GET /dashboard/student`, `GET /notifications` |
-| Material list | `/materials` | browse lessons | `GET /material`, `GET /academic/subjects`, `GET /academic/grades` |
-| Material detail | `/materials/:id` | read lesson, track progress | `GET /material/:id`, `POST /material/:id/progress` |
-| Practice start | `/practice` | pick subject/topic | `GET /academic/subjects`, `GET /academic/chapters` |
-| Practice session | `/practice/:id` | answer questions w/ feedback | `POST /practice/sessions/start`, `POST /practice/sessions/:id/answer` |
-| Practice history | `/practice/history` | past sessions | `GET /practice/sessions`, `GET /practice/stats` |
-| Exam list | `/exams` | browse try-outs | `GET /exams` |
-| Exam start / runner | `/exams/:id` | attempt CBT | `POST /cbt/:exam_id/start`, `POST /cbt/:session_id/sync`, `POST /cbt/:session_id/finish` |
-| Exam review | `/exams/:id/review` | pembahasan | `GET /cbt/:session_id/review`, `GET /cbt/:session_id/questions` |
+| Home (student) | `/siswa` | overview | `GET /dashboard/student`, `GET /notifications` |
+| Material list (katalog mapel) | `/materials` | browse subjects + non-mapel (tips/video/audio) | `GET /materials/catalog` `[BARU]`, `GET /academic/subjects`, `GET /academic/grades` |
+| Subject chapters (daftar bab) | `/materials/:subjectId` | progress per bab & ujian bab | `GET /materials/:subjectId/chapters` `[BARU]` |
+| Chapter detail (Topik → CP/KD) | `/materials/:subjectId/:chapterId` | read lesson (teks/rumus/grafik/video), track progress | `GET /materials/:subjectId/:chapterId` `[BARU]`, `POST /materials/:id/progress` |
+| Practice list (Mapel→Bab→Topik) | `/practice` | daftar latihan + riwayat, indikator hijau ≥85% | `GET /practice/catalog` `[BARU]`, `GET /practice/sessions`, `GET /config/student-dashboard` |
+| Practice runner (full main, no timer) | `/practice/:sessionId` | kerjakan soal (navigasi + flag ragu-ragu) | `GET /practice/sessions/:sessionId` `[BARU]`, `POST /practice/start` `[BARU]`, `POST /practice/sessions/:sessionId/submit` `[BARU]` |
+| Practice result | `/practice/:sessionId/result` | statistik detik + skor | `GET /practice/sessions/:sessionId/result` `[BARU]` |
+| Practice review | `/practice/:sessionId/review` | pembahasan vertikal (soal→opsi→pembahasan) | `GET /practice/sessions/:sessionId/review` `[BARU]` |
+| Exam list (paket ujian) | `/exams` | katalog paket (1-attempt & repeatable) + widget (nilai terakhir, rata-rata) | `GET /exam-packages`, `GET /exams/summary` `[BARU]` |
+| Exam package detail | `/exams/:packageId` | detail paket + daftar sub-test (multi mapel) | `GET /exam-packages/:id/exams` |
+| Exam instructions | `/exams/:packageId/instructions` | petunjuk (Setuju/Tidak) | `POST /exams/:id/attempts/start` |
+| Exam runner (full-screen, timer) | `/exams/run/:sessionId` | attempt CBT (tanpa AppShell) | `GET /cbt/:session_id/questions`, `POST /cbt/:session_id/sync`, `POST /cbt/:session_id/finish` |
+| Exam result | `/exams/run/:sessionId/result` | nilai + statistik (detik) | `GET /results/:session_id` |
+| Exam review | `/exams/run/:sessionId/review` | pembahasan | `GET /cbt/:session_id/review` |
 | Exam-practice start | `/exam-practice` | material/subject practice | `POST /exam-practice/material/:materialId`, `POST /exam-practice/subject` |
 | Exam-practice session | `/exam-practice/:sessionId` | run + submit | `POST /exam-practice/:sessionId/submit`, `GET /exam-practice/:sessionId` |
-| Results | `/results` | score history | `GET /results`, `GET /results/:session_id` |
-| Ranking | `/ranking` | leaderboard | `GET /ranking/leaderboard` |
-| My targets | `/targets` | target schools | `GET /profile/targets`, `PUT /profile/targets` |
-| Certificates | `/certificates` | certificates | `GET /profile/certificates`, `GET /profile/certificates/:id/download` |
-| AI Tutor | `/ai` | chat with tutor | `POST /ai/tutor/chat`, `POST /ai/tutor/conversations`, `GET /ai/tutor/conversations/:id` |
-| Notifications | `/notifications` | inbox | `GET /notifications`, `POST /notifications/:id/read`, `POST /notifications/read-all` |
+| Results (analisis belajar) | `/results` | analisis hasil lengkap (materi+latihan+ujian), chart, status mapel, saran penguatan | `GET /results/analytics` `[BARU]`, `GET /analytics/students/:id`, `GET /practice/stats`, `GET /materials/progress`, `GET /config/student-dashboard` |
+| Subject analysis | `/results/subjects/:subjectId` | detail satu mapel: materi/bab/topic mastery + rekomendasi | `GET /practice/catalog` `[BARU]`, `GET /results` |
+| Result detail (ujian) | `/results/:id` | skor & subtest ujian | `GET /results/:session_id` |
+| Ranking (per paket / rata-rata) | `/ranking` | leaderboard seluruh siswa: mode nilai terbaik 1-attempt & rata-rata multi ujian + podium + tabel | `GET /leaderboard`, `GET /leaderboard/aggregate` `[BARU]`, `GET /exam-packages` |
+| Subject ranking | `/ranking/subjects/:subjectId` | ranking per mapel | `GET /leaderboard?subject_id=` `[BARU]` |
+| My targets | `/targets` | target schools (jenjang otomatis, filter provinsi/kabupaten, banding skor vs nilai masuk, panel target max 2 slot) | `GET /target-schools`, `GET /target-schools?level=` (extend `province`/`city` `[BARU]`), `GET /targets/catalog` `[BARU]`, `GET /profile/targets`, `PUT /profile/targets` |
+| Membership | `/membership` | status keanggotaan (paket/level/sisa hari), katalog paket Basic→Enterprise, perpanjang (renew) & upgrade, buat order | `GET /membership/me` `[BARU]`, `GET /membership/plans` `[BARU]`, `POST /membership/orders` `[BARU]`, `PATCH /membership/me/auto-renew` `[BARU]`, `GET /membership/orders` `[BARU]` |
+| Konfigurasi | `/settings` | profil lengkap editable (username, sekolah, foto profil, ganti sandi, jenjang, kelas opsional, no HP opsional) + kartu Target & Preferensi | `GET /auth/me` (existing), `PUT /auth/profile` (extend `school_name`/`grade_id`/`education_level` `[BARU]`), `POST /auth/change-password` (existing; body `current_password`), `GET /academic/levels` (existing), `GET /academic/grades?level_id=` (existing), `POST /media/upload` (extend role SISWA `[BARU]`) |
 | Profile | `/profile` | account | `GET /auth/me`, `PUT /auth/profile`, `POST /auth/change-password` |
 
 **Student loop:** Materials → Practice/Exam-Practice → Exam (CBT) → Results → Ranking.

@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/admin/page-header";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { TargetSchoolTable } from "@/components/admin/target-schools/TargetSchoolTable";
+import { TargetSchoolTable } from "@/components/admin/schools/target-school-table";
 import { TargetSchoolFormDialog } from "@/components/admin/target-schools/TargetSchoolFormDialog";
 import { targetSchoolService, TargetSchool } from "@/services/target-school.service";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,10 @@ export default function TargetSchoolsPage() {
                         ))}
                     </div>
                 ) : (
-                    <TargetSchoolTable schools={schools} onDelete={(s) => setDeleteTarget(s)} />
+                    <TargetSchoolTable
+                        schools={schools}
+                        onDelete={(s) => setDeleteTarget(s)}
+                    />
                 )}
 
                 <TargetSchoolFormDialog

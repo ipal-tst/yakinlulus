@@ -50,8 +50,10 @@ export async function api<T>(
         }
     }
 
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
     const headers: Record<string, string> = {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...customHeaders,
     };
 
@@ -65,7 +67,7 @@ export async function api<T>(
     const response = await fetch(url, {
         method,
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: isFormData ? (body as unknown as BodyInit) : body ? JSON.stringify(body) : undefined,
     });
 
     // Handle non-JSON or empty responses

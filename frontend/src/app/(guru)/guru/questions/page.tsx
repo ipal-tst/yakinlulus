@@ -1,17 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { questionService } from "@/services/question.service";
-import { QuestionItem } from "@/types";
-import { Plus, Search, HelpCircle, Edit, Trash2, CheckCircle } from "lucide-react";
+import { academicMasterService } from "@/services/academic-master.service";
+import { Plus, Search, Edit, Trash2, AlertCircle } from "lucide-react";
+
+const FALLBACK_SUBJECTS = [
+    "Penalaran Matematika",
+    "Literasi Bahasa Indonesia",
+    "Penalaran Umum",
+];
 
 export default function QuestionBankPage() {
-    const [questions, setQuestions] = useState<QuestionItem[]>([]);
+    const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const [newQuestion, setNewQuestion] = useState({
@@ -22,76 +30,49 @@ export default function QuestionBankPage() {
         correct_option: "A",
     });
 
-    useEffect(() => {
-        async function load() {
-            try {
-                const res = await questionService.getQuestions();
-                if (Array.isArray(res)) setQuestions(res);
-            } catch {
-                setQuestions([
-                    {
-                        id: "q-101",
-                        subject_name: "Penalaran Matematika",
-                        difficulty: "HARD",
-                        content: "Jika 3x + 2y = 18 dan x - y = 1, berapakah nilai x² + y²?",
-                        created_at: "2026-03-01",
-                        author_id: "guru-1",
-                    },
-                    {
-                        id: "q-102",
-                        subject_name: "Literasi Bahasa Indonesia",
-                        difficulty: "MEDIUM",
-                        content: "Tentukan ide pokok dari paragraf kedua pada wacana berikut...",
-                        created_at: "2026-02-28",
-                        author_id: "guru-1",
-                    },
-                    {
-                        id: "q-103",
-                        subject_name: "Penalaran Umum",
-                        difficulty: "EASY",
-                        content: "Semua A adalah B. Semua B adalah C. Manakah kesimpulan yang tepat?",
-                        created_at: "2026-02-25",
-                        author_id: "guru-1",
-                    },
-                ]);
-            }
-        }
-        load();
-    }, []);
+    const { data: questions = [], isLoading, isError, refetch } = useQuery({
+        queryKey: ["guru-questions"],
+        queryFn: async () => {
+            const res = await questionService.getQuestions();
+            return Array.isArray(res) ? res : (res?.items ?? []);
+        },
+    });
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const created = await questionService.createQuestion({
+    const { data: subjects = [] } = useQuery({
+        queryKey: ["guru-subjects"],
+        queryFn: () => academicMasterService.getSubjects(),
+    });
+    const subjectNames = subjects.length > 0 ? subjects.map((s) => s.name) : FALLBACK_SUBJECTS;
+
+    const createMutation = useMutation({
+        mutationFn: () =>
+            questionService.createQuestion({
                 subject_name: newQuestion.subject_name,
-                difficulty: newQuestion.difficulty as any,
+                difficulty: newQuestion.difficulty,
                 content: newQuestion.content,
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["guru-questions"] });
+            setShowAddModal(false);
+            setNewQuestion({
+                subject_name: "Penalaran Matematika",
+                difficulty: "MEDIUM",
+                content: "",
+                options: ["", "", "", "", ""],
+                correct_option: "A",
             });
-            setQuestions((prev) => [created, ...prev]);
-        } catch {
-            setQuestions((prev) => [
-                {
-                    id: `q-${Date.now()}`,
-                    subject_name: newQuestion.subject_name,
-                    difficulty: newQuestion.difficulty as any,
-                    content: newQuestion.content,
-                    created_at: new Date().toISOString().split("T")[0],
-                    author_id: "guru-1",
-                },
-                ...prev,
-            ]);
-        }
-        setShowAddModal(false);
-        setNewQuestion({
-            subject_name: "Penalaran Matematika",
-            difficulty: "MEDIUM",
-            content: "",
-            options: ["", "", "", "", ""],
-            correct_option: "A",
-        });
+        },
+        onError: () => {
+            alert("Gagal menyimpan soal. Coba lagi.");
+        },
+    });
+
+    const handleCreate = (e: React.FormEvent) => {
+        e.preventDefault();
+        createMutation.mutate();
     };
 
-return (
+    return (
         <>
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -103,6 +84,16 @@ return (
                         <Plus className="h-4 w-4" /> Buat Soal Baru
                     </Button>
                 </div>
+
+                {isError && (
+                    <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span>Gagal memuat data soal. Periksa koneksi lalu coba lagi.</span>
+                        <Button variant="ghost" size="sm" onClick={() => refetch()} className="ml-auto rounded-lg">
+                            Coba Lagi
+                        </Button>
+                    </div>
+                )}
 
                 {/* Search */}
                 <div className="relative w-full sm:w-80">
@@ -116,34 +107,46 @@ return (
                 </div>
 
                 {/* Questions Table List */}
-                <Card className="p-4 space-y-3">
-                    {questions.map((q) => (
-                        <div key={q.id} className="p-4 rounded-xl border border-border bg-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-primary transition-all">
-                            <div className="space-y-1.5 flex-1">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className="text-[10px]">{q.subject_name}</Badge>
-                                    <Badge
-                                        variant={q.difficulty === "HARD" ? "destructive" : q.difficulty === "MEDIUM" ? "default" : "outline"}
-                                        className="text-[10px]"
-                                    >
-                                        {q.difficulty}
-                                    </Badge>
-                                    <span className="text-[10px] text-muted-foreground">ID: {q.id}</span>
+                {isLoading ? (
+                    <div className="space-y-3">
+                        {[0, 1, 2].map((i) => (
+                            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                        ))}
+                    </div>
+                ) : questions.length === 0 ? (
+                    <div className="text-center py-10 text-sm text-muted-foreground">
+                        Belum ada soal dalam bank soal. Buat soal baru untuk memulai.
+                    </div>
+                ) : (
+                    <Card className="p-4 space-y-3">
+                        {questions.map((q) => (
+                            <div key={q.id} className="p-4 rounded-xl border border-border bg-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-primary transition-all">
+                                <div className="space-y-1.5 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="text-[10px]">{q.subject_name}</Badge>
+                                        <Badge
+                                            variant={q.difficulty === "HARD" ? "destructive" : q.difficulty === "MEDIUM" ? "default" : "outline"}
+                                            className="text-[10px]"
+                                        >
+                                            {q.difficulty}
+                                        </Badge>
+                                        <span className="text-[10px] text-muted-foreground">ID: {q.id}</span>
+                                    </div>
+                                    <p className="text-sm font-medium text-foreground line-clamp-2">{q.content}</p>
                                 </div>
-                                <p className="text-sm font-medium text-foreground line-clamp-2">{q.content}</p>
-                            </div>
 
-                            <div className="flex items-center gap-2 self-end md:self-auto">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-2 self-end md:self-auto">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </Card>
+                        ))}
+                    </Card>
+                )}
             </div>
 
             {/* Modal Add Question */}
@@ -159,9 +162,9 @@ return (
                                     onChange={(e) => setNewQuestion((p) => ({ ...p, subject_name: e.target.value }))}
                                     className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
                                 >
-                                    <option value="Penalaran Matematika">Penalaran Matematika</option>
-                                    <option value="Literasi Bahasa Indonesia">Literasi Bahasa Indonesia</option>
-                                    <option value="Penalaran Umum">Penalaran Umum</option>
+                                    {subjectNames.map((name) => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -192,14 +195,14 @@ return (
                                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl">
                                     Batal
                                 </Button>
-                                <Button type="submit" className="rounded-xl font-bold">
-                                    Simpan Soal
+                                <Button type="submit" disabled={createMutation.isPending} className="rounded-xl font-bold">
+                                    {createMutation.isPending ? "Menyimpan..." : "Simpan Soal"}
                                 </Button>
                             </div>
                         </form>
                     </div>
                 </div>
-)}
+            )}
         </>
     );
 }

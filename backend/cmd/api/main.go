@@ -24,8 +24,9 @@ import (
 	"yakinlulus.id/backend/internal/cbt_runtime"
 	"yakinlulus.id/backend/internal/cms"
 	"yakinlulus.id/backend/internal/content"
-	"yakinlulus.id/backend/internal/dashboard"
-	"yakinlulus.id/backend/internal/exam_packages"
+"yakinlulus.id/backend/internal/dashboard"
+"yakinlulus.id/backend/internal/exam_packages"
+"yakinlulus.id/backend/internal/finance"
 	"yakinlulus.id/backend/internal/material"
 	"yakinlulus.id/backend/internal/media"
 	"yakinlulus.id/backend/internal/middleware"
@@ -247,6 +248,11 @@ func main() {
 	profileSvc := profile.NewService(profileRepo, targetSchoolRepo)
 	profileHandler := profile.NewHandler(profileSvc, cfg.JWT.Secret)
 
+	// Finance module
+	financeRepo := finance.NewRepository(pool)
+	financeSvc := finance.NewService(financeRepo)
+	financeHandler := finance.NewHandler(financeSvc, cfg.JWT.Secret)
+
 	// WebSocket hub for live CBT proctoring
 	wsHub := ws.NewHub()
 	go wsHub.Run()
@@ -282,6 +288,7 @@ func main() {
 	rankHandler.RegisterRoutes(api)
 	profileHandler.RegisterRoutes(api)
 	targetSchoolHandler.RegisterRoutes(api)
+	financeHandler.RegisterRoutes(api)
 
 	// CMS module
 	cmsHandler := cms.NewHandler(cms.NewService(cms.NewRepository(pool)), cfg.JWT.Secret)

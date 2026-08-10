@@ -16,9 +16,9 @@ import {
 
 interface TargetSchoolTableProps {
     schools: TargetSchool[];
-    onEdit: (school: TargetSchool) => void;
-    onDelete: (school: TargetSchool) => void;
-    onToggle: (school: TargetSchool) => void;
+    onEdit?: (school: TargetSchool) => void;
+    onDelete?: (school: TargetSchool) => void;
+    onToggle?: (school: TargetSchool) => void;
 }
 
 export function TargetSchoolTable({ schools = [], onEdit, onDelete, onToggle }: TargetSchoolTableProps) {
@@ -42,21 +42,6 @@ export function TargetSchoolTable({ schools = [], onEdit, onDelete, onToggle }: 
             },
         },
         {
-            header: "Nilai Terendah Diterima",
-            accessorKey: "min_score",
-            cell: (row) => {
-                const t = dumpTargetRow(row);
-                return (
-                    <span
-                        className="font-mono text-xs font-semibold"
-                        title={formatScoreRange(t.minScore, t.maxScore, t.maxTotalScore, t.level)}
-                    >
-                        {t.minScore ?? "-"}
-                    </span>
-                );
-            },
-        },
-        {
             header: "Nilai Tertinggi Diterima",
             accessorKey: "max_score",
             cell: (row) => {
@@ -72,17 +57,23 @@ export function TargetSchoolTable({ schools = [], onEdit, onDelete, onToggle }: 
             },
         },
         {
-            header: "Tahun",
-            accessorKey: (row) => row.academic_year || "-",
+            header: "Nilai Terendah Diterima",
+            accessorKey: "min_score",
+            cell: (row) => {
+                const t = dumpTargetRow(row);
+                return (
+                    <span
+                        className="font-mono text-xs font-semibold"
+                        title={formatScoreRange(t.minScore, t.maxScore, t.maxTotalScore, t.level)}
+                    >
+                        {t.minScore ?? "-"}
+                    </span>
+                );
+            },
         },
         {
-            header: "Status",
-            accessorKey: "is_active",
-            cell: (row) => (
-                <Badge variant={row.is_active ? "success" : "outline"}>
-                    {row.is_active ? "Aktif" : "Non-aktif"}
-                </Badge>
-            ),
+            header: "Tahun Ajaran",
+            accessorKey: (row) => row.academic_year || "-",
         },
         {
             header: "Aksi",
@@ -93,18 +84,24 @@ export function TargetSchoolTable({ schools = [], onEdit, onDelete, onToggle }: 
                         <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
-                            <Pen className="h-4 w-4" />
-                            Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onToggle(row)} className="gap-2">
-                            <Power className="h-4 w-4" />
-                            {row.is_active ? "Nonaktifkan" : "Aktifkan"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDelete(row)} className="text-destructive focus:text-destructive gap-2">
-                            <Trash2 className="h-4 w-4" />
-                            Hapus
-                        </DropdownMenuItem>
+                        {onEdit && (
+                            <DropdownMenuItem onClick={() => onEdit(row)} className="gap-2">
+                                <Pen className="h-4 w-4" />
+                                Edit
+                            </DropdownMenuItem>
+                        )}
+                        {onToggle && (
+                            <DropdownMenuItem onClick={() => onToggle(row)} className="gap-2">
+                                <Power className="h-4 w-4" />
+                                {row.is_active ? "Nonaktifkan" : "Aktifkan"}
+                            </DropdownMenuItem>
+                        )}
+                        {onDelete && (
+                            <DropdownMenuItem onClick={() => onDelete(row)} className="text-destructive focus:text-destructive gap-2">
+                                <Trash2 className="h-4 w-4" />
+                                Hapus
+                            </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
