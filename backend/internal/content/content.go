@@ -494,6 +494,7 @@ type Repository interface {
 	AddExamParticipant(ctx context.Context, ep *ExamParticipant) error
 	RemoveExamParticipant(ctx context.Context, examContentID, userID uuid.UUID) error
 	GetExamParticipants(ctx context.Context, examContentID uuid.UUID) ([]ExamParticipant, error)
+	IsExamParticipant(ctx context.Context, examContentID, userID uuid.UUID) (bool, error)
 
 	// Exam attempts
 	CreateExamAttempt(ctx context.Context, ea *ExamAttempt) error
@@ -547,6 +548,7 @@ type Repository interface {
 
 	// User helpers
 	GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
+	IsContentAccessible(ctx context.Context, contentID, userID uuid.UUID) (bool, error)
 
 	// Name-based resolvers for bulk import
 	FindSubjectIDByName(ctx context.Context, name string) (*uuid.UUID, error)

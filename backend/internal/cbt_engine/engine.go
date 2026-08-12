@@ -74,6 +74,19 @@ func (s *Service) GetExam(ctx context.Context, id uuid.UUID) (*content.ExamFull,
 	return s.content.GetExam(ctx, id)
 }
 
+// GetExamForStudent retrieves an exam by ID but only if the student is enrolled/allowed to view it.
+func (s *Service) GetExamForStudent(ctx context.Context, id, studentID uuid.UUID) (*content.ExamFull, error) {
+	// Check if student is enrolled in this exam
+	isParticipant, err := s.content.IsExamParticipant(ctx, id, studentID)
+	if err != nil {
+		return nil, err
+	}
+	if !isParticipant {
+		return nil, fiber.NewError(fiber.StatusForbidden, "You are not enrolled in this exam")
+	}
+	return s.content.GetExam(ctx, id)
+}
+
 // UpdateExam updates an exam.
 func (s *Service) UpdateExam(ctx context.Context, id uuid.UUID, req *content.UpdateContentReq, exam *content.Exam) error {
 	if err := s.content.UpdateContent(ctx, id, *req); err != nil {

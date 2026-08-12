@@ -1,4 +1,4 @@
-redis: 2026/07/29 06:54:27 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
-redis: 2026/07/29 06:54:28 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
-redis: 2026/07/29 06:54:28 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
-redis: 2026/07/29 06:54:29 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
+redis: 2026/08/12 12:07:19 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
+redis: 2026/08/12 12:07:19 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
+redis: 2026/08/12 12:07:20 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.
+redis: 2026/08/12 12:07:20 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.

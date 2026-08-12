@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Materi Pelajaran — Admin Backoffice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9;
+  --surface:#ffffff;
+  --surface-2:#f3f4f6;
+  --fg:#111827;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --accent:#2563EB;
+  --accent-strong:#1d4ed8;
+  --accent-soft:#eff4ff;
+  --accent-fg:#ffffff;
+  --success:#16a34a;
+  --success-soft:#ecfdf3;
+  --danger:#dc2626;
+  --danger-soft:#fef2f2;
+  --warn:#b45309;
+  --warn-soft:#fffbeb;
+  --orange:#f97316;
+  --sidebar:#0f172a;
+  --sidebar-2:#1e293b;
+  --sidebar-fg:#cbd5e1;
+  --font-display:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;
+  --font-body:'Inter','Segoe UI',system-ui,sans-serif;
+  --font-mono:ui-monospace,'JetBrains Mono','IBM Plex Mono',Menlo,Consolas,monospace;
+  --r-sm:12px; --r-md:16px; --r-lg:20px;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 4px 12px rgba(15,23,42,.10);
+  --shadow-lg:0 12px 32px rgba(15,23,42,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-body);background:var(--bg);color:var(--fg);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit;font-size:14px;color:var(--fg)}
+h1,h2,h3,h4{font-family:var(--font-display);letter-spacing:-.01em}
+svg{display:block}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- Layout ---------- */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:248px;flex-shrink:0;background:var(--sidebar);color:var(--sidebar-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.sidebar .brand{display:flex;align-items:center;gap:10px;padding:20px 20px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar .brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0}
+.sidebar .brand b{font-family:var(--font-display);color:#f8fafc;font-size:15px;letter-spacing:-.01em}
+.sidebar .brand small{display:block;color:#64748b;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#64748b;padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--sidebar-fg);margin-bottom:2px;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#f1f5f9}
+.nav-item.active{background:var(--accent);color:#fff}
+.nav-item.active svg{color:#fff}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding:14px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#2563EB);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:600;flex-shrink:0}
+.sidebar-foot .who{overflow:hidden}
+.sidebar-foot .who b{font-size:13px;color:#f1f5f9;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-foot .who span{font-size:11px;color:#94a3b8}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;position:sticky;top:0;z-index:20}
+.crumbs{font-size:13px;color:var(--muted)}
+.crumbs b{color:var(--fg);font-weight:600}
+.topbar .spacer{flex:1}
+.topbar .search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:7px 12px;width:280px;color:var(--muted)}
+.topbar .search input{border:none;background:none;outline:none;flex:1;font-size:13.5px}
+.content{max-width:1360px;width:100%;margin:0 auto;padding:28px}
+@media(max-width:1080px){.sidebar{display:none}.content{padding:20px}}
+
+/* ---------- Page header + stats ---------- */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-head h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.page-head p{color:var(--muted);font-size:14px;margin-top:4px;max-width:62ch}
+.head-actions{display:flex;gap:10px;align-items:center}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:1080px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:16px;display:flex;gap:12px;align-items:center;transition:box-shadow .18s}
+.stat:hover{box-shadow:var(--shadow-md)}
+.stat .ic{width:40px;height:40px;border-radius:12px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;flex-shrink:0}
+.stat b{font-family:var(--font-display);font-size:24px;display:block;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted);letter-spacing:.01em}
+
+/* ---------- Card + toolbar ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-sm)}
+.toolbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.toolbar .spacer{flex:1}
+.toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:var(--r-sm);font-size:13.5px;font-weight:600;letter-spacing:.02em;transition:background .15s,border-color .15s,transform .05s;white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-strong)}
+.btn-secondary{background:var(--surface);border:1px solid var(--border);color:var(--fg)}
+.btn-secondary:hover{background:#f5f6f8}
+.btn-ghost{color:var(--fg)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.input,.select,input.input{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0 12px;height:40px;font-size:13.5px;color:var(--fg);min-width:0}
+.input:focus-within,.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+.select{appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.search-box{width:250px}
+.search-box svg{flex-shrink:0;color:var(--muted)}
+.filter-bar{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-bar .spacer{flex:1}
+.check-pill{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer}
+.check-pill:hover{border-color:var(--accent);color:var(--fg)}
+.check-pill input.accent-color{accent-color:var(--accent);width:14px;height:14px}
+
+/* ---------- Table ---------- */
+.table-scroll{overflow:auto;max-height:600px;position:relative}
+table.data{width:100%;border-collapse:separate;border-spacing:0}
+table.data thead th{position:sticky;top:0;background:#fafbfc;border-bottom:1px solid var(--border);font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 12px;height:44px;white-space:nowrap;z-index:2}
+table.data tbody td{padding:0 12px;height:44px;border-bottom:1px solid #f1f2f4;font-size:13.5px;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
+table.data tbody tr:hover td{background:#f8fafc}
+table.data tbody tr.selected td{background:var(--accent-soft)}
+table.data .sortable{cursor:pointer;user-select:none}
+table.data .sortable .arrow{font-size:10px;opacity:.5;margin-left:4px}
+table.data .sortable .arrow.on{opacity:1;color:var(--accent)}
+.th-resize{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize}
+table.data th{position:relative}
+.td-title{display:flex;flex-direction:column;min-width:0}
+.td-title b{font-weight:500;font-size:13.5px;line-height:1.25;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-title small{color:var(--muted);font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code-badge{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.04em;color:#c2410c;background:#fff7ed;border-radius:6px;padding:2px 8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.badge.orange{background:#fff7ed;color:#c2410c}
+.badge.green{background:var(--success-soft);color:var(--success)}
+.badge.gray{background:var(--surface-2);color:var(--muted)}
+.badge.red{background:var(--danger-soft);color:var(--danger)}
+.badge.blue{background:var(--accent-soft);color:var(--accent-strong)}
+.badge.amber{background:var(--warn-soft);color:var(--warn)}
+.media-pills{display:inline-flex;gap:4px}
+.media-pill{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:7px;background:var(--surface-2);color:var(--muted);font-size:11px;font-weight:600}
+.media-pill svg{color:#64748b}
+.media-pill.v{background:#f0f7ff;color:#1d4ed8} .media-pill.v svg{color:#2563EB}
+.media-pill.a{background:#f5f3ff;color:#6d28d9} .media-pill.a svg{color:#7c3aed}
+.media-pill.i{background:var(--success-soft);color:var(--success)} .media-pill.i svg{color:var(--success)}
+.media-pill.d{background:var(--warn-soft);color:var(--warn)} .media-pill.d svg{color:var(--warn)}
+.chk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
+th .chk,td .chk{display:block;margin:0 auto}
+.row-act{display:inline-flex;align-items:center;gap:2px}
+.icon-btn{width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{background:var(--surface-2);color:var(--fg)}
+.icon-btn.danger:hover{background:var(--danger-soft);color:var(--danger)}
+
+/* ---------- Bulk bar ---------- */
+.bulk-bar{margin:14px 0 0;display:none;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid #c7dbff;border-radius:var(--r-sm);padding:10px 14px;flex-wrap:wrap}
+.bulk-bar.show{display:flex}
+.bulk-bar b{font-size:13px;color:var(--accent-strong);font-family:var(--font-display)}
+.bulk-bar .spacer{flex:1}
+
+/* ---------- Pagination ---------- */
+.pagine{display:flex;align-items:center;gap:6px;padding:12px 14px;border-top:1px solid var(--border);flex-wrap:wrap}
+.pagine .info{font-size:12.5px;color:var(--muted);margin-right:auto}
+.pagine .pagesize{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.page-btn{min-width:32px;height:32px;padding:0 8px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-grid;place-items:center}
+.page-btn:hover:not([disabled]){background:var(--surface-2);color:var(--fg)}
+.page-btn.active{background:var(--accent);color:#fff}
+.page-btn[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ---------- States ---------- */
+.skeleton{background:linear-gradient(90deg,#f1f2f4 25%,#f8f9fb 50%,#f1f2f4 75%);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:10px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.error-banner{display:none;align-items:center;gap:10px;background:var(--danger-soft);border:1px solid #fecaca;color:#b91c1c;border-radius:var(--r-sm);padding:12px 16px;font-size:13.5px;margin-bottom:14px}
+.error-banner.show{display:flex}
+.empty{display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:64px 20px;text-align:center}
+.empty.show{display:flex}
+.empty .e-ic{width:56px;height:56px;border-radius:16px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;margin-bottom:4px}
+.empty h4{font-size:16px}
+.empty p{font-size:13.5px;color:var(--muted);max-width:40ch}
+.empty .empty-actions{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
+
+/* ---------- Dialog ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:48px 20px;overflow:auto}
+.overlay.show{display:flex}
+.dialog{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);width:100%;max-width:540px;animation:pop .16s ease-out;margin-bottom:auto}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 0;gap:12px}
+.dialog-head h3{font-size:18px;font-weight:700}
+.dialog-head p{font-size:12.5px;color:var(--muted);margin-top:3px}
+.dialog-body{padding:18px 24px 4px}
+.dialog-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px 24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.02em;margin-bottom:6px}
+.field .req{color:var(--danger)}
+.field input,.field select,.field textarea{width:100%;height:44px;border:1px solid var(--border);border-radius:var(--r-sm);padding:0 12px;font-size:14px;background:var(--surface)}
+.field textarea{height:88px;padding:10px 12px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.field .err{display:none;color:var(--danger);font-size:12px;margin-top:5px}
+.field.error input,.field.error select,.field.error textarea{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.field.error .err{display:block}
+.field .hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.grid-2{grid-template-columns:1fr}}
+.confirm-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:14px}
+.confirm-ic.danger{background:var(--danger-soft);color:var(--danger)}
+.confirm-ic.warn{background:var(--warn-soft);color:var(--warn)}
+.cascade{background:var(--warn-soft);border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-top:12px;display:none}
+.cascade.show{display:block}
+
+/* ---------- Studio authoring ---------- */
+.dialog.dialog-wide{max-width:900px}
+.studio-tabs{display:flex;gap:2px;padding:8px 24px 0;border-bottom:1px solid var(--border)}
+.studio-tab{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px 10px 0 0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.studio-tab:hover{color:var(--fg)}
+.studio-tab.active{color:var(--accent-strong);border-bottom-color:var(--accent)}
+.studio-panel{display:none;padding:18px 24px}
+.studio-panel.active{display:block}
+.block-editor{margin-top:4px}
+.block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.block-head h4{font-size:13px;font-weight:700;letter-spacing:.02em}
+.block-add{position:relative}
+.block-add-btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px dashed var(--accent);border-radius:var(--r-sm);color:var(--accent-strong);background:var(--accent-soft);font-size:13px;font-weight:600}
+.block-add-btn:hover{background:#e0ebff}
+.block-menu{position:absolute;top:44px;left:0;z-index:60;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);padding:6px;display:none}
+.block-menu.show{display:block;animation:pop .12s}
+.block-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:500;text-align:left}
+.block-menu-item:hover{background:var(--surface-2)}
+.block-list{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.block-row{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;background:#fafbfc}
+.block-grip{width:8px;background:var(--surface-2);cursor:grab}
+.block-type{width:150px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:10px 14px;background:var(--surface);border-right:1px solid var(--border)}
+.block-type b{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-strong);display:flex;align-items:center;gap:6px}
+.block-type span{font-size:11px;color:var(--muted)}
+.block-body{flex:1;min-width:0;display:flex;align-items:center;padding:8px 12px;gap:8px}
+.block-body input{flex:1;min-width:0;height:34px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;background:var(--surface)}
+.block-body input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.block-act{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:6px 8px;background:var(--surface);border-left:1px solid var(--border)}
+.block-act .icon-btn{width:26px;height:26px}
+.block-preview{padding:6px 0 2px;font-size:12px;color:var(--muted)}
+.block-preview .qv{background:var(--surface-2);border-radius:8px;padding:8px 10px}
+
+/* preview (POV siswa) */
+.pp{max-width:640px;margin:0 auto;background:#fbfcfd;border:1px solid var(--border);border-radius:var(--r-md);padding:22px}
+.pp h5{font-family:var(--font-display);font-size:17px;margin-bottom:2px}
+.pp .pp-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+.pp-blk{margin-bottom:12px;font-size:14px;line-height:1.6}
+.pp-blk.math{font-family:var(--font-mono);font-size:15px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.pp-blk.media{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-weight:500}
+.pp-blk.media svg{color:var(--accent)}
+.pp-blk.tbl table{width:100%;border-collapse:collapse;font-size:13px}
+.pp-blk.tbl th,.pp-blk.tbl td{border:1px solid var(--border);padding:6px 9px;text-align:left}
+.pp-blk.tbl th{background:var(--surface-2);font-weight:600}
+
+/* ---------- Import wizard ---------- */
+.step-dots{display:flex;align-items:center;gap:8px;padding:16px 24px 0}
+.step{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.step .n{width:22px;height:22px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:11.5px;font-family:var(--font-display)}
+.step.active{color:var(--accent-strong)}
+.step.active .n{background:var(--accent);color:#fff}
+.step.done .n{background:var(--success);color:#fff}
+.step-line{flex:1;height:1px;background:var(--border);max-width:60px}
+.upload-zone{border:2px dashed #c7dbff;border-radius:var(--r-md);padding:30px;text-align:center;color:var(--muted);cursor:pointer;transition:background .15s}
+.upload-zone:hover{background:var(--accent-soft)}
+.upload-zone b{color:var(--accent-strong);font-size:13.5px}
+.upload-zone .file{display:none}
+.file-chip{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px}
+.file-chip .fl-ic{color:var(--success)}
+.preview-tbl{max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:12px}
+.preview-tbl table{width:100%;border-collapse:collapse}
+.preview-tbl th{background:#fafbfc;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:left;position:sticky;top:0;border-bottom:1px solid var(--border);font-family:var(--font-display)}
+.preview-tbl td{padding:8px 10px;font-size:12.5px;border-bottom:1px solid #f1f2f4;white-space:nowrap}
+.preview-tbl .st.ok{color:var(--success)}
+.preview-tbl .st.warn{color:var(--warn)}
+.preview-tbl .st.err{color:var(--danger)}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.result-cell{border-radius:var(--r-sm);padding:14px;text-align:center}
+.result-cell b{font-family:var(--font-display);font-size:26px;display:block}
+.result-cell span{font-size:12px;font-weight:500}
+.result-cell.ok{background:var(--success-soft);color:var(--success)}
+.result-cell.skip{background:var(--warn-soft);color:var(--warn)}
+.result-cell.fail{background:var(--danger-soft);color:var(--danger)}
+.error-list{background:var(--danger-soft);border-radius:10px;padding:10px 14px;font-size:12.5px;color:#b91c1c;max-height:120px;overflow:auto}
+.error-list div{padding:3px 0;display:flex;gap:6px}
+
+/* ---------- Menu ---------- */
+.menu{position:fixed;z-index:200;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);padding:6px;display:none}
+.menu.show{display:block;animation:pop .12s}
+.menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:500;text-align:left}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.danger{color:var(--danger)}
+.menu-item.danger:hover{background:var(--danger-soft)}
+.menu-sep{height:1px;background:var(--border);margin:6px}
+
+/* ---------- Toast ---------- */
+.toasts{position:fixed;top:18px;right:18px;z-index:300;display:flex;flex-direction:column;gap:10px}
+.toast{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;box-shadow:var(--shadow-md);padding:12px 16px;font-size:13.5px;font-weight:500;min-width:260px;max-width:380px;animation:pop .18s}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.info{border-left-color:var(--accent)}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:900px){.dialog-wide{max-width:100%}.block-type{width:110px}.toolbar .search-box{width:100%}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar" data-od-id="sidebar-admin">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
+      </span>
+      <span><b>EduBoard</b><small>Platform Pendidikan</small></span>
+    </div>
+    <nav class="nav" aria-label="Navigasi utama">
+      <div class="nav-label">Utama</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Master Akademik</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V8m4 13V3m4 18v-9m4 9V11"/></svg>Kelola Sekolah</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Target Sekolah</button>
+      <button class="nav-item active"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Materi Pelajaran</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Konten &amp; Ujian</button>
+      <div class="nav-label">Keuangan</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Finance &amp; Investasi</button>
+      <div class="nav-label">Sistem</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Pengguna &amp; Role</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Pengaturan</button>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="avatar">RA</span>
+      <span class="who"><b>Rizky Ananda</b><span>SUPER_ADMIN</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs">Admin / <b>Materi Pelajaran</b></div>
+      <div class="spacer"></div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" placeholder="Cari di seluruh admin…" aria-label="Pencarian global">
+      </div>
+      <button class="icon-btn" style="width:36px;height:36px" aria-label="Notifikasi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button>
+    </header>
+
+    <main class="content" id="page-materi-pelajaran" data-od-id="page-materi-pelajaran">
+      <section class="page-head" data-od-id="header-materi-pelajaran">
+        <div>
+          <h1>Materi Pelajaran</h1>
+          <p>Authoring hub materi belajar siswa. Materi dipetakan ke hierarki Mapel → Bab → Topik dari Master Akademik dan dirender siswa via ContentRenderer.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn btn-secondary" data-act="export-menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export
+          </button>
+          <button class="btn btn-secondary" data-act="import">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            Import
+          </button>
+          <button class="btn btn-primary" data-act="create">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            + Materi Baru
+          </button>
+        </div>
+      </section>
+
+      <section class="stats" data-od-id="stats-materi">
+        <div class="stat" data-od-id="stat-total"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span><div><b id="stat-total-n">0</b><span>Total Materi</span></div></div>
+        <div class="stat" data-od-id="stat-published"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16"/><path d="M4 15h16v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><div><b id="stat-published-n">0</b><span>Terpublikasi</span></div></div>
+        <div class="stat" data-od-id="stat-draft"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></span><div><b id="stat-draft-n">0</b><span>Draf</span></div></div>
+        <div class="stat" data-od-id="stat-review"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2.5"/></svg></span><div><b id="stat-review-n">0</b><span>Menunggu Review</span></div></div>
+        <div class="stat" data-od-id="stat-readtime"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><div><b id="stat-readtime-n">–</b><span>Waktu Baca Rata-rata</span></div></div>
+      </section>
+
+      <div class="error-banner" id="error-banner" data-od-id="error-banner" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span>Gagal memuat data. Periksa koneksi, lalu coba lagi.</span>
+        <button class="btn btn-secondary" style="height:34px" id="btn-retry">Coba Lagi</button>
+      </div>
+
+      <section class="card" data-od-id="panel-list">
+        <div class="filter-bar" data-od-id="filter-bar-materi">
+          <div class="input search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" placeholder="Cari judul / konten" id="f-q" aria-label="Cari materi">
+          </div>
+          <select class="select" id="f-jenjang" aria-label="Filter jenjang" style="min-width:120px"></select>
+          <select class="select" id="f-mapel" aria-label="Filter mata pelajaran" style="min-width:150px"></select>
+          <select class="select" id="f-bab" aria-label="Filter bab" style="min-width:130px"></select>
+          <select class="select" id="f-topik" aria-label="Filter topik" style="min-width:130px"></select>
+          <select class="select" id="f-kategori" aria-label="Filter kategori" style="min-width:130px">
+            <option value="">Semua Kategori</option>
+            <option value="TEORI">Teori</option>
+            <option value="STRATEGI">Strategi</option>
+            <option value="TRIK_CEPAT">Trik Cepat</option>
+          </select>
+          <select class="select" id="f-status" aria-label="Filter status" style="min-width:140px">
+            <option value="">Semua Status</option>
+            <option value="DRAFT">Draf</option>
+            <option value="REVIEW">Review</option>
+            <option value="APPROVED">Disetujui</option>
+            <option value="PUBLISHED">Terpublikasi</option>
+            <option value="ARCHIVED">Diarsipkan</option>
+          </select>
+          <label class="check-pill"><input type="checkbox" class="accent-color" id="f-video"> Video</label>
+          <label class="check-pill"><input type="checkbox" class="accent-color" id="f-gambar"> Gambar</label>
+          <label class="check-pill"><input type="checkbox" class="accent-color" id="f-dokumen"> Dokumen</label>
+        </div>
+
+        <div class="toolbar" data-od-id="toolbar-materi">
+          <span style="font-size:12.5px;color:var(--muted)" id="tbl-count">0 materi</span>
+          <div class="spacer"></div>
+          <div class="right">
+            <button class="btn btn-ghost" data-act="template"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>Unduh Templat</button>
+            <button class="btn btn-secondary" data-act="refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>Segarkan</button>
+          </div>
+        </div>
+
+        <div id="tbl-loading" style="padding:6px 16px">
+          <div class="skeleton" style="height:44px;margin:6px 0;border-radius:6px"></div>
+          <div class="skeleton" style="height:44px;margin:6px 0;border-radius:6px"></div>
+          <div class="skeleton" style="height:44px;margin:6px 0;border-radius:6px"></div>
+          <div class="skeleton" style="height:44px;margin:6px 0;border-radius:6px"></div>
+        </div>
+
+        <div class="table-scroll" id="table-wrap" hidden>
+          <table class="data" id="tbl-materi" data-od-id="table-materi">
+            <thead>
+              <tr>
+                <th style="width:40px"><input type="checkbox" class="chk" id="sel-all" aria-label="Pilih semua"></th>
+                <th style="width:90px">Kode</th>
+                <th class="sortable" data-sort="title">Judul Materi<span class="arrow">▲</span></th>
+                <th class="sortable" data-sort="subject">Mapel<span class="arrow">▲</span></th>
+                <th>Bab / Topik</th>
+                <th class="sortable" data-sort="category">Kategori<span class="arrow">▲</span></th>
+                <th class="sortable" data-sort="status">Status<span class="arrow">▲</span></th>
+                <th>Media</th>
+                <th class="sortable" data-sort="updated">Diperbarui<span class="arrow">▲</span></th>
+                <th style="width:120px;text-align:right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbl-body"></tbody>
+          </table>
+        </div>
+
+        <div class="empty" id="empty-materi" data-od-id="empty-materi">
+          <span class="e-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>
+          <h4>Belum ada materi sesuai filter</h4>
+          <p>Tidak ditemukan materi yang cocok. Ubah kata kunci atau filter, atau buat materi baru.</p>
+          <div class="empty-actions">
+            <button class="btn btn-primary" data-act="create">+ Materi Baru</button>
+            <button class="btn btn-secondary" data-act="import">Import Excel</button>
+          </div>
+        </div>
+
+        <div class="bulk-bar" id="bulk-bar" data-od-id="bulk-bar-materi">
+          <b id="bulk-n">0 terpilih</b>
+          <button class="btn btn-secondary" style="height:34px" id="bulk-publish">Terbitkan</button>
+          <button class="btn btn-secondary" style="height:34px" id="bulk-archive">Arsipkan</button>
+          <div class="spacer"></div>
+          <button class="btn btn-danger" style="height:34px" id="bulk-delete">Hapus</button>
+        </div>
+
+        <div class="pagine" id="pagine-wrap" hidden>
+          <div class="info" id="page-info">–</div>
+          <div class="pagesize">Baris <select class="select" id="page-size" style="height:30px;width:auto;min-width:70px"><option>20</option><option>50</option><option>100</option></select></div>
+          <div id="page-btns" style="display:flex;gap:4px"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ===== Studio authoring ===== -->
+<div class="overlay" id="ovl-studio" data-od-id="dialog-studio">
+  <div class="dialog dialog-wide">
+    <div class="dialog-head">
+      <div><h3 id="studio-title">Materi Baru</h3><p>Susun konten terstruktur berbasis blok. Setiap simpan menaikkan versi materi.</p></div>
+      <button class="icon-btn" data-close="ovl-studio" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="studio-tabs" role="tablist" aria-label="Tab studio">
+      <button class="studio-tab active" data-stab="konten" data-od-id="studio-tab-konten">Konten</button>
+      <button class="studio-tab" data-stab="media" data-od-id="studio-tab-media">Media &amp; Lampiran</button>
+      <button class="studio-tab" data-stab="klasifikasi" data-od-id="studio-tab-klasifikasi">Atur &amp; Klasifikasi</button>
+      <button class="studio-tab" data-stab="pratinjau" data-od-id="studio-tab-pratinjau">Pratinjau</button>
+    </div>
+
+    <div class="studio-panel active" data-spanel="konten">
+      <div class="field">
+        <label>Judul Materi <span class="req">*</span></label>
+        <input type="text" id="st-title" placeholder="cth. Teori Bilangan Bulat" maxlength="200">
+        <div class="err">Judul wajib diisi.</div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Kode</label><input type="text" id="st-code" placeholder="cth. MM01"><div class="hint">Kosongkan agar otomatis diisi saat simpan.</div></div>
+        <div class="field"><label>Slug</label><input type="text" id="st-slug" placeholder="Otomatis dari judul"><div class="hint">Unik; sunting bila perlu.</div></div>
+      </div>
+      <div class="field">
+        <label>Ringkasan</label>
+        <textarea id="st-summary" placeholder="Ringkasan singkat materi (opsional)"></textarea>
+      </div>
+      <div class="block-editor">
+        <div class="block-head">
+          <h4>Blok Konten</h4>
+          <div class="block-add">
+            <button class="block-add-btn" data-act="block-menu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Tambah Blok</button>
+            <div class="block-menu" id="block-menu">
+              <button class="block-menu-item" data-blk="PARAGRAPH"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14M5 12h10M5 18h6"/></svg>Teks</button>
+              <button class="block-menu-item" data-blk="LATEX"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v18M16 3v18M3 9h5M3 15h6M16 9h6M13 21h6"/></svg>Rumus (LaTeX)</button>
+              <button class="block-menu-item" data-blk="TABLE"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Tabel</button>
+              <button class="block-menu-item" data-blk="IMAGE"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Gambar</button>
+              <button class="block-menu-item" data-blk="VIDEO"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>Video</button>
+              <button class="block-menu-item" data-blk="AUDIO"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>Audio</button>
+              <button class="block-menu-item" data-blk="QUIZ"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>Kuis</button>
+              <button class="block-menu-item" data-blk="CALLOUT"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 10h10M7 14h6"/></svg>Catatan (Callout)</button>
+            </div>
+          </div>
+        </div>
+        <div class="block-list" id="st-blocks"></div>
+        <p class="block-preview" id="st-blocks-empty">Belum ada blok. Tambah blok untuk menyusun isi materi — teks, rumus, tabel, gambar, video, audio, atau kuis.</p>
+      </div>
+    </div>
+
+    <div class="studio-panel" data-spanel="media">
+      <div class="field">
+        <label>Video Tutorial</label>
+        <div class="upload-zone" data-zone="video"><b>+ Upload video</b><br>MP4, maks 15 MB (lebih besar gunakan URL).</div>
+      </div>
+      <div class="field">
+        <label>Audio (podcast / penjelasan)</label>
+        <div class="upload-zone" data-zone="audio"><b>+ Upload audio</b><br>MP3 / M4A.</div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Gambar (gallery)</label>
+          <div class="upload-zone" data-zone="image"><b>+ Upload gambar</b><br>PNG / JPG / WebP.</div>
+        </div>
+        <div class="field">
+          <label>Dokumen lampiran</label>
+          <div class="upload-zone" data-zone="doc"><b>+ Upload dokumen</b><br>PDF / DOC (unduhan siswa).</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Thumbnail kartu</label>
+        <div class="upload-zone" data-zone="thumb"><b>+ Upload thumbnail</b><br>Ratio 16:9, direkomendasikan.</div>
+      </div>
+      <div class="field"><label>Transkrip (untuk video/audio)</label><textarea id="st-transcript" placeholder="Tempel transkrip narasi bila tersedia"></textarea></div>
+    </div>
+
+    <div class="studio-panel" data-spanel="klasifikasi">
+      <div class="grid-2">
+        <div class="field"><label>Jenjang <span class="req">*</span></label><select id="st-jenjang"></select><div class="err">Pilih jenjang.</div></div>
+        <div class="field"><label>Mata Pelajaran <span class="req">*</span></label><select id="st-mapel"></select><div class="err">Pilih mata pelajaran.</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Bab</label><select id="st-bab"></select></div>
+        <div class="field"><label>Topik</label><select id="st-topik"></select></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Kategori</label><select id="st-kategori"><option value="TEORI">Teori</option><option value="STRATEGI">Strategi</option><option value="TRIK_CEPAT">Trik Cepat</option></select></div>
+        <div class="field"><label>Format</label><select id="st-format"><option>RICH_TEXT</option><option>TEXT</option><option>MARKDOWN</option><option>VIDEO</option><option>PDF</option><option>AUDIO</option><option>INTERACTIVE</option></select></div>
+      </div>
+      <div class="field"><label>Tag</label><input id="st-tags" placeholder="pisahkan dengan koma — cth. snbt, um, smash"><div class="hint">Opsional, tag custom untuk pencarian.</div></div>
+      <div class="field">
+        <label>Status</label>
+        <select id="st-status">
+          <option value="DRAFT">Draf</option>
+          <option value="REVIEW">Kirim Review</option>
+          <option value="APPROVED">Disetujui</option>
+          <option value="PUBLISHED">Terpublikasi</option>
+          <option value="ARCHIVED">Diarsipkan</option>
+        </select>
+        <div class="hint">Alur: Draf → Review → Disetujui → Terpublikasi. Publikasi dari Draf diperbolehkan bagi Super Admin.</div>
+      </div>
+    </div>
+
+    <div class="studio-panel" data-spanel="pratinjau">
+      <div class="pp" id="st-preview"><p style="color:var(--muted);font-size:13px">Pratinjau akan tampil di sini mengikuti blok yang sudah diisi.</p></div>
+    </div>
+
+    <div class="dialog-foot" style="justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--muted)" id="studio-ver">Versi aktif: – · Simpan menaikkan versi</span>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" data-close="ovl-studio">Batal</button>
+        <button class="btn btn-secondary" data-act="save-draft">Simpan Draf</button>
+        <button class="btn btn-primary" data-act="save-publish">Terbitkan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Detail / Revisi ===== -->
+<div class="overlay" id="ovl-detail" data-od-id="dialog-detail">
+  <div class="dialog">
+    <div class="dialog-head">
+      <div><h3 id="detail-title">Detail Materi</h3><p>Ringkasan + riwayat revisi.</p></div>
+      <button class="icon-btn" data-close="ovl-detail" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="dialog-body">
+      <div id="detail-meta" style="font-size:13.5px"></div>
+      <div class="block-head" style="margin-top:14px"><h4>Riwayat Revisi</h4></div>
+      <div id="detail-revisions"></div>
+    </div>
+    <div class="dialog-foot"><button class="btn btn-secondary" data-close="ovl-detail">Tutup</button></div>
+  </div>
+</div>
+
+<!-- ===== Delete confirm ===== -->
+<div class="overlay" id="ovl-delete" data-od-id="dialog-delete">
+  <div class="dialog" style="max-width:460px">
+    <div class="dialog-body" style="padding:24px">
+      <div class="confirm-ic danger"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
+      <h3 style="font-size:17px">Hapus materi ini?</h3>
+      <p style="font-size:13.5px;color:var(--muted);margin-top:6px" id="delete-msg">Materi akan dihapus permanen (soft delete).</p>
+      <div class="cascade" id="delete-cascade">Materi ini terpakai oleh 2 paket ujian. Hapus akan memutus referensi soal — lanjutkan? (backup otomatis dibuat)</div>
+    </div>
+    <div class="dialog-foot"><button class="btn btn-secondary" data-close="ovl-delete">Batal</button><button class="btn btn-danger" id="confirm-delete">Hapus</button></div>
+  </div>
+</div>
+
+<!-- ===== Import wizard ===== -->
+<div class="overlay" id="ovl-import" data-od-id="dialog-import">
+  <div class="dialog">
+    <div class="step-dots">
+      <div class="step active" data-step0="1"><span class="n">1</span>Upload</div>
+      <div class="step-line"></div>
+      <div class="step" data-step0="2"><span class="n">2</span>Validasi</div>
+      <div class="step-line"></div>
+      <div class="step" data-step0="3"><span class="n">3</span>Selesai</div>
+    </div>
+    <div class="dialog-head" style="padding-top:16px">
+      <div><h3>Import Materi (xlsx)</h3><p>Satu baris blok = satu materi; gunakan kolom NoBlok &amp; JenisBlok untuk blok berganda. Induk Mapel/Bab/Topik di-create otomatis bila belum ada.</p></div>
+      <button class="icon-btn" data-close="ovl-import" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="dialog-body">
+      <div id="import-step-1">
+        <div class="upload-zone" id="import-dropzone"><b>+ Pilih berkas Excel</b><br>Drag &amp; drop atau klik di sini (kolom sesuai template).</div>
+        <input type="file" class="file" id="import-file" accept=".xlsx,.xls">
+        <div style="text-align:right;margin-top:12px"><button class="btn btn-secondary" data-act="template" style="height:36px">Unduh Templat</button></div>
+      </div>
+      <div id="import-step-2" hidden>
+        <div class="file-chip"><span class="fl-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></span><span id="import-filename">materi.xlsx</span><span style="color:var(--muted);font-size:12px" id="import-fsize">24,6 KB</span></div>
+        <div class="preview-tbl">
+          <table>
+            <thead><tr><th>Mapel</th><th>Bab</th><th>Topik</th><th>Judul</th><th>Kategori</th><th>NoBlok</th><th>Status</th></tr></thead>
+            <tbody id="import-rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="import-step-3" hidden>
+        <div class="result-grid">
+          <div class="result-cell ok"><b id="res-created">0</b><span>Dibuat</span></div>
+          <div class="result-cell skip"><b id="res-skipped">0</b><span>Lewati</span></div>
+          <div class="result-cell fail"><b id="res-failed">0</b><span>Gagal</span></div>
+        </div>
+        <div class="error-list" id="res-errors" hidden></div>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Induk baru dibuat otomatis: <span id="res-autocreate">–</span></p>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" id="import-prev" hidden>Kembali</button>
+      <div class="spacer" style="flex:1"></div>
+      <button class="btn btn-secondary" data-close="ovl-import" id="import-cancel">Batal</button>
+      <button class="btn btn-primary" id="import-next" hidden>Validasi</button>
+      <button class="btn btn-primary" id="import-submit" hidden>Simpan Import</button>
+      <button class="btn btn-primary" id="import-done" hidden>Selesai</button>
+    </div>
+  </div>
+</div>
+
+<div class="menu" id="context-menu" data-od-id="context-menu"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $=(s,c=document)=>c.querySelector(s);
+const $$=(s,c=document)=>[...c.querySelectorAll(s)];
+
+/* ---------- Data contoh (placeholder pengembangan) ---------- */
+const LEVELS=[
+  {code:"SD",name:"SD (1–6)"},{code:"SMP",name:"SMP (7–9)"},{code:"SMA",name:"SMA (10–12)"},{code:"SMK",name:"SMK"}
+];
+const SUBJECTS={
+  SD:[{code:"MTK",name:"Matematika"},{code:"BIN",name:"Bahasa Indonesia"},{code:"IPA",name:"Ilmu Pengetahuan Alam"}],
+  SMP:[{code:"MTK",name:"Matematika"},{code:"BIN",name:"Bahasa Indonesia"},{code:"BIG",name:"Bahasa Inggris"},{code:"IPA",name:"Ilmu Pengetahuan Alam"},{code:"IPS",name:"Ilmu Pengetahuan Sosial"}],
+  SMA:[{code:"MTK",name:"Matematika"},{code:"FIS",name:"Fisika"},{code:"KIM",name:"Kimia"},{code:"BIN",name:"Bahasa Indonesia"},{code:"BIG",name:"Bahasa Inggris"},{code:"BIO",name:"Biologi"}],
+  SMK:[{code:"RPL",name:"Rekayasa Perangkat Lunak"},{code:"MM",name:"Multimedia"},{code:"AKL",name:"Akuntansi & Keuangan Lembaga"},{code:"MTK",name:"Matematika"}]
+};
+const BAB={
+  MTK:["Bilangan","Aljabar","Geometri","Statistika"],
+  FIS:["Mekanika","Termodinamika","Listrik Magnet","Gelombang"],
+  KIM:["Struktur Atom","Ikatan Kimia","Larutan","Termokimia"],
+  BIN:["Teks Narasi","Teks Eksposisi","Cerpen","Puisi"],
+  BIG:["Grammar","Reading","Writing","Listening"],
+  IPA:["Makhluk Hidup","Gaya & Energi","Tata Surya","Ekosistem"],
+  BIO:["Sel","Genetika","Evolusi","Ekologi"],
+  IPS:["Geografi","Sejarah","Ekonomi","Sosiologi"],
+  RPL:["Pemrograman Dasar","Basis Data","Jaringan Komputer","Algoritma"],
+  MM:["Desain Grafis","Animasi","Videografi","Produksi Media"],
+  AKL:["Akuntansi Dasar","Perpajakan","Aplikasi Pengolah Angka","Manajemen Kas"]
+};
+const TOPIK={
+  "Bilangan":["Bilangan Bulat","Pecahan","Perpangkatan","Barisan & Deret"],
+  "Aljabar":["Bentuk Aljabar","Persamaan Linear","Fungsi","Pertidaksamaan"],
+  "Geometri":["Bangun Datar","Bangun Ruang","Trigonometri","Transformasi"],
+  "Statistika":["Penyajian Data","Ukuran Pemusatan","Peluang","Distribusi"],
+  "Mekanika":["Kinematika","Dinamika","Usaha & Energi","Impuls & Momentum"],
+  "Termodinamika":["Suhu & Kalor","Hukum Termo","Entropi"],
+  "Listrik Magnet":["Hukum Coulomb","Rangkaian Listrik","Medan Magnet","Induksi"],
+  "Gelombang":["Gelombang Mekanik","Bunyi","Optik"],
+  "Struktur Atom":["Partikel Penyusun","Konfigurasi Elektron","Sistem Periodik"],
+  "Ikatan Kimia":["Ikatan Ion","Ikatan Kovalen","Ikatan Logam","Gaya Antar Molekul"],
+  "Struktur Atom":["Partikel Penyusun","Konfigurasi Elektron","Sistem Periodik"],
+  "Larutan":["Konsentrasi Larutan","Elektrolit","Koloid"],
+  "Termokimia":["Entalpi","Hukum Hess","Kalorimetri"],
+  "Teks Narasi":["Struktur","Kaidah Kebahasaan"],
+  "Makhluk Hidup":["Klasifikasi","Rantai Makanan","Adaptasi"],
+  "Gaya & Energi":["Gaya","Energi & Daya","Pesawat Sederhana"],
+  "Tata Surya":["Planet","Gerhana","Fase Bulan"],
+  "Sel":["Struktur Sel","Transpor Membran","Metabolisme Sel"],
+  "Genetika":["Hukum Mendel","Kromosom","Mutasi"],
+  "Pemrograman Dasar":["Logika & Algoritma","Variabel & Tipe","Percabangan","Perulangan"],
+  "Basis Data":["Normalisasi","SQL","Relasi Tabel"],
+  "Akuntansi Dasar":["Siklus Akuntansi","Jurnal Umum","Laporan Keuangan"]
+};
+
+const NAMES=["Teori Bilangan Bulat","Trik Cepat Faktorisasi","Strategi Pengerjaan Soal Persamaan Linear","Rangkuman Termodinamika: Hukum 1","Latihan Interaktif Barisan & Deret","Video Tutorial: Grafik Fungsi Kuadrat","Rangkuman Struktur Atom & Konfigurasi Elektron","Trik Cepat Virus & Bakteri dalam Ekonomi","Kuis Penguasaan Trigonometri","Audio Materi: Teks Eksposisi","PDF Modul: Induksi Elektromagnetik","Strategi Mengerjakan Reading Comprehension","Rangkuman Bilangan Bulat (SD)","Video: Energi & Daya Kelas 8","Latihan Soal Hukum Hess","Trik Cepat Normalisasi Basis Data"];
+const MAPELS=["MTK","FIS","KIM","BIN","BIG","IPA","BIO","IPS","RPL","MM","AKL","MTK","MTK","IPA","KIM","RPL"];
+const CATS=["TEORI","TRIK_CEPAT","STRATEGI","TEORI","STRATEGI","STRATEGI","TEORI","TRIK_CEPAT","STRATEGI","STRATEGI","TEORI","STRATEGI","TEORI","STRATEGI","STRATEGI","TRIK_CEPAT"];
+const FORM=["RICH_TEXT","RICH_TEXT","RICH_TEXT","RICH_TEXT","INTERACTIVE","VIDEO","RICH_TEXT","RICH_TEXT","INTERACTIVE","AUDIO","PDF","RICH_TEXT","RICH_TEXT","VIDEO","INTERACTIVE","RICH_TEXT"];
+const MEDIAARR=[["video","doc"],["video"],["image"],["video","audio"],["video"],["video","audio"],["image"],["video","doc"],["video"],["audio"],["doc"],["video","doc"],["image"],["video"],["audio","doc"],["image","doc"]];
+const SISA=["PUBLISHED","PUBLISHED","PUBLISHED","REVIEW","PUBLISHED","PUBLISHED","DRAFT","ARCHIVED","PUBLISHED","DRAFT","PUBLISHED","REVIEW","PUBLISHED","PUBLISHED","REVIEW","APPROVED"];
+
+let MATERIALS=[];
+const revCounter={};
+for(let i=0;i<NAMES.length;i++){
+  const code="B0"+(i+1);
+  const _bab=BAB[subs(MAPELS[i])]?BAB[subs(MAPELS[i])][i% (BAB[subs(MAPELS[i])]||[""]).length]:"Bilangan";
+  const _tips=TOPIK[_bab]||[];
+  MATERIALS.push({
+    id:code,code,title:NAMES[i],summary:NAMES[i]+" — ringkasan singkat untuk siswa.",
+    level:LEVELS[i%4].code,
+    subject:MAPELS[i],bab:_bab,topik:_tips.length?_tips[i%_tips.length]:"",
+    status:SISA[i],category:CATS[i],format:FORM[i],media:MEDIAARR[i],
+    owner:["Rizky Ananda","Dewi Lestari","Budi Santoso"][i%3],
+    readMin:6+(i*3)%26,updated:`2026-0${(i%6)+1}-${String(10+i%15).padStart(2,"0")}`,
+    version:(i%4)+1,blocks:[],usedInExams:(i%3===0?2:0),autocreate:"",
+    versions:[{v:1,at:"2026-06-24",note:"Pembuatan awal"}]
+  });
+}
+function subs(c){return c;}
+
+/* ---------- UI state ---------- */
+let filters={q:"",level:"",subject:"",bab:"",topik:"",category:"",status:"",video:false,image:false,doc:false};
+let sort={key:"title",dir:1};
+let page=1,pageSize=20;
+let sel=new Set();
+
+/* ---------- Master tree helpers ---------- */
+function subs2(c){return c;}
+const subjectName=c=>{for(const l of Object.values(SUBJECTS)){const s=l.find(x=>x.code===c);if(s)return s.name;}return c;};
+
+/* ---------- Render helpers ---------- */
+const ICON={
+  video:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>',
+  audio:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>',
+  image:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+  doc:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
+};
+const STATUS_LABEL={DRAFT:"Draf",REVIEW:"Review",APPROVED:"Disetujui",PUBLISHED:"Terpublikasi",ARCHIVED:"Diarsipkan"};
+const STATUS_CLASS={DRAFT:"gray",REVIEW:"amber",APPROVED:"blue",PUBLISHED:"green",ARCHIVED:"gray"};
+const CAT_LABEL={TEORI:"Teori",STRATEGI:"Strategi",TRIK_CEPAT:"Trik Cepat"};
+const MEDIA_LABEL={video:"Video",audio:"Audio",image:"Gambar",doc:"Dokumen"};
+const MEDIA_CLASS={video:"v",audio:"a",image:"i",doc:"d"};
+
+function renderStats(){
+  const pub=MATERIALS.filter(m=>m.status==="PUBLISHED").length;
+  const draft=MATERIALS.filter(m=>m.status==="DRAFT").length;
+  const rev=MATERIALS.filter(m=>m.status==="REVIEW"||m.status==="APPROVED").length;
+  const avg=(MATERIALS.reduce((a,m)=>a+m.readMin,0)/Math.max(MATERIALS.length,1)).toFixed(0)+" mnt";
+  $("#stat-total-n").textContent=MATERIALS.length;
+  $("#stat-published-n").textContent=pub;
+  $("#stat-draft-n").textContent=draft;
+  $("#stat-review-n").textContent=rev;
+  $("#stat-readtime-n").textContent=MATERIALS.length?avg:"–";
+}
+
+function filtered(){
+  let rows=MATERIALS.filter(m=>{
+    if(filters.q){const q=filters.q.toLowerCase();if(!(m.title.toLowerCase().includes(q)||m.summary.toLowerCase().includes(q)))return false;}
+    if(filters.level&&m.level!==filters.level)return false;
+    if(filters.subject&&m.subject!==filters.subject)return false;
+    if(filters.bab&&m.bab!==filters.bab)return false;
+    if(filters.topik&&m.topik!==filters.topik)return false;
+    if(filters.category&&m.category!==filters.category)return false;
+    if(filters.status&&m.status!==filters.status)return false;
+    if(filters.video&&!m.media.includes("video"))return false;
+    if(filters.image&&!m.media.includes("image"))return false;
+    if(filters.doc&&!m.media.includes("doc"))return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const va=sort.key==="status"?a[sort.key]:sort.key==="updated"?a[sort.key]:(sort.key==="subject"?subjectName(a.subject):a[sort.key]);
+    const vb=sort.key==="status"?b[sort.key]:sort.key==="updated"?b[sort.key]:(sort.key==="subject"?subjectName(b.subject):b[sort.key]);
+    return (va>vb?1:va<vb?-1:0)*sort.dir;
+  });
+  return rows;
+}
+
+function mediaPills(m){
+  if(!m.media.length)return '<span style="color:var(--muted);font-size:12px">—</span>';
+  return '<span class="media-pills">'+m.media.map(k=>'<span class="media-pill '+MEDIA_CLASS[k]+'">'+ICON[k]+MEDIA_LABEL[k]+'</span>').join("")+'</span>';
+}
+
+function renderTable(){
+  const rows=filtered();
+  const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
+  if(page>totalPages)page=totalPages;
+  const slice=rows.slice((page-1)*pageSize,page*pageSize);
+  $("#tbl-count").textContent=rows.length+" materi · "+MATERIALS.length+" total";
+  $("#table-wrap").hidden=false;
+  $("#tbl-loading").hidden=true;
+  $("#empty-materi").classList.toggle("show",rows.length===0);
+  $("#table-wrap").style.display=rows.length?"":"none";
+  $("#pagine-wrap").hidden=rows.length===0;
+  const tbody=$("#tbl-body");
+  tbody.innerHTML=slice.map(m=>{
+    const selClass=sel.has(m.id)?" selected":"";
+    return `<tr data-id="${m.id}" data-od-id="row-material-${m.id.toLowerCase()}" class="${selClass}">
+      <td><input type="checkbox" class="chk rowchk" data-id="${m.id}" ${sel.has(m.id)?"checked":""} aria-label="Pilih ${m.title}"></td>
+      <td><span class="code-badge">${m.code}</span></td>
+      <td><span class="td-title"><b title="${m.title}">${m.title}</b><small>${m.summary}</small></span></td>
+      <td>${m.subject}</td>
+      <td>${m.bab}${m.topik?" · "+m.topik:""}</td>
+      <td><span class="badge" style="background:var(--surface-2);color:var(--fg)">${CAT_LABEL[m.category]}</span></td>
+      <td><span class="badge ${STATUS_CLASS[m.status]}">${STATUS_LABEL[m.status]}</span></td>
+      <td>${mediaPills(m)}</td>
+      <td>${m.updated}</td>
+      <td style="text-align:right"><span class="row-act">
+        <button class="icon-btn" data-act="edit" data-id="${m.id}" title="Edit" aria-label="Edit ${m.title}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <button class="icon-btn danger" data-act="del" data-id="${m.id}" title="Hapus" aria-label="Hapus ${m.title}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        <button class="icon-btn" data-act="more" data-id="${m.id}" title="Lainnya" aria-label="Aksi lain ${m.title}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg></button>
+      </span></td></tr>`;
+  }).join("");
+  $("#sel-all").checked=rows.length>0&&slice.every(m=>sel.has(m.id));
+  $("#sel-all").indeterminate=!$("#sel-all").checked&&slice.some(m=>sel.has(m.id));
+  renderPagination(rows.length,totalPages);
+  renderBulk();
+}
+
+function renderPagination(total,totalPages){
+  $("#page-info").textContent=(total?"Menampilkan "+(page-1)*pageSize+1+"–"+Math.min(page*pageSize,total)+" dari "+total+" materi":"0 materi");
+  const box=$("#page-btns");
+  box.innerHTML="";
+  const mk=(label,pg,dis,active)=>{const b=document.createElement("button");b.className="page-btn"+(active?" active":"");b.textContent=label;if(dis)b.disabled=true;else b.onclick=()=>{page=pg;renderTable();};if(active)b.setAttribute("aria-current","page");box.appendChild(b);};
+  mk("‹",page-1,page===1);
+  const from=Math.max(1,page-2),to=Math.min(totalPages,page+2);
+  for(let p=from;p<=to;p++)mk(String(p),p,false,p===page);
+  mk("›",page+1,page>=totalPages);
+}
+
+function renderBulk(){
+  const show=sel.size>0;
+  $("#bulk-bar").classList.toggle("show",show);
+  $("#bulk-n").textContent=sel.size+" terpilih";
+}
+
+/* ---------- Filter bar ---------- */
+function renderLevelOptions(selEl,keep){
+  const v=keep===undefined?$(selEl).value:keep;
+  $(selEl).innerHTML='<option value="">Semua Jenjang</option>'+LEVELS.map(l=>`<option value="${l.code}" ${l.code===v?"selected":""}>${l.name}</option>`).join("");
+}
+function populateMapelFilter(){
+  const s=$("#f-mapel");
+  const v=s.value;
+  s.innerHTML='<option value="">Semua Mapel</option>'+(SUBJECTS[filters.level]||[]).map(x=>`<option value="${x.code}" ${x.code===v?"selected":""}>${x.name}</option>`).join("");
+  s.disabled=!filters.level;
+}
+function populateBabFilter(){
+  const s=$("#f-bab");const v=s.value;
+  s.innerHTML='<option value="">Semua Bab</option>'+(BAB[filters.subject]||[]).map(b=>`<option ${b===v?"selected":""}>${b}</option>`).join("");
+  s.disabled=!filters.subject;
+}
+function populateTopikFilter(){
+  const s=$("#f-topik");const v=s.value;
+  const tips=TOPIK[filters.bab]||[];
+  s.innerHTML='<option value="">Semua Topik</option>'+tips.map(t=>`<option ${t===v?"selected":""}>${t}</option>`).join("");
+  s.disabled=!filters.bab;
+}
+function refreshFilters(){
+  renderLevelOptions("#f-jenjang",filters.level);
+  populateMapelFilter();
+  populateBabFilter();
+  populateTopikFilter();
+}
+function bindFilters(){
+  $("#f-q").addEventListener("input",e=>{filters.q=e.target.value;page=1;renderTable();});
+  $("#f-jenjang").addEventListener("change",e=>{filters.level=e.target.value;filters.subject="";filters.bab="";filters.topik="";page=1;populateMapelFilter();populateBabFilter();populateTopikFilter();renderTable();});
+  $("#f-mapel").addEventListener("change",e=>{filters.subject=e.target.value;filters.bab="";filters.topik="";page=1;populateBabFilter();populateTopikFilter();renderTable();});
+  $("#f-bab").addEventListener("change",e=>{filters.bab=e.target.value;filters.topik="";page=1;populateTopikFilter();renderTable();});
+  $("#f-topik").addEventListener("change",e=>{filters.topik=e.target.value;page=1;renderTable();});
+  $("#f-kategori").addEventListener("change",e=>{filters.category=e.target.value;page=1;renderTable();});
+  $("#f-status").addEventListener("change",e=>{filters.status=e.target.value;page=1;renderTable();});
+  $("#f-video").addEventListener("change",e=>{filters.video=e.target.checked;page=1;renderTable();});
+  $("#f-gambar").addEventListener("change",e=>{filters.image=e.target.checked;page=1;renderTable();});
+  $("#f-dokumen").addEventListener("change",e=>{filters.doc=e.target.checked;page=1;renderTable();});
+  $("#page-size").addEventListener("change",e=>{pageSize=+e.target.value;page=1;renderTable();});
+}
+
+/* ---------- Sorting + resize ---------- */
+function bindSort(){
+  $$("#tbl-materi .sortable").forEach(th=>th.addEventListener("click",()=>{
+    const key=th.dataset.sort;
+    if(sort.key===key)sort.dir*=-1;else{sort.key=key;sort.dir=1;}
+    page=1;
+    $$("#tbl-materi .sortable .arrow").forEach(a=>a.classList.remove("on"));
+    const arr=th.querySelector(".arrow");if(arr){arr.classList.add("on");arr.textContent=sort.dir>0?"▲":"▼";}
+    renderTable();
+  }));
+}
+
+/* ---------- Selection ---------- */
+function bindSelection(){
+  $("#sel-all").addEventListener("change",e=>{
+    const rows=filtered();
+    const slice=rows.slice((page-1)*pageSize,page*pageSize);
+    if(e.target.checked)slice.forEach(m=>sel.add(m.id));else slice.forEach(m=>sel.delete(m.id));
+    renderTable();
+  });
+  $("#tbl-body").addEventListener("change",e=>{
+    if(!e.target.classList.contains("rowchk"))return;
+    const id=e.target.dataset.id;
+    if(e.target.checked)sel.add(id);else sel.delete(id);
+    renderTable();
+  });
+}
+
+/* ---------- Context menu ---------- */
+function openMenu(x,y,items,rowId){
+  const menu=$("#context-menu");
+  menu.innerHTML=items.map(it=>it.sep?'<div class="menu-sep"></div>':`<button class="menu-item ${it.danger?"danger":""}" data-act="${it.act}">${it.label}</button>`).join("");
+  menu.classList.add("show");
+  const rect=menu.getBoundingClientRect();
+  const left=Math.min(x,window.innerWidth-rect.width-8);
+  const top=Math.min(y,window.innerHeight-rect.height-8);
+  menu.style.left=left+"px";menu.style.top=top+"px";
+  menu.dataset.rowId=rowId||"";
+  menu.onclick=e=>{
+    const btn=e.target.closest("[data-act]");
+    if(!btn)return;
+    menu.classList.remove("show");
+    const act=btn.dataset.act,id=menu.dataset.rowId;
+    if(act==="edit")openStudio(id);
+    else if(act==="detail")openDetail(id);
+    else if(act==="del")openDelete(id);
+    else if(act==="toggle-pub")toggleStatus(id);
+    else if(act==="ex-all"||act==="ex-sel")doExport(act==="ex-all"?"Semua (sesuai filter)":`Terpilih (${sel.size})`);
+    else if(act==="ex-xlsx"||act==="ex-csv")toast(`Format ${act.slice(3).toUpperCase()} dipilih untuk ekspor.`,"info");
+  };
+  setTimeout(()=>document.addEventListener("click",closeMenu,{once:true}),0);
+}
+function closeMenu(){const m=$("#context-menu");m.classList.remove("show");}
+
+/* ---------- Row actions ---------- */
+function toggleStatus(id){
+  const m=MATERIALS.find(x=>x.id===id);
+  if(!m)return;
+  const target=m.status==="PUBLISHED"?"ARCHIVED":"PUBLISHED";
+  m.status=target;
+  m.updated=new Date().toISOString().slice(0,10);
+  toast(target==="PUBLISHED"?"Materi diterbitkan":"Materi diarsipkan","success");
+  renderStats();renderTable();
+}
+
+function openDelete(id){
+  const m=MATERIALS.find(x=>x.id===id);
+  if(!m)return;
+  $("#delete-msg").textContent=`“${m.title}” akan dihapus permanen (soft delete).`;
+  $("#delete-cascade").classList.toggle("show",m.usedInExams>0);
+  $("#delete-cascade").textContent=m.usedInExams>0
+    ?`Materi ini terpakai oleh ${m.usedInExams} paket ujian. Hapus akan memutus referensi soal — lanjutkan?`
+    :"";
+  $("#ovl-delete").dataset.id=id;
+  openOverlay("ovl-delete");
+}
+$("#confirm-delete")?.addEventListener("click",()=>{
+  const id=$("#ovl-delete").dataset.id;
+  MATERIALS=MATERIALS.filter(m=>m.id!==id);
+  sel.delete(id);
+  closeOverlay("ovl-delete");
+  toast("Materi dihapus","success");
+  renderStats();renderTable();
+});
+
+function bindRowActions(){
+  $("#tbl-body").addEventListener("click",e=>{
+    const btn=e.target.closest("[data-act][data-id]");
+    if(!btn)return;
+    const {act,id}=btn.dataset;
+    if(act==="edit")openStudio(id);
+    else if(act==="del")openDelete(id);
+    else if(act==="more"){
+      const r=btn.getBoundingClientRect();
+      const m=MATERIALS.find(x=>x.id===id);
+      openMenu(r.right,r.bottom,[
+        {act:"edit",label:(m&&m.status==="DRAFT")?"Lanjutkan Authoring":"Edit Materi"},
+        {act:"detail",label:"Detail & Riwayat Revisi"},
+        {sep:true},
+        {act:"toggle-pub",label:m&&m.status==="PUBLISHED"?"Arsipkan":"Terbitkan"},
+        {sep:true},
+        {act:"del",label:"Hapus",danger:true}
+      ],id);
+    }
+  });
+}
+
+/* ---------- Bulk ---------- */
+function bulkSetStatus(publish){
+  const ids=[...sel];
+  const label=publish?"Terbitkan":"Arsipkan";
+  ids.forEach(id=>{
+    const m=MATERIALS.find(x=>x.id===id);
+    if(m)m.status=publish?"PUBLISHED":"ARCHIVED";
+  });
+  sel.clear();
+  toast(`${ids.length} materi ${publish?"diterbitkan":"diarsipkan"}`,"success");
+  renderStats();renderTable();
+}
+function bulkDelete(){
+  const ids=[...sel];
+  MATERIALS=MATERIALS.filter(m=>!ids.includes(m.id));
+  sel.clear();
+  toast(`${ids.length} materi dihapus`,"success");
+  renderStats();renderTable();
+}
+$("#bulk-publish").addEventListener("click",()=>bulkSetStatus(true));
+$("#bulk-archive").addEventListener("click",()=>bulkSetStatus(false));
+$("#bulk-delete").addEventListener("click",bulkDelete);
+
+/* ---------- Overlay helpers ---------- */
+function openOverlay(id){$( "#"+id).classList.add("show");document.body.style.overflow="hidden";}
+function closeOverlay(id){$("#"+id).classList.remove("show");document.body.style.overflow="";
+  if(id==="ovl-import")resetImport();
+  if(id==="ovl-studio"){}
+}
+$$("[data-close]").forEach(b=>b.addEventListener("click",()=>closeOverlay(b.dataset.close)));
+$$(".overlay").forEach(o=>o.addEventListener("mousedown",e=>{if(e.target===o)closeOverlay(o.id);}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$$(".overlay.show").forEach(o=>closeOverlay(o.id));closeMenu();}});
+
+/* ---------- Studio authoring ---------- */
+let studying=null;
+const studBlocks=[];
+function resetStudioBlocks(){studBlocks.length=0;renderBlocks();}
+function openStudio(id){
+  studying=id||null;
+  const m=id?MATERIALS.find(x=>x.id===id):null;
+  $("#studio-title").textContent=m?"Edit Materi":"Materi Baru";
+  $("#st-title").value=m?m.title:"";
+  $("#st-code").value=m?m.code:"";
+  $("#st-slug").value=m?m.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""):"";
+  $("#st-summary").value=m?m.summary:"";
+  $("#st-transcript").value="";
+  studBlocks.length=0;
+  if(m&&m.blocks&&m.blocks.length)studBlocks.push(...JSON.parse(JSON.stringify(m.blocks)));
+  else studBlocks.push({type:"PARAGRAPH",label:"Teks",value:"",mode:"teks"});
+  renderStudioSelects(m);
+  $("#st-status").value=m?(m.status==="PUBLISHED"?"PUBLISHED":m.status):"DRAFT";
+  switchStudioTab("konten");
+  openOverlay("ovl-studio");
+  updateStudioVersion(m);
+}
+function updateStudioVersion(m){
+  $("#studio-ver").textContent=m?`Versi aktif: v${m.version} · Simpan menaikkan versi`:"Versi baru · Simpan menaikkan versi";
+}
+function renderStudioSelects(m){
+  const jl=$("#st-jenjang"),ml=$("#st-mapel");
+  const selLevel=m?m.level:LEVELS[0].code;
+  jl.innerHTML=LEVELS.map(l=>`<option value="${l.code}" ${l.code===selLevel?"selected":""}>${l.name}</option>`).join("");
+  ml.innerHTML=(SUBJECTS[selLevel]||[]).map(x=>`<option value="${x.code}" ${m&&m.subject===x.code?"selected":""}>${x.name}</option>`).join("");
+  const bb=$("#st-bab"),tp=$("#st-topik");
+  bb.innerHTML=(BAB[ml.value]||[]).map(b=>`<option ${m&&m.bab===b?"selected":""}>${b}</option>`).join("");
+  tp.innerHTML=(TOPIK[bb.value]||[]).map(t=>`<option ${m&&m.topik===t?"selected":""}>${t}</option>`).join("").replace(/undefined/g,"");
+  const fillBab=()=>{bb.innerHTML=(BAB[ml.value]||[]).map(b=>`<option>${b}</option>`).join("");};
+  const fillTopik=()=>{tp.innerHTML=(TOPIK[bb.value]||[]).map(t=>`<option>${t}</option>`).join("").replace(/undefined/g,"");};
+  jl.onchange=()=>{
+    ml.innerHTML=(SUBJECTS[jl.value]||[]).map(x=>`<option value="${x.code}">${x.name}</option>`).join("");
+    fillBab();fillTopik();
+  };
+  ml.onchange=()=>{fillBab();fillTopik();};
+  bb.onchange=()=>{fillTopik();};
+}
+function renderBlocks(){
+  const list=$("#st-blocks");
+  list.innerHTML=studBlocks.map((b,i)=>`<div class="block-row" data-i="${i}" data-od-id="blok-${b.type.toLowerCase()}">
+    <span class="block-grip" title="Seret untuk urut"></span>
+    <div class="block-type"><b>${b.icon||""}${b.label}</b><span>${b.mode||"teks"}</span></div>
+    <div class="block-body"><input data-i="${i}" value="${(b.value||"").replace(/"/g,"&quot;")}" placeholder="${ph(b)}"></div>
+    <div class="block-act">
+      <button class="icon-btn" data-blk="up" data-i="${i}" title="Naik" aria-label="Naikkan blok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg></button>
+      <button class="icon-btn" data-blk="down" data-i="${i}" title="Turun" aria-label="Turunkan blok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="icon-btn danger" data-blk="del" data-i="${i}" title="Hapus blok" aria-label="Hapus blok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+    </div>
+  </div>`).join("");
+  $("#st-blocks-empty").style.display=studBlocks.length?"none":"block";
+}
+function ph(b){const map={PARAGRAPH:"Tulis paragraf…",LATEX:"Jeniskan rumus — cth. f(x) = ax² + bx + c",TABLE:"1|2|3,4|5|6  (pemisah | kolom, ; baris)",IMAGE:"Nama aset / URL gambar",VIDEO:"Pilih video dari daftar aset",AUDIO:"Pilih audio dari daftar aset",QUIZ:"Pertanyaan kuis (opsi pada editor kuis)",CALLOUT:"Catatan penting (opsional)",CHECKLIST:"Item checklist dipisah ;",TIMELINE:"Titik timeline dipisah |> ;"};return map[b]||"Isi konten blok…";}
+function bindBlocks(){
+  $("#st-blocks").addEventListener("input",e=>{
+    const inp=e.target.closest("input[data-i]");
+    if(!inp)return;
+    studBlocks[+inp.dataset.i].value=inp.value;
+  });
+  $("#st-blocks").addEventListener("click",e=>{
+    const b=e.target.closest("[data-blk]");
+    if(!b)return;
+    if(b.dataset.blk==="up"&&+b.dataset.i>0)[studBlocks[+b.dataset.i],studBlocks[+b.dataset.i-1]]=[studBlocks[+b.dataset.i-1],studBlocks[+b.dataset.i]];
+    if(b.dataset.blk==="down"&&+b.dataset.i<studBlocks.length-1)[studBlocks[+b.dataset.i],studBlocks[+b.dataset.i+1]]=[studBlocks[+b.dataset.i+1],studBlocks[+b.dataset.i]];
+    if(b.dataset.blk==="del")studBlocks.splice(+b.dataset.i,1);
+    renderBlocks();
+  });
+}
+function renderPreview(){
+  const pp=$("#st-preview");
+  const title=$("#st-title").value||"Judul materi belum diisi";
+  const m=$("#st-mapel");
+  const body=studBlocks.map(b=>{
+    if(b.type==="PARAGRAPH"||b.type==="CALLOUT"){
+      const val=b.value||"…";
+      return `<div class="pp-blk" style="${b.type==="CALLOUT"?"background:var(--warn-soft);border:1px solid #fde68a;border-radius:10px;padding:10px 14px;color:#92400e":""}">${val}</div>`;
+    }
+    if(b.type==="LATEX")return `<div class="pp-blk math">${b.value||"$$…$$"}</div>`;
+    if(b.type==="TABLE"){
+      const rows=(b.value||"").split(";").map(r=>r.split("|").map(c=>c.trim()));
+      if(!rows.length||!rows[0].join(""))return `<div class="pp-blk">(tabel kosong)</div>`;
+      return `<div class="pp-blk tbl"><table>${rows.map((r,i)=>`<tr>${r.map(c=>i===0?`<th>${c}</th>`:`<td>${c}</td>`).join("")}</tr>`).join("")}</table></div>`;
+    }
+    if(b.type==="IMAGE")return `<div class="pp-blk media">${ICON.image}Gambar: <b>${b.value||"(belum dipilih)"}</b></div>`;
+    if(b.type==="VIDEO")return `<div class="pp-blk media">${ICON.video}Video: <b>${b.value||"(belum dipilih)"}</b></div>`;
+    if(b.type==="AUDIO")return `<div class="pp-blk media">${ICON.audio}Audio: <b>${b.value||"(belum dipilih)"}</b></div>`;
+    if(b.type==="QUIZ")return `<div class="pp-blk" style="border:1px dashed var(--border);border-radius:10px;padding:12px 14px">Kuis latihan — ${b.value||"pertanyaan belum diisi"}</div>`;
+    return `<div class="pp-blk">${b.value||""}</div>`;
+  }).join("")||`<p style="color:var(--muted);font-size:13px">Belum ada blok untuk dipratinjau.</p>`;
+  pp.innerHTML=`<h5>${title}</h5><div class="pp-sub">${($("#st-mapel option:checked").textContent||"Mapel")+" · "+CAT_LABEL[$("#st-kategori").value]||"Teori"}</div>${body}`;
+}
+function switchStudioTab(tab){
+  $$(".studio-tab").forEach(t=>t.classList.toggle("active",t.dataset.stab===tab));
+  $$(".studio-panel").forEach(p=>p.classList.toggle("active",p.dataset.spanel===tab));
+  if(tab==="pratinjau")renderPreview();
+}
+function $$studioTabs(){
+  $$(".studio-tab").forEach(t=>t.addEventListener("click",()=>switchStudioTab(t.dataset.stab)));
+  $$(".block-add-btn").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();$("#block-menu").classList.toggle("show");}));
+  $$(".block-menu-item").forEach(b=>b.addEventListener("click",()=>{
+    const t=b.dataset.blk;
+    const defs={
+      PARAGRAPH:["Teks","PARAGRAPH","teks"],LATEX:["Rumus / LaTeX","LATEX","formula"],TABLE:["Tabel","TABLE","tabel"],
+      IMAGE:["Gambar","IMAGE","media"],VIDEO:["Video","VIDEO","media"],AUDIO:["Audio","AUDIO","media"],
+      QUIZ:["Kuis","QUIZ","kuis"],CALLOUT:["Catatan / Callout","CALLOUT","callout"]
+    };
+    studBlocks.push({type:t,label:defs[t][0],mode:defs[t][2],value:""});
+    $("#block-menu").classList.remove("show");
+    renderBlocks();renderPreview();
+  }));
+}
+function validStudio(){
+  let ok=true;
+  const f=(id,cond)=>{$(id).parentElement.classList.toggle("error",!cond);if(!cond)ok=false;};
+  f("#st-title",($("#st-title").value.trim().length>0));
+  f("#st-jenjang",$("#st-jenjang").value!=="");
+  f("#st-mapel",$("#st-mapel").value!=="");
+  return ok;
+}
+function saveStudio(publish){
+  if(!validStudio()){toast("Periksa kembali field wajib","error");return;}
+  const level=$("#st-jenjang").value,sub=$("#st-mapel").value,bab=$("#st-bab").value,topik=$("#st-topik").value;
+  const data={
+    title:$("#st-title").value.trim(),
+    code:$("#st-code").value.trim()||("B"+(MATERIALS.length+1)),
+    slug:$("#st-slug").value.trim(),
+    summary:$("#st-summary").value.trim(),
+    level,subject:sub,bab,topik,
+    category:$("#st-kategori").value,
+    format:$("#st-format").value,
+    status:publish?"PUBLISHED":$("#st-status").value,
+    media:collectMedia(),owner:"Rizky Ananda",readMin:6+(MATERIALS.length*3)%26,
+    updated:new Date().toISOString().slice(0,10),
+    version:(studying?MATERIALS.find(m=>m.id===studying).version:0)+1,
+    blocks:JSON.parse(JSON.stringify(studBlocks)),usedInExams:studying?MATERIALS.find(m=>m.id===studying).usedInExams:0
+  };
+  if(studying){
+    const m=MATERIALS.find(x=>x.id===studying);
+    Object.assign(m,data);
+    if(!m.versions)m.versions=[];
+    m.versions.push({v:data.version,at:data.updated,note:publish?"Publikasi":"Penyimpanan terakhir"});
+    toast(`Materi disimpan · versi ${data.version}`,"success");
+  }else{
+    data.id=data.code;MATERIALS.unshift(data);
+    data.versions=[{v:1,at:data.updated,note:"Pembuatan awal"}];
+    toast(publish?"Materi dibuat & diterbitkan":"Materi disimpan sebagai draf","success");
+  }
+  closeOverlay("ovl-studio");
+  renderStats();renderTable();
+}
+function collectMedia(){
+  const arr=[];
+  if(studBlocks.some(b=>b.type==="VIDEO"))arr.push("video");
+  if(studBlocks.some(b=>b.type==="AUDIO"))arr.push("audio");
+  if(studBlocks.some(b=>b.type==="IMAGE"))arr.push("image");
+  if($("#st-transcript").value.trim()){}
+  return arr;
+}
+
+/* ---------- Detail / revisions ---------- */
+function openDetail(id){
+  const m=MATERIALS.find(x=>x.id===id);
+  if(!m)return;
+  $("#detail-title").textContent=m.title;
+  $("#detail-meta").innerHTML=`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <span class="code-badge">${m.code}</span>
+      <span class="badge ${STATUS_CLASS[m.status]}">${STATUS_LABEL[m.status]}</span>
+      <span class="badge" style="background:var(--surface-2);color:var(--fg)">${CAT_LABEL[m.category]}</span>
+    </div>
+    <p style="color:var(--muted)">Mapel <b>${subjectName(m.subject)}</b> · Bab <b>${m.bab||"—"}</b>${m.topik?" · Topik <b>"+m.topik+"</b>":""} · Waktu baca ≈ ${m.readMin} mnt · Penulis: ${m.owner}</p>`;
+  const rev=(m.versions||[]).slice().reverse();
+  $("#detail-revisions").innerHTML=rev.length?rev.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f2f4">
+    <span class="badge blue">v${r.v}</span><span style="flex:1;font-size:13px">${r.note}</span><span style="font-size:12px;color:var(--muted)">${r.at}</span>
+  </div>`).join(""):'<p style="font-size:13px;color:var(--muted)">Belum ada revisi untuk materi ini.</p>';
+  openOverlay("ovl-detail");
+}
+
+/* ---------- Import wizard ---------- */
+let importStep=1,importRows=[];
+const PREVIEW_SAMPLE=[
+  ["MTK","Bilangan","Bilangan Bulat","Teori Bilangan Bulat (Contoh)","TEORI","1","ok"],
+  ["MTK","Bilangan","Bilangan Bulat","Teori Bilangan Bulat (Contoh)","TEORI","2","ok"],
+  ["MTK","Aljabar","Bentuk Aljabar","Video: Operasi Aljabar","STRATEGI","1","warn"],
+  ["FIS","Mekanika","Kinematika","Trik Cepat GLBB","TRIK_CEPAT","","","err"]
+];
+function resetImport(){
+  importStep=1;importRows=[];
+  ["import-next","import-submit","import-prev","import-done"].forEach(id=>$(id).hidden=true);
+  $("#import-cancel").hidden=false;
+  $("#import-step-1").hidden=false;$("#import-step-2").hidden=true;$("#import-step-3").hidden=true;
+  $$("#ovl-import [data-step0]").forEach((s,i)=>s.classList.toggle("active",i===0));
+  $$("#ovl-import [data-step0]").forEach(s=>s.classList.remove("done"));
+  $("#import-file").value="";
+}
+function goStep(n){
+  importStep=n;
+  [1,2,3].forEach(i=>{$("#import-step-"+i).hidden=(i!==n);});
+  $$("#ovl-import [data-step0]").forEach((s,i)=>{
+    s.classList.toggle("active",i+1===n);s.classList.toggle("done",i+1<n);
+  });
+  $("#import-next").hidden=(n!==1); $("#import-submit").hidden=(n!==2);$("#import-done").hidden=(n!==3);
+  $("#import-prev").hidden=(n===1);$("#import-cancel").hidden=false;
+  if(n===3)$("#import-cancel").hidden=true;
+}
+function bindImport(){
+  $("#import-dropzone").addEventListener("click",()=>$("#import-file").click());
+  $("#import-dropzone").addEventListener("dragover",e=>{e.preventDefault();$("#import-dropzone").style.background="var(--accent-soft)";});
+  $("#import-dropzone").addEventListener("dragleave",()=>$("#import-dropzone").style.background="");
+  $("#import-dropzone").addEventListener("drop",e=>{e.preventDefault();$("#import-dropzone").style.background="";$("#import-file").files=e.dataTransfer.files;handleImportFile();});
+  $("#import-file").addEventListener("change",handleImportFile);
+  $("#import-next").addEventListener("click",()=>{
+    $("#import-rows").innerHTML=PREVIEW_SAMPLE.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${r[3]}</td><td>${r[4]}</td><td>${r[6]==""?"·":r[5]}</td><td><span class="st ${r[6]}">${r[6]==="ok"?"✓ Valid":r[6]==="warn"?"! Auto-create":r[6]==="err"?"✗ Error":"·"}</span></td></tr>`).join("");
+    goStep(2);
+  });
+  $("#import-submit").addEventListener("click",()=>{
+    $("#res-created").textContent=2;$("#res-skipped").textContent=1;$("#res-failed").textContent=1;
+    $("#res-errors").hidden=false;
+    $("#res-errors").innerHTML='<div>• Baris 4: Topik “Kinematika” tidak ditemukan di bab “Mekanika”</div><div>• Baris 4: Induk mapel FIS dibuat otomatis? cek template</div>';
+    $("#res-autocreate").textContent="Bab “Bentuk Aljabar” & Topik “Operasi Aljabar” (Mapel MTK)";
+    goStep(3);
+  });
+  $("#import-prev").addEventListener("click",()=>goStep(importStep-1));
+  $("#import-done").addEventListener("click",()=>{closeOverlay("ovl-import");toast("Import selesai: 2 dibuat, 1 dilewati, 1 gagal","success");});
+}
+function handleImportFile(){
+  const f=$("#import-file").files[0];
+  if(!f)return;
+  const size=(f.size/1024).toFixed(1);
+  $("#import-filename").textContent=f.name;
+  $("#import-fsize").textContent=size+" KB";
+  goStep(2);
+}
+
+/* ---------- Export ---------- */
+function doExport(scope){
+  toast(`Export dimulai — ${scope}. Berkas materi.xlsx akan diunduh sesuai filter aktif.`,"info");
+}
+
+/* ---------- Toast ---------- */
+function toast(msg,type){
+  const t=document.createElement("div");
+  t.className="toast "+(type||"info");
+  const ic=type==="success"
+    ?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>'
+    :type==="error"
+    ?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>'
+    :'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>';
+  t.innerHTML=ic+"<span>"+msg+"</span>";
+  $("#toasts").appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .25s";setTimeout(()=>t.remove(),260);},3200);
+}
+
+/* ---------- Global action delegation ---------- */
+function bindGlobalActions(){
+  document.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-act]");
+    if(!btn)return;
+    const act=btn.dataset.act;
+    if(act==="create")openStudio();
+    else if(act==="import"){openOverlay("ovl-import");}
+    else if(act==="export-menu"){
+      const r=btn.getBoundingClientRect();
+      openMenu(r.left,r.bottom,[
+        {act:"ex-all",label:"Semua materi (sesuai filter)"},
+        {act:"ex-sel",label:`Materi terpilih (${sel.size})`},
+        {sep:true},
+        {act:"ex-xlsx",label:"Format .xlsx (default)"},
+        {act:"ex-csv",label:"Format .csv (opsional)"}
+      ]);
+    }
+    else if(act==="template")toast("Templat materi.xlsx diunduh — kolom lengkap + baris contoh","info");
+    else if(act==="refresh"){toast("Data materi disegarkan dari server","info");}
+    else if(act==="save-draft")saveStudio(false);
+    else if(act==="save-publish")saveStudio(true);
+  });
+}
+
+/* ---------- Init ---------- */
+function init(){
+  renderLevelOptions("#f-jenjang");
+  bindFilters();bindSort();bindSelection();bindRowActions();bindGlobalActions();
+  $$studioTabs();bindBlocks();bindImport();
+  renderStudioSelects(null);
+  setTimeout(()=>{
+    $("#tbl-loading").hidden=true;
+    renderStats();renderTable();
+  },500);
+}
+init();
+</script>
+</body>
+</html>

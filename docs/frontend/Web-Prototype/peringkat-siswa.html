@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Peringkat — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --gold: #f59e0b;
+  --silver: #94a3b8;
+  --bronze: #d97706;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+/* Dark mode */
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+  --gold: #fbbf24;
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .table tr.me td { background: rgba(59,130,246,.15); }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 50; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 40; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.ambers { background: var(--amber-50); color: var(--amber-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-hover { transition: box-shadow .18s, transform .18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-pad { padding: 20px; }
+.section { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title { font-size: 17px; font-weight: 700; }
+
+/* Posisi saya */
+.mypos { display: flex; align-items: center; gap: 16px; background: var(--blue); color: #fff; border-radius: var(--radius-lg); padding: 20px 24px; flex-wrap: wrap; }
+html[data-theme="dark"] .mypos { background: #1d4ed8; }
+.mypos .rank-big { width: 76px; height: 76px; border-radius: 50%; background: rgba(255,255,255,.15); display: grid; place-items: center; flex: none; }
+.mypos .rank-big b { font-family: var(--font-display); font-size: 28px; font-weight: 800; }
+.mypos .rank-big small { display: block; font-size: 10px; text-transform: uppercase; opacity: .8; }
+.mypos .m-main { flex: 1; min-width: 180px; }
+.mypos .m-main h2 { font-size: 18px; font-weight: 800; }
+.mypos .m-main p { font-size: 13px; opacity: .9; margin-top: 3px; }
+.mypos .m-stats { display: flex; gap: 22px; text-align: right; flex-wrap: wrap; }
+.mypos .m-stats .v { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.mypos .m-stats .k { font-size: 11px; opacity: .8; }
+.mypos .m-stats .v.up { color: #bbf7d0; }
+
+/* Picker */
+.picker { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 16px; }
+.picker .field { display: flex; flex-direction: column; gap: 6px; }
+.picker .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.picker .field select { height: 42px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--fg); padding: 0 12px; font-size: 13.5px; min-width: 190px; }
+.picker .field select:focus-visible { box-shadow: var(--ring); outline: none; }
+.mode-wrap { display: flex; gap: 8px; }
+.mode-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-md); border: 1.5px solid var(--border); font-weight: 600; font-size: 13px; height: 42px; color: var(--fg-2); transition: all .15s; }
+.mode-btn .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); flex: none; }
+.mode-btn.on { border-color: var(--blue); color: var(--blue); background: var(--blue-50); }
+.mode-btn.on .dot { border-color: var(--blue); background: var(--blue); box-shadow: inset 0 0 0 3px #fff; }
+
+/* Podium */
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 16px; align-items: end; margin-top: 20px; }
+.pod-card { text-align: center; padding: 24px 16px 18px; position: relative; border-radius: var(--radius-lg); }
+.pod-card .p-medal { font-size: 26px; }
+.pod-card .p-name { font-family: var(--font-display); font-weight: 800; font-size: 15px; margin-top: 8px; }
+.pod-card .p-school { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pod-card .p-score { font-family: var(--font-mono); font-weight: 700; font-size: 17px; margin-top: 8px; }
+.pod-card.p1 { background: var(--amber-50); border: 1px solid var(--gold); padding-bottom: 30px; }
+.pod-card.p2 { border: 1px solid var(--silver); }
+.pod-card.p3 { border: 1px solid var(--bronze); }
+.pod-rank { position: absolute; top: 12px; left: 14px; font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--muted); }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+.table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table td { padding: 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; white-space: nowrap; }
+.table tr:last-child td { border-bottom: 0; }
+.table tr.me td { background: var(--blue-50); font-weight: 600; }
+.table .cell-rank { font-family: var(--font-mono); font-weight: 700; color: var(--muted); }
+.table tr.me .cell-rank { color: var(--blue); }
+.ply { display: flex; align-items: center; gap: 10px; }
+.ply .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; flex: none; }
+.ply .nm { font-weight: 600; }
+.ply .me-tag { font-size: 10px; color: var(--blue); padding: 2px 6px; border-radius: 999px; font-weight: 700; margin-left: 4px; }
+.mono { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+
+/* Detail mapel */
+.sub-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.sub-head .big-ic { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: #fff; flex: none; }
+.sub-head .big-ic svg { width: 26px; height: 26px; }
+.sub-head h1 { font-size: 20px; font-weight: 800; }
+.sub-head .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1000px) { .podium { grid-template-columns: 1fr; } .pod-card.p1 { order: -1; } }
+@media (max-width: 920px) {
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+  .mypos { flex-direction: column; align-items: flex-start; }
+  .mypos .m-stats { text-align: left; }
+}
+@media (max-width: 560px) { .search { display: none; } .picker .field select { min-width: 100%; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item" href="belajar-siswa.html" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item" href="latihan-siswa.html" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item active" href="#" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item" href="target-siswa.html" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+      <a class="nav-item" href="membership-siswa.html" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="konfigurasi-siswa.html" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari siswa, sekolah, peringkat…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="peringkat">
+
+      <!-- VIEW 1: Leaderboard -->
+      <section data-od-id="view-main" id="view-main">
+        <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Peringkat</span></div>
+        <div class="header">
+          <h1>Peringkat Nasional</h1>
+          <p>Posisi kompetitif kamu di seluruh siswa dan sekolah — berdasarkan hasil ujian.</p>
+        </div>
+
+        <div class="mypos" data-od-id="posisi-saya" id="mypos"></div>
+
+        <div class="picker" data-od-id="picker">
+          <div class="field"><label>Mode</label><div class="mode-wrap">
+            <button class="mode-btn on" id="mode-best"><span class="dot"></span>Nilai Terbaik</button>
+            <button class="mode-btn" id="mode-avg"><span class="dot"></span>Rata-rata</button>
+          </div></div>
+          <div class="field"><label for="pkg">Paket Ujian</label><select id="pkg"><option>UTBK SNBT #3</option><option>UM PTN Gratis #1</option><option>Try Out Nasional #4</option></select></div>
+          <div class="field"><label for="bulan">Bulan</label><select id="bulan"><option>2026-08</option><option>2026-07</option><option>2026-06</option></select></div>
+          <div class="field"><label for="mapel">Mapel</label><select id="mapel"><option value="all">Semua</option><option value="mtk">Matematika</option><option value="fis">Fisika</option><option value="ing">B. Inggris</option></select></div>
+        </div>
+
+        <div id="podium" class="podium" data-od-id="podium"></div>
+
+        <div class="section">
+          <div class="section-head"><h2 class="section-title">Ranking Lengkap</h2><span class="pill gray">2.340 peserta</span></div>
+          <div class="card card-pad">
+            <div class="table-wrap">
+              <table class="table" data-od-id="tabel-ranking" id="tbl">
+                <thead><tr><th>#</th><th>Peserta</th><th>Sekolah</th><th>Mat</th><th>Fis</th><th>Total</th><th>Rata</th></tr></thead>
+                <tbody id="tbl-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: per mapel -->
+      <section data-od-id="view-subj" id="view-subj" hidden>
+        <div class="breadcrumb"><a href="#" data-nav-main>Peringkat</a><span class="sep">/</span><span id="bc-subj"></span></div>
+        <div class="header"><h1 id="subj-title">Peringkat per Mapel</h1><p id="subj-sub">Nilai terbaik semua siswa dalam mata pelajaran ini.</p></div>
+        <div id="podium-subj" class="podium"></div>
+        <div class="section">
+          <div class="section-head"><h2 class="section-title">Ranking Mapel</h2></div>
+          <div class="card card-pad"><div class="table-wrap">
+            <table class="table" id="tbl-subj"><thead><tr><th>#</th><th>Peserta</th><th>Sekolah</th><th>Nilai</th></tr></thead><tbody id="tbl-subj-body"></tbody></table>
+          </div></div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+
+<script id="app-js">
+(function () {
+  var ME = { name: 'Raka Aditya', school: 'SMA Islam Al-Azhar 12' };
+
+  var BEST = [
+    { name: 'Rizky Mahendra', school: 'SMA N 8 Jakarta', mtk: 92, fis: 88, total: 795, c: '#2563eb' },
+    { name: 'Amanda Putri', school: 'SMA N 3 Bandung', mtk: 90, fis: 86, total: 785, c: '#ec4899' },
+    { name: 'Kevin Pratama', school: 'SMA N 1 Yogyakarta', mtk: 88, fis: 84, total: 770, c: '#8b5cf6' },
+    { name: 'Sinta Dewi', school: 'SMA N 5 Surabaya', mtk: 86, fis: 70, total: 709, c: '#f97316' },
+    { name: 'Bima Arya', school: 'SMA N 2 Medan', mtk: 84, fis: 74, total: 706, c: '#0ea5e9' },
+    { name: 'Nadia Kusuma', school: 'SMA N 7 Makassar', mtk: 85, fis: 65, total: 698, c: '#f59e0b' },
+    { name: 'Fajar Hidayat', school: 'SMA N 4 Semarang', mtk: 78, fis: 68, total: 692, c: '#10b981' },
+    { name: 'Larasati', school: 'SMA N 6 Denpasar', mtk: 80, fis: 60, total: 690, c: '#14b8a6' },
+    { name: 'Doni Saputra', school: 'SMA N 1 Bandung', mtk: 76, fis: 70, total: 686, c: '#6366f1' },
+    { name: 'Ayu Wulandari', school: 'SMA N 2 Jogja', mtk: 74, fis: 72, total: 684, c: '#d946ef' }
+  ];
+
+  var AVG = [
+    { name: 'Amanda Putri', school: 'SMA N 3 Bandung', mtk: 91, fis: 89, total: 782, c: '#ec4899' },
+    { name: 'Rizky Mahendra', school: 'SMA N 8 Jakarta', mtk: 90, fis: 87, total: 779, c: '#2563eb' },
+    { name: 'Kevin Pratama', school: 'SMA N 1 Yogyakarta', mtk: 87, fis: 85, total: 765, c: '#8b5cf6' },
+    { name: 'Raka Aditya', school: 'SMA Islam Al-Azhar 12', mtk: 88, fis: 76, total: 744, c: '#16a34a', me: true },
+    { name: 'Sinta Dewi', school: 'SMA N 5 Surabaya', mtk: 85, fis: 74, total: 741, c: '#f97316' },
+    { name: 'Bima Arya', school: 'SMA N 2 Medan', mtk: 84, fis: 75, total: 738, c: '#0ea5e9' },
+    { name: 'Nadia Kusuma', school: 'SMA N 7 Makassar', mtk: 83, fis: 70, total: 728, c: '#f59e0b' },
+    { name: 'Fajar Hidayat', school: 'SMA N 4 Semarang', mtk: 79, fis: 71, total: 720, c: '#10b981' },
+    { name: 'Larasati', school: 'SMA N 6 Denpasar', mtk: 81, fis: 66, total: 716, c: '#14b8a6' },
+    { name: 'Doni Saputra', school: 'SMA N 1 Bandung', mtk: 78, fis: 69, total: 712, c: '#6366f1' }
+  ];
+
+  var mode = 'best';
+
+  /* posisi saya */
+  function myRank(rows) {
+    rows.forEach(function (r, i) { r._rank = i + 1 + (r.total >= (mode === 'best' ? 709 : 744) ? 0 : 0); });
+    var sorted = rows.slice().sort(function (a, b) { return b.total - a.total; });
+    var idx = sorted.findIndex(function (r) { return r.name === ME.name; });
+    return { rank: idx < 0 ? 11 : idx + 1, total: idx < 0 ? 712 : sorted[idx].total };
+  }
+
+  function renderMyPos(rows) {
+    var pos = myRank(rows);
+    var el = document.getElementById('mypos');
+    el.innerHTML =
+      '<div class="rank-big"><div><b>#' + pos.rank + '</b><small>posisi</small></div></div>' +
+      '<div class="m-main"><h2>Posisi Kamu di ' + (mode === 'best' ? 'Nilai Terbaik' : 'Rata-rata') + '</h2>' +
+      '<p>' + ME.name + ' · ' + ME.school + ' · naik 3 dari bulan lalu</p></div>' +
+      '<div class="m-stats">' +
+        '<div><div class="v">' + pos.total + '</div><div class="k">Nilai</div></div>' +
+        '<div><div class="v up">top 0,4%</div><div class="k">Dari 2.340 siswa</div></div>' +
+      '</div>';
+  }
+
+  function medal(rk) { return rk === 1 ? '&#129351;' : rk === 2 ? '&#129352;' : '&#129353;'; }
+
+  function renderPodium(rows, box, mode2) {
+    var sorted = rows.slice().sort(function (a, b) { return (mode2 || mode) === 'avg' ? b.total - a.total : b.total - a.total; });
+    var top = [sorted[1], sorted[0], sorted[2]]; /* 2-1-3 */
+    box.innerHTML = '';
+    top.forEach(function (r) {
+      if (!r) return;
+      var p = (sorted.indexOf(r) + 1);
+      var cls = (p === 1 ? 'p1' : p === 2 ? 'p2' : 'p3');
+      var el = document.createElement('div');
+      el.className = 'card pod-card ' + cls;
+      el.setAttribute('data-od-id', 'pod-' + p);
+      el.innerHTML = '<span class="pod-rank">#' + p + '</span>' +
+        '<div class="p-medal">' + medal(p) + '</div>' +
+        '<div class="p-name">' + r.name + '</div>' +
+        '<div class="p-school">' + r.school + '</div>' +
+        '<div class="p-score">' + r.total + '</div>';
+      box.appendChild(el);
+    });
+  }
+
+  function avS(name, color) {
+    return '<span class="av" style="background:' + color + '">' + name.split(' ').map(function (w) { return w[0]; }).slice(0, 2).join('') + '</span>';
+  }
+
+  function renderTbl(rows, component) {
+    var body = document.getElementById('tbl-body');
+    var sorted = rows.slice().sort(function (a, b) { return b.total - a.total; });
+    /* posisi saya di urutan 4 di best */
+    if (mode === 'best') {
+      var meRow = sorted.findIndex(function (r) { return r.name === ME.name; });
+      if (meRow === -1) sorted.splice(3, 0, { name: ME.name, school: ME.school, mtk: 90, fis: 72, total: 712, c: '#16a34a', me: true });
+    }
+    body.innerHTML = '';
+    sorted.forEach(function (r, i) {
+      var tr = document.createElement('tr');
+      if (r.me || r.name === ME.name) tr.className = 'me';
+      tr.setAttribute('data-od-id', 'rank-' + (i + 1));
+      tr.innerHTML =
+        '<td class="cell-rank">' + (i + 1) + '</td>' +
+        '<td><div class="ply">' + avS(r.name, r.c) + '<span class="nm">' + r.name + (r.name === ME.name ? ' <span class="me-tag">kamu</span>' : '') + '</span></div></td>' +
+        '<td style="color:var(--muted)">' + r.school + '</td>' +
+        '<td class="mono">' + r.mtk + '</td>' +
+        '<td class="mono">' + r.fis + '</td>' +
+        '<td class="mono">' + r.total + '</td>' +
+        '<td class="mono" style="color:var(--blue)">' + Math.round(r.total / 7.6) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function renderAll() {
+    var rows = mode === 'best' ? BEST : (AVG.slice().sort(function (a, b) { return b.total - a.total; }));
+    renderMyPos(rows);
+    renderPodium(rows, document.getElementById('podium'), mode);
+    renderTbl(rows);
+  }
+
+  /* mode */
+  document.getElementById('mode-best').addEventListener('click', function () { mode = 'best'; refreshModeBtns(); renderAll(); });
+  document.getElementById('mode-avg').addEventListener('click', function () { mode = 'avg'; refreshModeBtns(); renderAll(); });
+  function refreshModeBtns() {
+    document.getElementById('mode-best').classList.toggle('on', mode === 'best');
+    document.getElementById('mode-avg').classList.toggle('on', mode === 'avg');
+  }
+
+  /* mapel drill */
+  var SUBJ = {
+    mtk: { title: 'Matematika', sub: 'Nilai rata-rata mapel Matematika — semua siswa.', rows: BEST.slice().sort(function (a, b) { return b.mtk - a.mtk; }) },
+    fis: { title: 'Fisika', sub: 'Nilai rata-rata mapel Fisika — semua siswa.', rows: BEST.slice().sort(function (a, b) { return b.fis - a.fis; }) },
+    ing: { title: 'Bahasa Inggris', sub: 'Nilai rata-rata mapel Bahasa Inggris — semua siswa.', rows: BEST.map(function (r) { return { name: r.name, school: r.school, v: r.fis - 10, c: r.c }; }) }
+  };
+
+  document.getElementById('mapel').addEventListener('change', function () {
+    var key = this.value;
+    if (key === 'all') return;
+    var d = SUBJ[key];
+    if (!d) return;
+    document.getElementById('bc-subj').textContent = d.title;
+    document.getElementById('subj-title').textContent = 'Mapel · ' + d.title;
+    document.getElementById('subj-sub').textContent = d.sub;
+    renderPodium(d.rows, document.getElementById('podium-subj'), 'avg');
+    var body = document.getElementById('tbl-subj-body');
+    body.innerHTML = '';
+    d.rows.forEach(function (r, i) {
+      var v = r.v !== undefined ? r.v : r[key];
+      var tr = document.createElement('tr');
+      if (r.name === ME.name) tr.className = 'me';
+      tr.innerHTML = '<td class="cell-rank">' + (i + 1) + '</td>' +
+        '<td><div class="ply">' + avS(r.name, r.c) + '<span class="nm">' + r.name + '</span></div></td>' +
+        '<td style="color:var(--muted)">' + r.school + '</td>' +
+        '<td class="mono">' + v + '</td>';
+      body.appendChild(tr);
+    });
+    document.getElementById('view-main').hidden = true;
+    document.getElementById('view-subj').hidden = false;
+  });
+
+  document.querySelectorAll('[data-nav-main]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.getElementById('view-subj').hidden = true;
+      document.getElementById('view-main').hidden = false;
+    });
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

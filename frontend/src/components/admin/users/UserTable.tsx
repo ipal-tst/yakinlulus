@@ -3,7 +3,6 @@
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { User } from "@/types/admin";
 import { UserRoleBadge } from "./UserRoleBadge";
 import { MoreHorizontal, Power, Trash2, Pencil } from "lucide-react";
@@ -17,12 +16,23 @@ import {
 interface UserTableProps {
     users: User[];
     loading?: boolean;
+    selectable?: boolean;
+    selectedRowIds?: Set<string>;
+    onSelectionChange?: (ids: Set<string>) => void;
     onToggleActivate: (user: User) => void;
     onDelete: (user: User) => void;
     onEdit: (user: User) => void;
 }
 
-export function UserTable({ users, onToggleActivate, onDelete, onEdit }: UserTableProps) {
+export function UserTable({
+    users,
+    selectable = false,
+    selectedRowIds,
+    onSelectionChange,
+    onToggleActivate,
+    onDelete,
+    onEdit,
+}: UserTableProps) {
     const columns: Column<User>[] = [
         {
             header: "Nama",
@@ -34,15 +44,21 @@ export function UserTable({ users, onToggleActivate, onDelete, onEdit }: UserTab
                 </div>
             ),
         },
+        {
+            header: "Username",
+            accessorKey: "username",
+            cell: (row) => <span className="text-sm text-foreground">{row.username || "-"}</span>,
+        },
         { header: "Peran / Role", accessorKey: "role", cell: (row) => <UserRoleBadge role={row.role} /> },
         {
             header: "Status",
-            accessorKey: "is_active",
-            cell: (row) => (
-                <Badge variant={row.is_active ? "success" : "outline"}>
-                    {row.is_active ? "Aktif" : "Non-aktif"}
-                </Badge>
-            ),
+            accessorKey: "status",
+            cell: (row) => {
+                const status = row.status ?? (row.is_active ? "ACTIVE" : "INACTIVE");
+                const variant = status === "ACTIVE" ? "success" : status === "LOCKED" ? "warning" : "outline";
+                const label = status === "ACTIVE" ? "Aktif" : status === "LOCKED" ? "Terkunci" : status === "PENDING" ? "Pending" : "Non-aktif";
+                return <Badge variant={variant as "success" | "warning" | "outline"}>{label}</Badge>;
+            },
         },
         { header: "Sekolah", accessorKey: (row) => row.school_name || "-" },
         {
@@ -50,7 +66,7 @@ export function UserTable({ users, onToggleActivate, onDelete, onEdit }: UserTab
             accessorKey: "id",
             cell: (row) => (
                 <DropdownMenu>
-                <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                    <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                         <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -72,5 +88,15 @@ export function UserTable({ users, onToggleActivate, onDelete, onEdit }: UserTab
         },
     ];
 
-    return <DataTable columns={columns} data={users} searchPlaceholder="Cari nama atau email..." />;
+    return (
+        <DataTable
+            columns={columns}
+            data={users}
+            searchPlaceholder="Cari nama atau email..."
+            selectable={selectable}
+            selectedRowIds={selectedRowIds}
+            onSelectionChange={onSelectionChange}
+            getRowId={(u) => u.id}
+        />
+    );
 }

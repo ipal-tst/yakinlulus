@@ -231,6 +231,10 @@ func (r *Repository) DeleteGrade(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+func (r *Repository) UpdateGradeStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+	return fmt.Errorf("status update not supported for grade (no is_active column)")
+}
+
 func (r *Repository) FindEducationLevelByCodeOrID(ctx context.Context, levelIDOrCode string) (*uuid.UUID, error) {
 	if parsedID, err := uuid.Parse(levelIDOrCode); err == nil {
 		var exists bool
@@ -344,6 +348,11 @@ func (r *Repository) DeleteCurriculum(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+func (r *Repository) UpdateCurriculumStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+	_, err := r.pool.Exec(ctx, `UPDATE academic.curriculum SET is_active=$1 WHERE id=$2`, isActive, id)
+	return err
+}
+
 func (r *Repository) ListPrograms(ctx context.Context) ([]Program, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, code, name, ''::text AS academic_year, 'PROGRAM'::text AS target_type,
@@ -392,6 +401,11 @@ func (r *Repository) DeleteProgram(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+func (r *Repository) UpdateProgramStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+	_, err := r.pool.Exec(ctx, `UPDATE academic.program SET is_active=$1 WHERE id=$2 AND deleted_at IS NULL`, isActive, id)
+	return err
+}
+
 func (r *Repository) GetLevel(ctx context.Context, id uuid.UUID) (*EducationLevel, error) {
 	row, err := r.pool.Query(ctx, "SELECT id, name, code, sort_order, true AS is_active, created_at, NOW() FROM academic.education_level WHERE id=$1", id)
 	if err != nil {
@@ -427,6 +441,10 @@ func (r *Repository) UpdateLevel(ctx context.Context, l *EducationLevel) error {
 func (r *Repository) DeleteLevel(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM academic.education_level WHERE id=$1`, id)
 	return err
+}
+
+func (r *Repository) UpdateLevelStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+	return fmt.Errorf("status update not supported for education_level (no is_active column)")
 }
 
 func (r *Repository) ListSubjects(ctx context.Context, levelID, gradeID *uuid.UUID) ([]Subject, error) {
@@ -564,6 +582,11 @@ func (r *Repository) UpdateSubject(ctx context.Context, s *Subject) error {
 
 func (r *Repository) DeleteSubject(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM academic.subject WHERE id=$1`, id)
+	return err
+}
+
+func (r *Repository) UpdateSubjectStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+	_, err := r.pool.Exec(ctx, `UPDATE academic.subject SET is_active=$1 WHERE id=$2`, isActive, id)
 	return err
 }
 
@@ -1346,6 +1369,13 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r := router.Group("/academic")
 	write := middleware.RequireRole("SUPER_ADMIN", "STAFF")
 
+	// Import XLSX routes (write-gated explicitly; empty-prefix group would leak RequireRole onto all /academic routes)
+	r.Post("/import/xlsx", middleware.RequireAuth(h.jwt), write, h.ImportAcademicHandler)
+	r.Get("/import/template", middleware.RequireAuth(h.jwt), write, h.ImportTemplateHandler)
+	r.Post("/export/xlsx", middleware.RequireAuth(h.jwt), write, h.ExportAcademicHandler)
+	r.Post("/bulk-delete", middleware.RequireAuth(h.jwt), write, h.BulkDeleteHandler)
+	r.Post("/bulk-status", middleware.RequireAuth(h.jwt), write, h.BulkStatusHandler)
+
 	// Levels
 	r.Get("/levels", middleware.RequireAuth(h.jwt), h.ListLevels)
 	r.Get("/levels/:id", middleware.RequireAuth(h.jwt), h.GetLevel)
@@ -1355,6 +1385,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Grades
 	r.Get("/grades", middleware.RequireAuth(h.jwt), h.ListGrades)
+	r.Get("/majors", middleware.RequireAuth(h.jwt), h.ListMajors)
 	r.Post("/grades", middleware.RequireAuth(h.jwt), write, h.CreateGrade)
 	r.Put("/grades/:id", middleware.RequireAuth(h.jwt), write, h.UpdateGrade)
 	r.Delete("/grades/:id", middleware.RequireAuth(h.jwt), write, h.DeleteGrade)
@@ -1618,6 +1649,39 @@ func (h *Handler) DeleteLevel(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete level"))
 	}
 	return c.JSON(shared.Success(map[string]string{"message": "Level deleted"}))
+}
+
+func (h *Handler) ListMajors(c *fiber.Ctx) error {
+	levelID := c.Query("level_id")
+	q := `SELECT id, code, name, education_level_id, is_active
+	      FROM academic.major WHERE is_active = true`
+	args := []interface{}{}
+	if levelID != "" {
+		args = append(args, levelID)
+		q += fmt.Sprintf(" AND education_level_id = $%d", len(args))
+	}
+	q += " ORDER BY name ASC"
+	rows, err := h.svc.repo.pool.Query(c.Context(), q, args...)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list majors"))
+	}
+	defer rows.Close()
+	type majorRow struct {
+		ID               uuid.UUID `json:"id"`
+		Code             string    `json:"code"`
+		Name             string    `json:"name"`
+		EducationLevelID uuid.UUID `json:"education_level_id"`
+		IsActive         bool      `json:"is_active"`
+	}
+	var out []majorRow
+	for rows.Next() {
+		var m majorRow
+		if err := rows.Scan(&m.ID, &m.Code, &m.Name, &m.EducationLevelID, &m.IsActive); err != nil {
+			return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list majors"))
+		}
+		out = append(out, m)
+	}
+	return c.JSON(shared.Success(out))
 }
 
 func (h *Handler) ListSubjects(c *fiber.Ctx) error {
@@ -1914,4 +1978,43 @@ func (h *Handler) DeleteLearningOutcome(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete learning outcome"))
 	}
 	return c.JSON(shared.Success(map[string]string{"message": "Learning outcome deleted"}))
+}
+
+func (h *Handler) BulkDeleteHandler(c *fiber.Ctx) error {
+	var req BulkRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	if len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "ids required"))
+	}
+	result, err := h.svc.BulkDelete(c.Context(), req)
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown kind") {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, err.Error()))
+	}
+	return c.JSON(shared.Success(result))
+}
+
+func (h *Handler) BulkStatusHandler(c *fiber.Ctx) error {
+	var req BulkRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
+	}
+	if len(req.IDs) == 0 {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "ids required"))
+	}
+	if req.IsActive == nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "is_active required"))
+	}
+	result, err := h.svc.BulkStatus(c.Context(), req)
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown kind") {
+			return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
+		}
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, err.Error()))
+	}
+	return c.JSON(shared.Success(result))
 }

@@ -27,14 +27,14 @@ Peringkat (Ranking) · Target · Membership · Konfigurasi
 | Chapter detail (Topik → CP/KD) | `/materials/:subjectId/:chapterId` | read lesson (teks/rumus/grafik/video), track progress | `GET /materials/:subjectId/:chapterId` `[BARU]`, `POST /materials/:id/progress` |
 | Practice list (Mapel→Bab→Topik) | `/practice` | daftar latihan + riwayat, indikator hijau ≥85% | `GET /practice/catalog` `[BARU]`, `GET /practice/sessions`, `GET /config/student-dashboard` |
 | Practice runner (full main, no timer) | `/practice/:sessionId` | kerjakan soal (navigasi + flag ragu-ragu) | `GET /practice/sessions/:sessionId` `[BARU]`, `POST /practice/start` `[BARU]`, `POST /practice/sessions/:sessionId/submit` `[BARU]` |
-| Practice result | `/practice/:sessionId/result` | statistik detik + skor | `GET /practice/sessions/:sessionId/result` `[BARU]` |
+| Practice result | `/practice/:sessionId` (combined on review page) | statistik + skor latihan | `GET /practice/sessions/:sessionId/result` `[BARU]` |
 | Practice review | `/practice/:sessionId/review` | pembahasan vertikal (soal→opsi→pembahasan) | `GET /practice/sessions/:sessionId/review` `[BARU]` |
 | Exam list (paket ujian) | `/exams` | katalog paket (1-attempt & repeatable) + widget (nilai terakhir, rata-rata) | `GET /exam-packages`, `GET /exams/summary` `[BARU]` |
-| Exam package detail | `/exams/:packageId` | detail paket + daftar sub-test (multi mapel) | `GET /exam-packages/:id/exams` |
-| Exam instructions | `/exams/:packageId/instructions` | petunjuk (Setuju/Tidak) | `POST /exams/:id/attempts/start` |
-| Exam runner (full-screen, timer) | `/exams/run/:sessionId` | attempt CBT (tanpa AppShell) | `GET /cbt/:session_id/questions`, `POST /cbt/:session_id/sync`, `POST /cbt/:session_id/finish` |
-| Exam result | `/exams/run/:sessionId/result` | nilai + statistik (detik) | `GET /results/:session_id` |
-| Exam review | `/exams/run/:sessionId/review` | pembahasan | `GET /cbt/:session_id/review` |
+| Exam package detail | `/exams/:packageId` | detail paket + daftar sub-test (multi mapel, `package_mode` SINGLE/PER_SUBTEST) | `GET /exam-packages/:id` `[BARU]` |
+| Exam instructions | `/exams/:packageId/instructions` | aturan ujian + persetujuan; "Setuju" → `startCBTExam` → redirect runner | `POST /cbt/:exam_id/start`, fallback `GET /exams/:id` (legacy single exam) |
+| Exam runner (full-screen, timer) | `/exams/:packageId/cbt` (optional `?session_id=`) | attempt CBT (tanpa AppShell) | `POST /cbt/:exam_id/start`, `GET /cbt/:session_id/questions`, `POST /cbt/:session_id/sync`, `POST /cbt/:session_id/finish` |
+| Exam result | `/exams/:packageId/result` | nilai + statistik (detik) | `GET /results/:session_id`, `GET /results/:exam_id` |
+| Exam review | `/exams/:packageId/cbt/review?session_id=` | hasil + pembahasan | `GET /cbt/:session_id/review` |
 | Exam-practice start | `/exam-practice` | material/subject practice | `POST /exam-practice/material/:materialId`, `POST /exam-practice/subject` |
 | Exam-practice session | `/exam-practice/:sessionId` | run + submit | `POST /exam-practice/:sessionId/submit`, `GET /exam-practice/:sessionId` |
 | Results (analisis belajar) | `/results` | analisis hasil lengkap (materi+latihan+ujian), chart, status mapel, saran penguatan | `GET /results/analytics` `[BARU]`, `GET /analytics/students/:id`, `GET /practice/stats`, `GET /materials/progress`, `GET /config/student-dashboard` |

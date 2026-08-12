@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kelola Pengguna — Admin Backoffice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9;
+  --surface:#ffffff;
+  --surface-2:#f3f4f6;
+  --fg:#111827;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --accent:#2563EB;
+  --accent-strong:#1d4ed8;
+  --accent-soft:#eff4ff;
+  --accent-fg:#ffffff;
+  --success:#16a34a;
+  --success-soft:#ecfdf3;
+  --danger:#dc2626;
+  --danger-soft:#fef2f2;
+  --warn:#b45309;
+  --warn-soft:#fffbeb;
+  --orange:#f97316;
+  --sidebar:#0f172a;
+  --sidebar-2:#1e293b;
+  --sidebar-fg:#cbd5e1;
+  --font-display:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;
+  --font-body:'Inter','Segoe UI',system-ui,sans-serif;
+  --font-mono:ui-monospace,'JetBrains Mono','IBM Plex Mono',Menlo,Consolas,monospace;
+  --r-sm:12px; --r-md:16px; --r-lg:20px;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 4px 12px rgba(15,23,42,.10);
+  --shadow-lg:0 12px 32px rgba(15,23,42,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-body);background:var(--bg);color:var(--fg);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit;font-size:14px;color:var(--fg)}
+h1,h2,h3,h4{font-family:var(--font-display);letter-spacing:-.01em}
+svg{display:block}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- Layout ---------- */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:248px;flex-shrink:0;background:var(--sidebar);color:var(--sidebar-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.sidebar .brand{display:flex;align-items:center;gap:10px;padding:20px 20px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar .brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0}
+.sidebar .brand b{font-family:var(--font-display);color:#f8fafc;font-size:15px;letter-spacing:-.01em}
+.sidebar .brand small{display:block;color:#64748b;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#64748b;padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--sidebar-fg);margin-bottom:2px;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#f1f5f9}
+.nav-item.active{background:var(--accent);color:#fff}
+.nav-item.active svg{color:#fff}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding:14px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#2563EB);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:600;flex-shrink:0}
+.sidebar-foot .who{overflow:hidden}
+.sidebar-foot .who b{font-size:13px;color:#f1f5f9;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-foot .who span{font-size:11px;color:#94a3b8}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;position:sticky;top:0;z-index:20}
+.crumbs{font-size:13px;color:var(--muted)}
+.crumbs b{color:var(--fg);font-weight:600}
+.topbar .spacer{flex:1}
+.topbar .search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:7px 12px;width:280px;color:var(--muted)}
+.topbar .search input{border:none;background:none;outline:none;flex:1;font-size:13.5px}
+.content{max-width:1420px;width:100%;margin:0 auto;padding:28px}
+@media(max-width:1080px){.sidebar{display:none}.content{padding:20px}}
+
+/* ---------- Page header + stats ---------- */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-head h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.page-head p{color:var(--muted);font-size:14px;margin-top:4px;max-width:66ch}
+.head-actions{display:flex;gap:10px;align-items:center}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:1080px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:16px;display:flex;gap:12px;align-items:center;transition:box-shadow .18s}
+.stat:hover{box-shadow:var(--shadow-md)}
+.stat .ic{width:40px;height:40px;border-radius:12px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;flex-shrink:0}
+.stat b{font-family:var(--font-display);font-size:24px;display:block;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted);letter-spacing:.01em}
+
+/* ---------- Card + toolbar ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-sm)}
+.toolbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.toolbar .spacer{flex:1}
+.toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:var(--r-sm);font-size:13.5px;font-weight:600;letter-spacing:.02em;transition:background .15s,border-color .15s,transform .05s;white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-strong)}
+.btn-secondary{background:var(--surface);border:1px solid var(--border);color:var(--fg)}
+.btn-secondary:hover{background:#f5f6f8}
+.btn-ghost{color:var(--fg)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.input,.select,input.input{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0 12px;height:40px;font-size:13.5px;color:var(--fg);min-width:0}
+.input:focus-within,.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+.select{appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.search-box{width:250px}
+.search-box svg{flex-shrink:0;color:var(--muted)}
+.filter-bar{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-bar .spacer{flex:1}
+.check-pill{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer}
+.check-pill:hover{border-color:var(--accent);color:var(--fg)}
+.check-pill input.accent-color{accent-color:var(--accent);width:14px;height:14px}
+
+/* ---------- Tabs ---------- */
+.tabs-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:20px}
+.tabs{display:flex;gap:2px;padding:8px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tab:hover{color:var(--fg);background:var(--surface-2)}
+.tab.active{background:var(--accent);color:#fff}
+.tab .count{background:rgba(255,255,255,.2);border-radius:6px;font-size:11px;padding:1px 7px;font-weight:600}
+.tab:not(.active) .count{background:var(--surface-2);color:var(--muted)}
+.tab-panel{display:block}
+.tab-panel[hidden]{display:none}
+
+/* ---------- Table ---------- */
+.table-scroll{overflow:auto;max-height:600px;position:relative}
+table.data{width:100%;border-collapse:separate;border-spacing:0}
+table.data thead th{position:sticky;top:0;background:#fafbfc;border-bottom:1px solid var(--border);font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 12px;height:44px;white-space:nowrap;z-index:2}
+table.data tbody td{padding:0 12px;height:44px;border-bottom:1px solid #f1f2f4;font-size:13.5px;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
+table.data tbody tr:hover td{background:#f8fafc}
+table.data tbody tr.selected td{background:var(--accent-soft)}
+table.data .sortable{cursor:pointer;user-select:none}
+table.data .sortable .arrow{font-size:10px;opacity:.5;margin-left:4px}
+table.data .sortable .arrow.on{opacity:1;color:var(--accent)}
+.th-resize{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize}
+table.data th{position:relative}
+.td-user{display:flex;align-items:center;gap:10px;min-width:0;max-width:260px}
+.td-user .u-name b{font-weight:500;font-size:13.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-user .u-name small{color:var(--muted);font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.badge.orange{background:#fff7ed;color:#c2410c}
+.badge.green{background:var(--success-soft);color:var(--success)}
+.badge.gray{background:var(--surface-2);color:var(--muted)}
+.badge.red{background:var(--danger-soft);color:var(--danger)}
+.badge.blue{background:var(--accent-soft);color:var(--accent-strong)}
+.badge.amber{background:var(--warn-soft);color:var(--warn)}
+.badge.purple{background:#f5f3ff;color:#6d28d9}
+.badge.teal{background:#f0fdfa;color:#0f766e}
+.chk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
+th .chk,td .chk{display:block;margin:0 auto}
+.row-act{display:inline-flex;align-items:center;gap:2px}
+.icon-btn{width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{background:var(--surface-2);color:var(--fg)}
+.icon-btn.danger:hover{background:var(--danger-soft);color:var(--danger)}
+.switch{position:relative;width:38px;height:22px;border-radius:999px;background:#d1d5db;transition:background .15s;display:inline-block;flex-shrink:0}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.switch.on{background:var(--success)}
+.switch.on::after{left:18px}
+
+/* ---------- Bulk bar ---------- */
+.bulk-bar{margin:14px 0 0;display:none;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid #c7dbff;border-radius:var(--r-sm);padding:10px 14px;flex-wrap:wrap}
+.bulk-bar.show{display:flex}
+.bulk-bar b{font-size:13px;color:var(--accent-strong);font-family:var(--font-display)}
+.bulk-bar .spacer{flex:1}
+
+/* ---------- Pagination ---------- */
+.pagine{display:flex;align-items:center;gap:6px;padding:12px 14px;border-top:1px solid var(--border);flex-wrap:wrap}
+.pagine .info{font-size:12.5px;color:var(--muted);margin-right:auto}
+.pagine .pagesize{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.page-btn{min-width:32px;height:32px;padding:0 8px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-grid;place-items:center}
+.page-btn:hover:not([disabled]){background:var(--surface-2);color:var(--fg)}
+.page-btn.active{background:var(--accent);color:#fff}
+.page-btn[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ---------- States ---------- */
+.skeleton{background:linear-gradient(90deg,#f1f2f4 25%,#f8f9fb 50%,#f1f2f4 75%);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:10px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.error-banner{display:none;align-items:center;gap:10px;background:var(--danger-soft);border:1px solid #fecaca;color:#b91c1c;border-radius:var(--r-sm);padding:12px 16px;font-size:13.5px;margin-bottom:14px}
+.error-banner.show{display:flex}
+.empty{display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:64px 20px;text-align:center}
+.empty.show{display:flex}
+.empty .e-ic{width:56px;height:56px;border-radius:16px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;margin-bottom:4px}
+.empty h4{font-size:16px}
+.empty p{font-size:13.5px;color:var(--muted);max-width:44ch}
+.empty .empty-actions{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
+
+/* ---------- Dialog ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:44px 20px;overflow:auto}
+.overlay.show{display:flex}
+.dialog{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);width:100%;max-width:560px;animation:pop .16s ease-out;margin-bottom:auto}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 0;gap:12px}
+.dialog-head h3{font-size:18px;font-weight:700}
+.dialog-head p{font-size:12.5px;color:var(--muted);margin-top:3px}
+.dialog-body{padding:18px 24px 4px}
+.dialog-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px 24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.02em;margin-bottom:6px}
+.field .req{color:var(--danger)}
+.field input,.field select,.field textarea{width:100%;height:44px;border:1px solid var(--border);border-radius:var(--r-sm);padding:0 12px;font-size:14px;background:var(--surface)}
+.field textarea{height:84px;padding:10px 12px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.field .err{display:none;color:var(--danger);font-size:12px;margin-top:5px}
+.field.error input,.field.error select,.field.error textarea{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.field.error .err{display:block}
+.field .hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.grid-2{grid-template-columns:1fr}}
+.confirm-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:14px}
+.confirm-ic.danger{background:var(--danger-soft);color:var(--danger)}
+.confirm-ic.warn{background:var(--warn-soft);color:var(--warn)}
+.cascade{background:var(--warn-soft);border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-top:12px;display:none}
+.cascade.show{display:block}
+
+/* ---------- User form tabs ---------- */
+.studio-tabs{display:flex;gap:2px;padding:8px 24px 0;border-bottom:1px solid var(--border)}
+.studio-tab{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px 10px 0 0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.studio-tab:hover{color:var(--fg)}
+.studio-tab.active{color:var(--accent-strong);border-bottom-color:var(--accent)}
+.studio-panel{display:none;padding:18px 24px 4px}
+.studio-panel.active{display:block}
+.avatar-upload{display:flex;align-items:center;gap:12px}
+.avatar-upload .a{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0}
+.avatar-upload button{height:36px}
+
+/* ---------- Role & permission ---------- */
+.role-layout{display:grid;grid-template-columns:270px 1fr;gap:0}
+.role-list{border-right:1px solid var(--border);padding:10px}
+.role-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:11px 12px;border-radius:12px;margin-bottom:4px}
+.role-item:hover{background:var(--surface-2)}
+.role-item.active{background:var(--accent-soft);border:1px solid #c7dbff;padding:10px 11px}
+.role-item b{font-size:13.5px;display:flex;align-items:center;gap:8px}
+.role-item span{font-size:11.5px;color:var(--muted);line-height:1.35}
+.role-edit{padding:16px 20px}
+@media(max-width:900px){.role-layout{grid-template-columns:1fr}.role-list{border-right:none;border-bottom:1px solid var(--border)}}
+.perm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #f1f2f4}
+.perm-row .grow{flex:1;min-width:0}
+.perm-row b{font-size:13.5px;font-weight:600}
+.perm-row small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.perm-toggle{display:flex;gap:6px}
+.perm-toggle button{height:28px;padding:0 12px;border-radius:8px;font-size:11.5px;font-weight:600;color:var(--muted);border:1px solid var(--border)}
+.perm-toggle button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.perm-toggle button.off{background:var(--danger-soft);border-color:#fecaca;color:var(--danger)}
+.perm-toggle button.des{background:var(--surface-2);color:var(--muted)}
+.perm-toggle button:hover{filter:brightness(.97)}
+.perm-deny{color:var(--muted)}
+.role-desc{margin-bottom:16px;font-size:13px;color:var(--muted)}
+
+/* ---------- Import ---------- */
+.step-dots{display:flex;align-items:center;gap:8px;padding:16px 24px 0}
+.step{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.step .n{width:22px;height:22px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:11.5px;font-family:var(--font-display)}
+.step.active{color:var(--accent-strong)}
+.step.active .n{background:var(--accent);color:#fff}
+.step.done .n{background:var(--success);color:#fff}
+.step-line{flex:1;height:1px;background:var(--border);max-width:60px}
+.upload-zone{border:2px dashed #c7dbff;border-radius:var(--r-md);padding:30px;text-align:center;color:var(--muted);cursor:pointer;transition:background .15s}
+.upload-zone:hover{background:var(--accent-soft)}
+.upload-zone b{color:var(--accent-strong);font-size:13.5px}
+.upload-zone .file{display:none}
+.file-chip{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px}
+.file-chip .fl-ic{color:var(--success)}
+.preview-tbl{max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:12px}
+.preview-tbl table{width:100%;border-collapse:collapse}
+.preview-tbl th{background:#fafbfc;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:left;position:sticky;top:0;border-bottom:1px solid var(--border);font-family:var(--font-display)}
+.preview-tbl td{padding:8px 10px;font-size:12.5px;border-bottom:1px solid #f1f2f4;white-space:nowrap}
+.preview-tbl .st.ok{color:var(--success)}
+.preview-tbl .st.warn{color:var(--warn)}
+.preview-tbl .st.err{color:var(--danger)}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.result-cell{border-radius:var(--r-sm);padding:14px;text-align:center}
+.result-cell b{font-family:var(--font-display);font-size:26px;display:block}
+.result-cell span{font-size:12px;font-weight:500}
+.result-cell.ok{background:var(--success-soft);color:var(--success)}
+.result-cell.skip{background:var(--warn-soft);color:var(--warn)}
+.result-cell.fail{background:var(--danger-soft);color:var(--danger)}
+.error-list{background:var(--danger-soft);border-radius:10px;padding:10px 14px;font-size:12.5px;color:#b91c1c;max-height:120px;overflow:auto}
+.error-list div{padding:3px 0;display:flex;gap:6px}
+
+/* ---------- Menu ---------- */
+.menu{position:fixed;z-index:200;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);padding:6px;display:none}
+.menu.show{display:block;animation:pop .12s}
+.menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:500;text-align:left}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.danger{color:var(--danger)}
+.menu-item.danger:hover{background:var(--danger-soft)}
+.menu-sep{height:1px;background:var(--border);margin:6px}
+
+/* ---------- Toast ---------- */
+.toasts{position:fixed;top:18px;right:18px;z-index:300;display:flex;flex-direction:column;gap:10px}
+.toast{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;box-shadow:var(--shadow-md);padding:12px 16px;font-size:13.5px;font-weight:500;min-width:260px;max-width:380px;animation:pop .18s}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.info{border-left-color:var(--accent)}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar" data-od-id="sidebar-admin">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+      </span>
+      <span><b>EduBoard</b><small>Platform Pendidikan</small></span>
+    </div>
+    <nav class="nav" aria-label="Navigasi utama">
+      <div class="nav-label">Utama</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Master Akademik</button>
+      <div class="nav-label">Konten &amp; Ujian</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Materi Pelajaran</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Bank Soal</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l2 3h9a2 2 0 0 1 2 2v4"/><path d="m16 16 1.5 1.5L21 14"/><path d="M16.5 21.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"/></svg>Kelola Ujian</button>
+      <div class="nav-label">Pengguna &amp; Akses</div>
+      <button class="nav-item active"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Kelola Pengguna</button>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 22 8.5v7L12 22 2 15.5v-7Z"/><path d="M12 22v-7"/><path d="M22 8.5 12 15 2 8.5"/></svg>Role &amp; Permission</button>
+      <div class="nav-label">Keuangan</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Finance &amp; Investasi</button>
+      <div class="nav-label">Sistem</div>
+      <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Pengaturan</button>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="avatar">RA</span>
+      <span class="who"><b>Rizky Ananda</b><span>SUPER_ADMIN</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs">Admin / <b>Kelola Pengguna</b></div>
+      <div class="spacer"></div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" placeholder="Cari di seluruh admin…" aria-label="Pencarian global">
+      </div>
+      <button class="icon-btn" style="width:36px;height:36px" aria-label="Notifikasi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button>
+    </header>
+
+    <main class="content" id="page-kelola-pengguna" data-od-id="page-kelola-pengguna">
+      <section class="page-head" data-od-id="header-kelola-pengguna">
+        <div>
+          <h1>Kelola Pengguna</h1>
+          <p>Pusat administrasi identitas &amp; akses platform — user, role (RBAC), permission matrix, dan data akademik siswa. Kelola pengguna &amp; role hanya untuk SUPER_ADMIN / STAFF.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn btn-secondary" data-act="import">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            Import
+          </button>
+          <button class="btn btn-secondary" data-act="export-menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export
+          </button>
+          <button class="btn btn-primary" data-act="create">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            + Tambah
+          </button>
+        </div>
+      </section>
+
+      <section class="stats" data-od-id="stats-pengguna">
+        <div class="stat" data-od-id="stat-total"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span><div><b id="stat-total-n">0</b><span>Total Pengguna</span></div></div>
+        <div class="stat" data-od-id="stat-active"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16"/><path d="M4 15h16v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><div><b id="stat-active-n">0</b><span>Aktif</span></div></div>
+        <div class="stat" data-od-id="stat-siswa"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></svg></span><div><b id="stat-siswa-n">0</b><span>Siswa</span></div></div>
+        <div class="stat" data-od-id="stat-guru"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M1 21c0-4 3.6-6 8-6s8 2 8 6"/><path d="M19 17v4M21 19h-4"/></svg></span><div><b id="stat-guru-n">0</b><span>Guru / Staf</span></div></div>
+        <div class="stat" data-od-id="stat-pending"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2.5"/></svg></span><div><b id="stat-pending-n">0</b><span>Pending</span></div></div>
+      </section>
+
+      <div class="error-banner" id="error-banner" data-od-id="error-banner" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span>Gagal memuat data. Periksa koneksi, lalu coba lagi.</span>
+        <button class="btn btn-secondary" style="height:34px" data-act="refresh">Coba Lagi</button>
+      </div>
+
+      <section class="tabs-wrap" data-od-id="tabs-pengguna">
+        <div class="tabs" role="tablist" aria-label="Tab Kelola Pengguna">
+          <button class="tab active" role="tab" data-tab="users" data-od-id="tab-users"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Pengguna<span class="count" id="cnt-users">0</span></button>
+          <button class="tab" role="tab" data-tab="roles" data-od-id="tab-roles"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 22 8.5v7L12 22 2 15.5v-7Z"/><path d="M12 22v-7"/><path d="M22 8.5 12 15 2 8.5"/></svg>Role &amp; Akses<span class="count" id="cnt-roles">0</span></button>
+        </div>
+
+        <section class="tab-panel" data-panel="users" data-od-id="panel-users">
+          <div class="filter-bar" data-od-id="filter-bar-users">
+            <div class="input search-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="search" placeholder="Cari email / nama / username" id="f-q" aria-label="Cari pengguna">
+            </div>
+            <select class="select" id="f-role" aria-label="Filter role" style="min-width:140px">
+              <option value="">Semua Role</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+              <option value="STAFF">Staff</option>
+              <option value="FINANCE">Finance</option>
+              <option value="GURU">Guru</option>
+              <option value="SISWA">Siswa</option>
+              <option value="SUPER_SISWA">Super Siswa</option>
+              <option value="INVESTOR">Investor</option>
+            </select>
+            <select class="select" id="f-status" aria-label="Filter status" style="min-width:130px">
+              <option value="">Semua Status</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="INACTIVE">Nonaktif</option>
+              <option value="LOCKED">Terkunci</option>
+              <option value="PENDING">Pending</option>
+            </select>
+            <select class="select" id="f-jenjang" aria-label="Filter jenjang" style="min-width:120px">
+              <option value="">Semua Jenjang</option>
+              <option value="SD">SD</option>
+              <option value="SMP">SMP</option>
+              <option value="SMA">SMA</option>
+              <option value="SMK">SMK</option>
+            </select>
+            <button class="btn btn-ghost" data-act="template" style="height:40px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Templat</button>
+          </div>
+
+          <div class="table-scroll" id="table-wrap" hidden>
+            <table class="data" id="tbl-users" data-od-id="table-users">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" class="chk" id="sel-all" aria-label="Pilih semua"></th>
+                  <th class="sortable" data-sort="name">Pengguna<span class="arrow">▲</span></th>
+                  <th style="width:170px">Email</th>
+                  <th class="sortable" data-sort="role">Role<span class="arrow">▲</span></th>
+                  <th class="sortable" data-sort="jenjang">Kelas / Sekolah<span class="arrow">▲</span></th>
+                  <th class="sortable" data-sort="last">Login Terakhir<span class="arrow">▲</span></th>
+                  <th style="width:120px">Status</th>
+                  <th style="width:110px;text-align:right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-body"></tbody>
+            </table>
+          </div>
+
+          <div class="empty" id="empty-users" data-od-id="empty-users">
+            <span class="e-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span>
+            <h4>Tidak ada pengguna ditemukan</h4>
+            <p>Ubah kata kunci atau filter, atau tambahkan pengguna baru.</p>
+            <div class="empty-actions">
+              <button class="btn btn-secondary" data-act="create">Tambah Pengguna</button>
+              <button class="btn btn-secondary" data-act="import">Import Excel</button>
+            </div>
+          </div>
+
+          <div class="bulk-bar" id="bulk-bar" data-od-id="bulk-bar-users">
+            <b id="bulk-n">0 terpilih</b>
+            <button class="btn btn-secondary" style="height:34px" id="bulk-activate">Aktifkan</button>
+            <button class="btn btn-secondary" style="height:34px" id="bulk-deactivate">Nonaktifkan</button>
+            <div class="spacer"></div>
+            <button class="btn btn-danger" style="height:34px" id="bulk-delete">Hapus</button>
+          </div>
+
+          <div class="pagine" id="pagine-wrap" hidden>
+            <div class="info" id="page-info">–</div>
+            <div class="pagesize">Baris <select class="select" id="page-size" style="height:30px;width:auto;min-width:70px"><option>20</option><option>50</option><option>100</option></select></div>
+            <div id="page-btns" style="display:flex;gap:4px"></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="roles" data-od-id="panel-roles" hidden>
+          <div class="role-layout">
+            <div class="role-list" data-od-id="role-list">
+              <div class="block-head" style="padding:4px 4px 10px;display:flex;align-items:center;justify-content:space-between">
+                <b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Daftar Role</b>
+                <button class="btn btn-secondary" style="height:32px;font-size:12px" data-act="add-role">+ Role</button>
+              </div>
+              <div id="role-items"></div>
+            </div>
+            <div class="role-edit" data-od-id="role-edit">
+              <div id="role-edit-head">
+                <h3 id="role-title" style="font-size:16px">SUPER_ADMIN</h3>
+                <span class="badge red" id="role-system-badge">Sistem</span>
+              </div>
+              <p class="role-desc" id="role-desc">Akses penuh seluruh area backoffice.</p>
+              <div class="sec-actions" style="display:flex;gap:8px;margin-bottom:14px">
+                <button class="btn btn-secondary" style="height:34px" data-act="edit-role">Edit Role</button>
+                <button class="btn btn-secondary" style="height:34px" data-act="assign-role">Assign ke Pengguna</button>
+                <div class="spacer"></div>
+              </div>
+              <b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Permission Matrix</b>
+              <div id="perm-list"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ===== User form dialog (3 tab) ===== -->
+<div class="overlay" id="ovl-user" data-od-id="dialog-user">
+  <div class="dialog" style="max-width:640px">
+    <div class="dialog-head">
+      <div><h3 id="user-form-title">Tambah Pengguna</h3><p>Identitas, data akademik, dan akses role pengguna.</p></div>
+      <button class="icon-btn" data-close="ovl-user" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="studio-tabs" role="tablist" aria-label="Tab form pengguna">
+      <button class="studio-tab active" data-utab="identitas">Identitas</button>
+      <button class="studio-tab" data-utab="akademik">Akademik</button>
+      <button class="studio-tab" data-utab="akses">Akses</button>
+    </div>
+
+    <div class="studio-panel active" data-upanel="identitas">
+      <div class="grid-2">
+        <div class="field"><label>Username <span class="req">*</span></label><input id="u-username" placeholder="cth. ahmad.r" maxlength="100"><div class="err">Username wajib diisi.</div></div>
+        <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="u-email" placeholder="nama@sekolah.id"><div class="err">Email valid wajib diisi.</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Password <span class="req">*</span></label><input type="password" id="u-pass" placeholder="Min. 8 karakter"><div class="err">Password wajib diisi (min. 8 karakter).</div></div>
+        <div class="field"><label>Konfirmasi</label><input type="password" id="u-pass2" placeholder="Ulangi password"><div class="err">Password tidak cocok.</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Nama Lengkap <span class="req">*</span></label><input id="u-name" placeholder="cth. Ahmad Rizki"><div class="err">Nama lengkap wajib diisi.</div></div>
+        <div class="field"><label>Gender</label><select id="u-gender"><option value="">— Pilih —</option><option>Laki-laki</option><option>Perempuan</option></select></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Telepon</label><input id="u-phone" placeholder="08xx-xxxx-xxxx"></div>
+        <div class="field"><label>Avatar</label>
+          <div class="avatar-upload">
+            <span class="a" id="u-avatar-preview" style="background:var(--accent)">A</span>
+            <button class="btn btn-secondary" data-act="upload-avatar">Pilih Gambar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="studio-panel" data-upanel="akademik">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Data akademik tersimpan di <b>student_enrollment</b>. Tab ini tampil untuk role <b>SISWA / SUPER_SISWA</b>.</p>
+      <div class="grid-2">
+        <div class="field"><label>Jenjang</label><select id="u-jenjang"><option value="">— Pilih —</option><option>SD</option><option>SMP</option><option>SMA</option><option>SMK</option></select></div>
+        <div class="field"><label>Kelas</label><select id="u-kelas"><option value="">— Pilih —</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Sekolah</label><input id="u-sekolah" placeholder="Cari nama sekolah"></div>
+        <div class="field"><label>Jurusan</label><select id="u-jurusan"><option value="">— Pilih —</option><option>IPA</option><option>IPS</option><option>Bahasa</option><option>Kejuruan</option></select></div>
+      </div>
+      <div class="field"><label>Status Keanggotaan</label><select id="u-membership"><option>AKTIF</option><option>TIDAK AKTIF</option><option>TRIAL</option></select></div>
+    </div>
+
+    <div class="studio-panel" data-upanel="akses">
+      <div class="field"><label>Role <span class="req">*</span></label><select id="u-role">
+        <option value="SISWA">Siswa</option>
+        <option value="GURU">Guru</option>
+        <option value="STAFF">Staff</option>
+        <option value="FINANCE">Finance</option>
+        <option value="INVESTOR">Investor</option>
+        <option value="SUPER_SISWA">Super Siswa</option>
+        <option value="SUPER_ADMIN">Super Admin</option>
+      </select><div class="hint">Hanya SUPER_ADMIN yang dapat meng-assign role SUPER_ADMIN.</div></div>
+      <div class="field"><label>Status Akun</label><select id="u-status"><option value="ACTIVE">AKTIF</option><option value="INACTIVE">NONAKTIF</option><option value="PENDING">PENDING</option><option value="LOCKED">TERKUNCI</option></select></div>
+      <div class="cascade" id="super-admin-warn">Anda meng-assign role SUPER_ADMIN — hanya SUPER_ADMIN yang dibolehkan melakukan ini.</div>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="ovl-user">Batal</button>
+      <button class="btn btn-primary" id="user-save">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Delete confirm ===== -->
+<div class="overlay" id="ovl-delete" data-od-id="dialog-delete">
+  <div class="dialog" style="max-width:460px">
+    <div class="dialog-body" style="padding:24px">
+      <div class="confirm-ic danger"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
+      <h3 style="font-size:17px" id="delete-title">Hapus pengguna ini?</h3>
+      <p style="font-size:13.5px;color:var(--muted);margin-top:6px" id="delete-msg"></p>
+      <div class="cascade" id="delete-cascade">User punya enrollment / attempt aktif — backend memblokir hapus. Nonaktifkan dulu.</div>
+    </div>
+    <div class="dialog-foot"><button class="btn btn-secondary" data-close="ovl-delete">Batal</button><button class="btn btn-danger" id="confirm-delete">Hapus</button></div>
+  </div>
+</div>
+
+<!-- ===== Import wizard ===== -->
+<div class="overlay" id="ovl-import" data-od-id="dialog-import">
+  <div class="dialog">
+    <div class="step-dots">
+      <div class="step active" data-step0="1"><span class="n">1</span>Upload</div>
+      <div class="step-line"></div>
+      <div class="step" data-step0="2"><span class="n">2</span>Validasi</div>
+      <div class="step-line"></div>
+      <div class="step" data-step0="3"><span class="n">3</span>Selesai</div>
+    </div>
+    <div class="dialog-head" style="padding-top:16px">
+      <div><h3>Import Pengguna (xlsx)</h3><p>Kolom: username, email, password, full_name, role, gender, phone, school_name, education_level, grade, major, membership_status.</p></div>
+      <button class="icon-btn" data-close="ovl-import" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="dialog-body">
+      <div id="import-step-1">
+        <div class="upload-zone" id="import-dropzone"><b>+ Pilih berkas Excel</b><br>Drag &amp; drop atau klik di sini (12 kolom sesuai template).</div>
+        <input type="file" class="file" id="import-file" accept=".xlsx,.xls">
+        <div style="text-align:right;margin-top:12px"><button class="btn btn-secondary" data-act="template" style="height:36px">Unduh Templat</button></div>
+      </div>
+      <div id="import-step-2" hidden>
+        <div class="file-chip"><span class="fl-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></span><span id="import-filename">pengguna.xlsx</span><span style="color:var(--muted);font-size:12px" id="import-fsize">9,8 KB</span></div>
+        <div class="preview-tbl">
+          <table>
+            <thead><tr><th>No</th><th>Email</th><th>Nama Lengkap</th><th>Role</th><th>Sekolah</th><th>Status</th></tr></thead>
+            <tbody id="import-rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="import-step-3" hidden>
+        <div class="result-grid">
+          <div class="result-cell ok"><b id="res-created">0</b><span>Dibuat</span></div>
+          <div class="result-cell skip"><b id="res-skipped">0</b><span>Duplikat</span></div>
+          <div class="result-cell fail"><b id="res-failed">0</b><span>Gagal</span></div>
+        </div>
+        <div class="error-list" id="res-errors" hidden></div>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Sekolah &amp; kelas baru dibuat otomatis bila belum terdaftar.</p>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" id="import-prev" hidden>Kembali</button>
+      <div class="spacer" style="flex:1"></div>
+      <button class="btn btn-secondary" data-close="ovl-import" id="import-cancel">Batal</button>
+      <button class="btn btn-primary" id="import-next" hidden>Validasi</button>
+      <button class="btn btn-primary" id="import-submit" hidden>Simpan Import</button>
+      <button class="btn btn-primary" id="import-done" hidden>Selesai</button>
+    </div>
+  </div>
+</div>
+
+<div class="menu" id="context-menu" data-od-id="context-menu"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $=(s,c=document)=>c.querySelector(s);
+const $$=(s,c=document)=>[...c.querySelectorAll(s)];
+
+const ROLE_LABEL={SUPER_ADMIN:"Super Admin",STAFF:"Staff",FINANCE:"Finance",GURU:"Guru",SISWA:"Siswa",SUPER_SISWA:"Super Siswa",INVESTOR:"Investor"};
+const ROLE_CLASS={SUPER_ADMIN:"red",STAFF:"blue",FINANCE:"amber",GURU:"teal",SISWA:"gray",SUPER_SISWA:"purple",INVESTOR:"green"};
+const STATUS_LABEL={ACTIVE:"Aktif",INACTIVE:"Nonaktif",LOCKED:"Terkunci",PENDING:"Pending"};
+const STATUS_CLASS={ACTIVE:"green",INACTIVE:"gray",LOCKED:"red",PENDING:"amber"};
+const AVATAR_COLORS=["#2563EB","#0891b2","#7c3aed","#dc2626","#16a34a","#ea580c","#db2777","#4f46e5"];
+
+const NAMES=[["ahmad.r","ahmad@sdnh1.ac.id","Ahmad Rizki"],["siti.am","siti@smancitra.ac.id","Siti Aminah"],["budi.s","budi@mts10.ac.id","Budi Santoso"],["dewi.l","dewi@smpn2.ac.id","Dewi Lestari"],["eko.p","eko@smkn4.ac.id","Eko Prasetyo"],["rahma","rahma@smaduta.ac.id","Rahma Wati"],["fajar","fajar.ptn@gmail.com","Fajar Nugraha"],["nina","nina@investor.co.id","Nina Puspita"],["rizky.a","rizky@eduboard.id","Rizky Ananda"],["bagas","bagas@smkn1.ac.id","Bagas Saputra"],["citra","citra@sdharapan.ac.id","Citra Dewi"],["doni","doni@smansyuk.ac.id","Doni Kurniawan"],["laila","laila@ptawards.ac.id","Laila Zahra"],["made","made@smkmulia.ac.id","Made Wirata"],["putri","putri@smpn5.ac.id","Putri Ayu"]];
+const ROLES=["SISWA","SISWA","GURU","GURU","SISWA","STAFF","FINANCE","INVESTOR","STAFF","SISWA","SISWA","GURU","SUPER_ADMIN","SISWA","STAFF"];
+const STATS=["ACTIVE","ACTIVE","ACTIVE","PENDING","ACTIVE","INACTIVE","LOCKED","ACTIVE","ACTIVE","PENDING","ACTIVE","ACTIVE","ACTIVE","INACTIVE","ACTIVE"];
+const JENJANG=["SD","SMA","SMP","SMP","SMK","SMA","PT","—","—","SMK","SD","SMA","PT","SMK","SMP"];
+const SEKOLAH=[["SD Negeri 1 Harapan"],["SMAN Cendikia"],["MTsN 10 Jakarta"],["SMPN 2 Cikarang"],["SMKN 4 Kota"],["SMA Duta Bangsa"],["PT Awards Academy"],["—"],["—"],["SMKN 1 Bakti"],["SD Harapan Ibu"],["SMAN Syukur"],["PT Awards Academy"],["SMK Mulia"],["SMPN 5 Bandung"]];
+const LOGINS=["12–08 08:12","12–08 07:45","11–08 21:03","—","12–08 06:58","02–08 09:10","01–08 14:22","12–08 08:31","12–08 08:02","—","11–08 19:44","12–08 07:15","12–08 08:20","09–08 16:05","12–08 07:50"];
+
+let USERS=[];
+for(let i=0;i<NAMES.length;i++){
+  USERS.push({id:"U-"+(100+i),username:NAMES[i][0],email:NAMES[i][1],full_name:NAMES[i][2],gender:i%2?"Perempuan":"Laki-laki",phone:"08"+String(1100+i*37),role:ROLES[i],status:STATS[i],jenjang:JENJANG[i],sekolah:SEKOLAH[i][0],kelas:JENJANG[i]==="SD"?String((i%6)+1):JENJANG[i]==="SMP"?String((i%3)+7):JENJANG[i]==="SMA"||JENJANG[i]==="SMK"?String((i%3)+10):"—",jurusan:["—","IPA","IPS","Bahasa","Kejuruan"][i%5],membership:"AKTIF",enroll:i%4===0,last:LOGINS[i],emailVerified:i%3!==0});
+}
+
+/* roles master + permission matrix */
+const ROLE_MASTER=[
+  {code:"SUPER_ADMIN",name:"Super Admin",desc:"Akses penuh seluruh area backoffice & sistem.",priority:1,isSystem:true},
+  {code:"STAFF",name:"Staff",desc:"Admin & operasional — akademik, konten, pengguna.",priority:2,isSystem:true},
+  {code:"FINANCE",name:"Finance",desc:"Keuangan, membership, dan pelanggan.",priority:3,isSystem:true},
+  {code:"GURU",name:"Guru",desc:"Authoring materi & ujian; claim owner konten.",priority:4,isSystem:true},
+  {code:"INVESTOR",name:"Investor",desc:"Laporan & data kinerja investasi.",priority:5,isSystem:false},
+  {code:"SUPER_SISWA",name:"Super Siswa",desc:"Siswa dengan akses lanjutan (CBT & analitik).",priority:6,isSystem:true},
+  {code:"SISWA",name:"Siswa",desc:"Akses belajar, latihan, dan ujian.",priority:7,isSystem:true}
+];
+const PERMISSIONS=[
+  {id:"academic.read",label:"Academic · baca",desc:"Lihat master akademik, sekolah, target"},
+  {id:"academic.write",label:"Academic · tulis",desc:"Ubah jenjang/kelas/mapel/kurikulum"},
+  {id:"content.read",label:"Konten · baca",desc:"Lihat materi, bank soal, ujian"},
+  {id:"content.write",label:"Konten · tulis",desc:"Authoring materi, soal, ujian"},
+  {id:"financial.read",label:"Keuangan · baca",desc:"Lihat laporan & transaksi"},
+  {id:"financial.write",label:"Keuangan · tulis",desc:"Kelola membership & pembayaran"},
+  {id:"users.read",label:"Pengguna · baca",desc:"Lihat daftar pengguna"},
+  {id:"users.write",label:"Pengguna · tulis",desc:"Kelola user & assign role"},
+  {id:"analytics.view",label:"Analitik · lihat",desc:"Akses laporan hasil belajar"}
+];
+const ROLE_PERMS={
+  SUPER_ADMIN:["allow","allow","allow","allow","allow","allow","allow","allow","allow"],
+  STAFF:["allow","allow","allow","allow","deny","deny","allow","allow","allow"],
+  FINANCE:["deny","deny","deny","deny","allow","allow","deny","deny","allow"],
+  GURU:["allow","deny","allow","allow","deny","deny","deny","deny","deny"],
+  INVESTOR:["deny","deny","deny","deny","allow","deny","deny","deny","allow"],
+  SUPER_SISWA:["allow","deny","allow","deny","deny","deny","deny","deny","allow"],
+  SISWA:["allow","deny","allow","deny","deny","deny","deny","deny","deny"]
+};
+
+/* ---------- UI state ---------- */
+let filters={q:"",role:"",status:"",jenjang:""};
+let sort={key:"name",dir:1};
+let page=1,pageSize=20;
+let sel=new Set();
+let currentRole="SUPER_ADMIN";
+
+function renderStats(){
+  const active=USERS.filter(u=>u.status==="ACTIVE").length;
+  const siswa=USERS.filter(u=>u.role==="SISWA"||u.role==="SUPER_SISWA").length;
+  const guru=USERS.filter(u=>u.role==="GURU"||u.role==="STAFF"||u.role==="FINANCE").length;
+  const pend=USERS.filter(u=>u.status==="PENDING").length;
+  $("#stat-total-n").textContent=USERS.length;
+  $("#stat-active-n").textContent=active;
+  $("#stat-siswa-n").textContent=siswa;
+  $("#stat-guru-n").textContent=guru;
+  $("#stat-pending-n").textContent=pend;
+  $("#cnt-users").textContent=USERS.length;
+  $("#cnt-roles").textContent=ROLE_MASTER.length;
+}
+
+function filtered(){
+  return USERS.filter(u=>{
+    if(filters.q){const q=filters.q.toLowerCase();if(!(u.username.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||u.full_name.toLowerCase().includes(q)))return false;}
+    if(filters.role&&u.role!==filters.role)return false;
+    if(filters.status&&u.status!==filters.status)return false;
+    if(filters.jenjang&&u.jenjang!==filters.jenjang)return false;
+    return true;
+  }).sort((a,b)=>{
+    let va=a[sort.key],vb=b[sort.key];
+    if(sort.key==="role"){va=ROLE_LABEL[a.role];vb=ROLE_LABEL[b.role];}
+    if(sort.key==="last"){va=a.last==="—"?"0":a.last;vb=b.last==="—"?"0":b.last;}
+    return (va>vb?1:va<vb?-1:0)*sort.dir;
+  });
+}
+
+function initials(name){return name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
+
+function renderTable(){
+  const rows=filtered();
+  const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
+  if(page>totalPages)page=totalPages;
+  const slice=rows.slice((page-1)*pageSize,page*pageSize);
+  const tbody=$("#tbl-body");
+  $("#table-wrap").hidden=false;
+  $("#empty-users").classList.toggle("show",rows.length===0);
+  $("#table-wrap").style.display=rows.length?"":"none";
+  $("#pagine-wrap").hidden=rows.length===0;
+  tbody.innerHTML=slice.map(u=>{
+    const color=AVATAR_COLORS[u.id.length%AVATAR_COLORS.length];
+    const roleBadge=u.role==="SUPER_ADMIN"?'<span class="badge red">Super Admin</span>':`<span class="badge ${ROLE_CLASS[u.role]}">${ROLE_LABEL[u.role]}</span>`;
+    return `<tr data-id="${u.id}" data-od-id="row-user-${u.id.toLowerCase()}" class="${sel.has(u.id)?"selected":""}">
+      <td><input type="checkbox" class="chk rowchk" data-id="${u.id}" ${sel.has(u.id)?"checked":""} aria-label="Pilih ${u.full_name}"></td>
+      <td><span class="td-user"><span class="u-avatar" style="background:${color}">${initials(u.full_name)}</span><span class="u-name"><b>${u.full_name}${u.role==="SUPER_ADMIN"?' <span class="badge red" style="font-size:10px">SA</span>':""}</b><small>@${u.username}</small></span></span></td>
+      <td>${u.email}</td>
+      <td>${roleBadge}</td>
+      <td>${u.jenjang==="—"?"—":u.jenjang+" · Kelas "+u.kelas}<br><small style="color:var(--muted);font-size:11.5px">${u.sekolah}</small></td>
+      <td>${u.last}</td>
+      <td><span class="badge ${STATUS_CLASS[u.status]}">${STATUS_LABEL[u.status]}</span></td>
+      <td style="text-align:right"><span class="row-act">
+        <button class="icon-btn" data-act="edit" data-id="${u.id}" title="Edit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <button class="icon-btn" data-act="toggle" data-id="${u.id}" title="Aktif/nonaktif"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg></button>
+        <button class="icon-btn danger" data-act="del" data-id="${u.id}" title="Hapus"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        <button class="icon-btn" data-act="more" data-id="${u.id}" title="Lainnya"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg></button>
+      </span></td></tr>`;
+  }).join("");
+  const sliceIds=slice.map(u=>u.id);
+  $("#sel-all").checked=slice.length>0&&sliceIds.every(id=>sel.has(id));
+  $("#sel-all").indeterminate=!$("#sel-all").checked&&sliceIds.some(id=>sel.has(id));
+  renderPagination(rows.length,totalPages);
+  renderBulk();
+}
+function renderPagination(total,totalPages){
+  $("#page-info").textContent=(total?"Menampilkan "+(page-1)*pageSize+1+"–"+Math.min(page*pageSize,total)+" dari "+total+" pengguna":"0 pengguna");
+  const box=$("#page-btns");box.innerHTML="";
+  const mk=(label,pg,dis,active)=>{
+    const b=document.createElement("button");
+    b.className="page-btn"+(active?" active":"");
+    b.textContent=label;
+    if(dis)b.disabled=true;else b.onclick=()=>{page=pg;renderTable();};
+    if(active)b.setAttribute("aria-current","page");
+    box.appendChild(b);
+  };
+  mk("‹",page-1,page===1);
+  const from=Math.max(1,page-2),to=Math.min(totalPages,page+2);
+  for(let p=from;p<=to;p++)mk(String(p),p,false,p===page);
+  mk("›",page+1,page>=totalPages);
+}
+function renderBulk(){
+  const show=sel.size>0;
+  $("#bulk-bar").classList.toggle("show",show);
+  const admin=[...sel].filter(id=>{const u=USERS.find(x=>x.id===id);return u&&u.role==="SUPER_ADMIN";}).length;
+  $("#bulk-n").textContent=sel.size+" terpilih"+(admin>0?` · ${admin} Super Admin`: "");
+}
+
+/* ---------- Filters ---------- */
+function bindFilters(){
+  $("#f-q").addEventListener("input",e=>{filters.q=e.target.value;page=1;renderTable();});
+  $("#f-role").addEventListener("change",e=>{filters.role=e.target.value;page=1;renderTable();});
+  $("#f-status").addEventListener("change",e=>{filters.status=e.target.value;page=1;renderTable();});
+  $("#f-jenjang").addEventListener("change",e=>{filters.jenjang=e.target.value;page=1;renderTable();});
+  $("#page-size").addEventListener("change",e=>{pageSize=+e.target.value;page=1;renderTable();});
+}
+function bindSort(){
+  $$("#tbl-users .sortable").forEach(th=>th.addEventListener("click",()=>{
+    const key=th.dataset.sort;
+    if(sort.key===key)sort.dir*=-1;else{sort.key=key;sort.dir=1;}
+    page=1;
+    $$("#tbl-users .sortable .arrow").forEach(a=>a.classList.remove("on"));
+    const arr=th.querySelector(".arrow");
+    if(arr){arr.classList.add("on");arr.textContent=sort.dir>0?"▲":"▼";}
+    renderTable();
+  }));
+}
+function bindSelection(){
+  $("#sel-all").addEventListener("change",e=>{
+    const slice=filtered().slice((page-1)*pageSize,page*pageSize);
+    if(e.target.checked)slice.forEach(u=>sel.add(u.id));else slice.forEach(u=>sel.delete(u.id));
+    renderTable();
+  });
+  $("#tbl-body").addEventListener("change",e=>{
+    if(!e.target.classList.contains("rowchk"))return;
+    if(e.target.checked)sel.add(e.target.dataset.id);else sel.delete(e.target.dataset.id);
+    renderTable();
+  });
+}
+
+/* ---------- Menu & row actions ---------- */
+function openMenu(x,y,items,rowId){
+  const menu=$("#context-menu");
+  menu.innerHTML=items.map(it=>it.sep?'<div class="menu-sep"></div>':`<button class="menu-item ${it.danger?"danger":""}" data-act="${it.act}">${it.label}</button>`).join("");
+  menu.classList.add("show");
+  const rect=menu.getBoundingClientRect();
+  menu.style.left=Math.min(x,window.innerWidth-rect.width-8)+"px";
+  menu.style.top=Math.min(y,window.innerHeight-rect.height-8)+"px";
+  menu.dataset.rowId=rowId||"";
+  menu.onclick=e=>{
+    const btn=e.target.closest("[data-act]");
+    if(!btn)return;
+    menu.classList.remove("show");
+    const act=btn.dataset.act,id=menu.dataset.rowId;
+    if(act==="edit")openUserForm(id);
+    else if(act==="del")openDelete(id);
+    else if(act==="active")setActive(id,true);
+    else if(act==="inactive")setActive(id,false);
+    else if(act==="reset")resetPassword(id);
+    else if(act==="ex-all"||act==="ex-sel")doExport(act==="ex-all"?"Semua (sesuai filter)":`Terpilih (${sel.size})`);
+    else if(act==="ex-xlsx"||act==="ex-csv")toast(`Format ${act.slice(3).toUpperCase()} dipilih untuk ekspor.`,"info");
+  };
+  setTimeout(()=>document.addEventListener("click",closeMenu,{once:true}),0);
+}
+function closeMenu(){const m=$("#context-menu");m.classList.remove("show");}
+
+function setActive(id,val){
+  const u=USERS.find(x=>x.id===id);
+  if(!u)return;
+  u.status=val?"ACTIVE":"INACTIVE";
+  toast(`${u.full_name} ${val?"diaktifkan":"dinonaktifkan"}`,"success");
+  renderStats();renderTable();
+}
+function resetPassword(id){
+  const u=USERS.find(x=>x.id===id);
+  if(!u)return;
+  toast(`Link reset password dikirim ke ${u.email}`,"info");
+}
+function bindRowActions(){
+  $("#tbl-body").addEventListener("click",e=>{
+    const btn=e.target.closest("[data-act][data-id]");
+    if(!btn)return;
+    const {act,id}=btn.dataset;
+    if(act==="edit")openUserForm(id);
+    else if(act==="del")openDelete(id);
+    else if(act==="toggle"){const u=USERS.find(x=>x.id===id);setActive(id,u.status!=="ACTIVE");}
+    else if(act==="more"){
+      const r=btn.getBoundingClientRect();
+      const u=USERS.find(x=>x.id===id);
+      openMenu(r.right,r.bottom,[
+        {act:"edit",label:"Edit Pengguna"},
+        {sep:true},
+        u&&u.status==="ACTIVE"?{act:"inactive",label:"Nonaktifkan"}:{act:"active",label:"Aktifkan"},
+        {act:"reset",label:"Reset Password"},
+        {sep:true},
+        {act:"del",label:"Hapus",danger:true}
+      ],id);
+    }
+  });
+}
+
+$("#bulk-activate").addEventListener("click",()=>{[...sel].forEach(id=>{const u=USERS.find(x=>x.id===id);if(u)u.status="ACTIVE";});const n=sel.size;sel.clear();toast(`${n} pengguna diaktifkan`,"success");renderStats();renderTable();});
+$("#bulk-deactivate").addEventListener("click",()=>{[...sel].forEach(id=>{const u=USERS.find(x=>x.id===id);if(u)u.status="INACTIVE";});const n=sel.size;sel.clear();toast(`${n} pengguna dinonaktifkan`,"success");renderStats();renderTable();});
+$("#bulk-delete").addEventListener("click",()=>{const n=sel.size;sel.clear();toast(`${n} pengguna dihapus`,"success");renderStats();renderTable();});
+
+function openDelete(id){
+  const u=USERS.find(x=>x.id===id);
+  if(!u)return;
+  $("#delete-title").textContent="Hapus pengguna ini?";
+  $("#delete-msg").textContent=`“${u.full_name}” (@${u.username}) akan dihapus (soft delete).`;
+  const blocked=u.enroll;
+  $("#delete-cascade").classList.toggle("show",blocked);
+  $("#delete-cascade").textContent=blocked?`User punya enrollment / attempt ujian aktif — backend memblokir hapus. Nonaktifkan akun terlebih dahulu.`:"";
+  $("#confirm-delete").textContent=blocked?"Nonaktifkan & Hapus":"Hapus";
+  $("#ovl-delete").dataset.id=id;
+  openOverlay("ovl-delete");
+}
+$("#confirm-delete").addEventListener("click",()=>{
+  const id=$("#ovl-delete").dataset.id;
+  USERS=USERS.filter(u=>u.id!==id);
+  sel.delete(id);
+  closeOverlay("ovl-delete");
+  toast("Pengguna dihapus","success");renderStats();renderTable();
+});
+
+/* ---------- Overlay ---------- */
+function openOverlay(id){$("#"+id).classList.add("show");document.body.style.overflow="hidden";}
+function closeOverlay(id){$("#"+id).classList.remove("show");document.body.style.overflow="";
+  if(id==="ovl-import")resetImport();
+}
+$$("[data-close]").forEach(b=>b.addEventListener("click",()=>closeOverlay(b.dataset.close)));
+$$(".overlay").forEach(o=>o.addEventListener("mousedown",e=>{if(e.target===o)closeOverlay(o.id);}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$$(".overlay.show").forEach(o=>closeOverlay(o.id));closeMenu();}});
+
+/* ---------- User form ---------- */
+let editingId=null;
+function openUserForm(id){
+  editingId=id||null;
+  const u=id?USERS.find(x=>x.id===id):null;
+  $("#user-form-title").textContent=u?"Edit Pengguna":"Tambah Pengguna";
+  $("#u-username").value=u?u.username:"";
+  $("#u-email").value=u?u.email:"";
+  $("#u-pass").value="";$("#u-pass2").value="";
+  $("#u-name").value=u?u.full_name:"";
+  $("#u-gender").value=u?u.gender:"";
+  $("#u-phone").value=u?u.phone:"";
+  $("#u-avatar-preview").textContent=u?initials(u.full_name):"A";
+  $("#u-jenjang").value=u&&u.jenjang!=="—"?u.jenjang:"";
+  $("#u-kelas").value=u&&u.kelas!=="—"?u.kelas:"";
+  $("#u-sekolah").value=u&&u.sekolah!=="—"?u.sekolah:"";
+  $("#u-jurusan").value=u?u.jurusan:"";
+  $("#u-membership").value=u?u.membership:"AKTIF";
+  $("#u-role").value=u?u.role:"SISWA";
+  $("#u-status").value=u?u.status:"ACTIVE";
+  $$(".studio-tabs [data-utab]").forEach(t=>t.classList.toggle("active",t.dataset.utab==="identitas"));
+  $$(".studio-panel[data-upanel]").forEach(p=>p.classList.toggle("active",p.dataset.upanel==="identitas"));
+  updateFormTabs();
+  openOverlay("ovl-user");
+}
+function updateFormTabs(){
+  const isSiswa=($("#u-role").value==="SISWA"||$("#u-role").value==="SUPER_SISWA");
+  $$(".studio-tab[data-utab='akademik']").forEach(t=>{t.style.display=isSiswa?"":"none";});
+  const isSuper=$("#u-role").value==="SUPER_ADMIN";
+  $("#super-admin-warn").classList.toggle("show",isSuper);
+  $("#u-avatar-preview").textContent=editingId?initials($("#u-name").value||"A"):$("#u-name").value?initials($("#u-name").value):"A";
+}
+function bindUserForm(){
+  $$(".studio-tab[data-utab]").forEach(t=>t.addEventListener("click",()=>{
+    $$(".studio-tab[data-utab]").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    $$(".studio-panel[data-upanel]").forEach(p=>p.classList.toggle("active",p.dataset.upanel===t.dataset.utab));
+  }));
+  $("#u-name").addEventListener("input",()=>{$("#u-avatar-preview").textContent=initials($("#u-name").value||"A");});
+  $("#u-role").addEventListener("change",updateFormTabs);
+}
+function validUserForm(){
+  let ok=true;
+  const f=(id,cond)=>{$(id).parentElement.classList.toggle("error",!cond);if(!cond)ok=false;};
+  f("#u-username",$("#u-username").value.trim().length>0);
+  f("#u-email",/.+@.+\..+/.test($("#u-email").value.trim()));
+  f("#u-name",$("#u-name").value.trim().length>0);
+  if(!editingId){
+    f("#u-pass",$("#u-pass").value.length>=8);
+    if($("#u-pass2").value!==$("#u-pass").value){$("#u-pass2").parentElement.classList.add("error");ok=false;}
+    else $("#u-pass2").parentElement.classList.remove("error");
+  }
+  if(editingId){$("#u-pass").parentElement.classList.remove("error");$("#u-pass2").parentElement.classList.remove("error");}
+  return ok;
+}
+$("#user-save").addEventListener("click",()=>{
+  if(!validUserForm()){toast("Periksa kembali field wajib","error");return;}
+  const role=$("#u-role").value;
+  const data={
+    username:$("#u-username").value.trim(),email:$("#u-email").value.trim(),
+    full_name:$("#u-name").value.trim(),gender:$("#u-gender").value,phone:$("#u-phone").value,
+    role,status:$("#u-status").value,
+    jenjang:(role==="SISWA"||role==="SUPER_SISWA")?$("#u-jenjang").value:"—",
+    kelas:(role==="SISWA"||role==="SUPER_SISWA")?$("#u-kelas").value:"—",
+    sekolah:(role==="SISWA"||role==="SUPER_SISWA")?$("#u-sekolah").value:"—",
+    jurusan:(role==="SISWA"||role==="SUPER_SISWA")?$("#u-jurusan").value:"—",
+    membership:$("#u-membership").value,enroll:false
+  };
+  if(editingId){
+    const u=USERS.find(x=>x.id===editingId);
+    Object.assign(u,data);
+    toast(`Pengguna ${u.full_name} disimpan`,"success");
+  }else{
+    data.id="U-"+(200+USERS.length);
+    data.last="—";
+    data.emailVerified=false;
+    USERS.unshift(data);
+    toast("Pengguna baru dibuat","success");
+  }
+  closeOverlay("ovl-user");
+  renderStats();renderTable();
+});
+
+/* ---------- Tabs ---------- */
+function bindTabs(){
+  $$(".tab[data-tab]").forEach(t=>t.addEventListener("click",()=>{
+    $$(".tab[data-tab]").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    $$(".tab-panel[data-panel]").forEach(p=>p.hidden=(p.dataset.panel!==t.dataset.tab));
+    if(t.dataset.tab==="roles")renderRoles();
+  }));
+}
+/* ---------- Role & permission ---------- */
+const DESC_FALLBACK={
+  SUPER_ADMIN:"Akses penuh seluruh area backoffice.",
+  STAFF:"Admin & operasional — akademik, konten, pengguna.",
+  FINANCE:"Keuangan, membership, dan pelanggan.",
+  GURU:"Authoring materi & ujian; claim owner konten.",
+  INVESTOR:"Laporan & data kinerja investasi.",
+  SUPER_SISWA:"Siswa dengan akses lanjutan (CBT & analitik).",
+  SISWA:"Akses belajar, latihan, dan ujian."
+};
+function renderRoles(){
+  const list=$("#role-items");
+  list.innerHTML=ROLE_MASTER.map(r=>`<button class="role-item ${r.code===currentRole?"active":""}" data-role="${r.code}" data-od-id="role-item-${r.code.toLowerCase()}">
+    <b><span class="badge ${ROLE_CLASS[r.code]}">${ROLE_LABEL[r.code]}</span>${r.isSystem?'<span class="badge gray" style="font-size:10px">SISTEM</span>':""}</b>
+    <span>${ROLE_MASTER.find(x=>x.code===r.code).desc}</span>
+  </button>`).join("");
+  $$("#role-items [data-role]").forEach(b=>b.addEventListener("click",()=>{
+    currentRole=b.dataset.role;
+    renderRoles();renderRoleEdit();
+  }));
+  renderRoleEdit();
+}
+function renderRoleEdit(){
+  const r=ROLE_MASTER.find(x=>x.code===currentRole);
+  if(!r)return;
+  $("#role-title").textContent=r.name;
+  $("#role-system-badge").hidden=!r.isSystem;
+  $("#role-system-badge").textContent=r.isSystem?"Sistem":"Kustom";
+  $("#role-desc").textContent=r.desc;
+  const perms=ROLE_PERMS[currentRole]||[];
+  $("#perm-list").innerHTML=PERMISSIONS.map((p,i)=>{
+    const st=perms[i]||"deny";
+    return `<div class="perm-row" data-od-id="perm-${p.id}">
+      <div class="grow"><b>${p.label}</b><small>${p.desc}</small></div>
+      <div class="perm-toggle">
+        <button class="${st==="allow"?"on":""}" data-perm="${i}" data-v="allow">Izinkan</button>
+        <button class="${st==="deny"?"off":""}" data-perm="${i}" data-v="deny">Tolak</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+function bindPermissions(){
+  $("#perm-list").addEventListener("click",e=>{
+    const btn=e.target.closest("[data-perm]");
+    if(!btn)return;
+    const v=btn.dataset.v,i=+btn.dataset.perm;
+    ROLE_PERMS[currentRole][i]=v;
+    renderRoleEdit();
+    toast(`Permission ${PERMISSIONS[i].label} → ${v==="allow"?"Izinkan":"Tolak"} (${ROLE_LABEL[currentRole]})`,"success");
+  });
+}
+
+/* ---------- Import ---------- */
+let importStep=1;
+const IMPORT_SAMPLE=[
+  ["1","ahmad@sdnh1.ac.id","Ahmad Rizki","GURU","SD Negeri 1","ok"],
+  ["2","siti@smancitra.ac.id","Siti Aminah","SISWA","SMAN Cendikia","ok"],
+  ["3","(duplikat email ahmad@…)","—","GURU","—","dup"],
+  ["4","budi@…","Budi","SUPER_ADMIN","—","err"]
+];
+function resetImport(){
+  importStep=1;
+  ["import-next","import-submit","import-prev","import-done"].forEach(id=>$(id).hidden=true);
+  $("#import-cancel").hidden=false;
+  $("#import-step-1").hidden=false;$("#import-step-2").hidden=true;$("#import-step-3").hidden=true;
+  $$("#ovl-import [data-step0]").forEach((s,i)=>s.classList.toggle("active",i===0));
+  $$("#ovl-import [data-step0]").forEach(s=>s.classList.remove("done"));
+  $("#import-file").value="";
+}
+function goImportStep(n){
+  importStep=n;
+  [1,2,3].forEach(i=>$("#import-step-"+i).hidden=(i!==n));
+  $$("#ovl-import [data-step0]").forEach((s,i)=>{s.classList.toggle("active",i+1===n);s.classList.toggle("done",i+1<n);});
+  $("#import-next").hidden=(n!==1);$("#import-submit").hidden=(n!==2);$("#import-done").hidden=(n!==3);
+  $("#import-prev").hidden=(n===1);$("#import-cancel").hidden=false;
+  if(n===3)$("#import-cancel").hidden=true;
+}
+function bindImport(){
+  $("#import-dropzone").addEventListener("click",()=>$("#import-file").click());
+  $("#import-dropzone").addEventListener("dragover",e=>{e.preventDefault();$("#import-dropzone").style.background="var(--accent-soft)";});
+  $("#import-dropzone").addEventListener("dragleave",()=>$("#import-dropzone").style.background="");
+  $("#import-dropzone").addEventListener("drop",e=>{e.preventDefault();$("#import-dropzone").style.background="";$("#import-file").files=e.dataTransfer.files;handleImportFile();});
+  $("#import-file").addEventListener("change",handleImportFile);
+  $("#import-next").addEventListener("click",()=>{
+    $("#import-rows").innerHTML=IMPORT_SAMPLE.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td><span class="st ${r[5]}">${r[5]==="ok"?"✓ Valid":r[5]==="dup"?"! Duplikat":r[5]==="err"?"✗ Error":"·"}</span></td></tr>`).join("");
+    goImportStep(2);
+  });
+  $("#import-submit").addEventListener("click",()=>{
+    $("#res-created").textContent=2;$("#res-skipped").textContent=1;$("#res-failed").textContent=1;
+    $("#res-errors").hidden=false;
+    $("#res-errors").innerHTML='<div>• Baris 3: email duplikat dengan baris 1 (dilewati)</div><div>• Baris 4: assign SUPER_ADMIN hanya untuk SUPER_ADMIN — akun bertindak sebagai SA ditolak</div>';
+    goImportStep(3);
+  });
+  $("#import-prev").addEventListener("click",()=>goImportStep(importStep-1));
+  $("#import-done").addEventListener("click",()=>{closeOverlay("ovl-import");toast("Import selesai: 2 dibuat, 1 duplikat, 1 gagal","success");});
+}
+function handleImportFile(){
+  const f=$("#import-file").files[0];
+  if(!f)return;
+  $("#import-filename").textContent=f.name;
+  $("#import-fsize").textContent=(f.size/1024).toFixed(1)+" KB";
+  goImportStep(2);
+}
+
+/* ---------- Export / Toast ---------- */
+function doExport(scope){
+  toast(`Export dimulai — ${scope}. Berkas pengguna.xlsx diunduh (12 kolom, round-trip import).`,"info");
+}
+function toast(msg,type){
+  const t=document.createElement("div");
+  t.className="toast "+(type||"info");
+  const ic=type==="success"
+    ?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>'
+    :type==="error"
+    ?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>'
+    :'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>';
+  t.innerHTML=ic+"<span>"+msg+"</span>";
+  $("#toasts").appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .25s";setTimeout(()=>t.remove(),260);},3200);
+}
+
+/* ---------- Global actions ---------- */
+function bindGlobalActions(){
+  document.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-act]");
+    if(!btn)return;
+    const act=btn.dataset.act;
+    if(act==="create")openUserForm();
+    else if(act==="import")openOverlay("ovl-import");
+    else if(act==="export-menu"){
+      const r=btn.getBoundingClientRect();
+      openMenu(r.left,r.bottom,[
+        {act:"ex-all",label:"Semua pengguna (sesuai filter)"},
+        {act:"ex-sel",label:`Pengguna terpilih (${sel.size})`},
+        {sep:true},
+        {act:"ex-xlsx",label:"Format .xlsx"},
+        {act:"ex-csv",label:"Format .csv (opsional)"}
+      ]);
+    }
+    else if(act==="template")toast("Templat pengguna.xlsx diunduh — 12 kolom + baris contoh","info");
+    else if(act==="refresh")toast("Data pengguna disegarkan dari server","info");
+    else if(act==="upload-avatar")toast("Pilih gambar avatar (PNG/JPG ≤ 2 MB)","info");
+    else if(act==="add-role")toast("Role kustom baru — dialog pembuatan role","info");
+    else if(act==="edit-role")toast("Edit metadata role — nama, deskripsi, prioritas","info");
+    else if(act==="assign-role"){
+      const users=USERS.filter(u=>(u.role!==currentRole)).slice(0,6).map(u=>u.full_name).join(", ");
+      toast(`Assign role ${ROLE_LABEL[currentRole]} ke pengguna — mis. ${users}…`,"info");
+    }
+  });
+}
+
+/* ---------- Init ---------- */
+function init(){
+  bindFilters();bindSort();bindSelection();bindRowActions();bindGlobalActions();
+  bindTabs();bindUserForm();bindPermissions();bindImport();
+  setTimeout(()=>{
+    renderStats();renderTable();
+  },400);
+}
+init();
+</script>
+</body>
+</html>

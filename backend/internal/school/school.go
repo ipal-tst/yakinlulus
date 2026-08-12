@@ -3,8 +3,8 @@ package school
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,24 +20,30 @@ import (
 // --- Models ---
 
 type School struct {
-	ID              uuid.UUID  `json:"id"`
-	SchoolName      string     `json:"school_name"`
-	SchoolCode      string     `json:"school_code"`
-	NPSN            *string    `json:"npsn,omitempty"`
-	EducationLevel  string     `json:"education_level"`
-	Address         *string    `json:"address,omitempty"`
-	Province        *string    `json:"province,omitempty"`
-	Regency         *string    `json:"regency,omitempty"`
-	District        *string    `json:"district,omitempty"`
-	PostalCode      *string    `json:"postal_code,omitempty"`
-	Phone           *string    `json:"phone,omitempty"`
-	Email           *string    `json:"email,omitempty"`
-	Website         *string    `json:"website,omitempty"`
-	PrincipalName   *string    `json:"principal_name,omitempty"`
-	Accreditation   *string    `json:"accreditation,omitempty"`
-	Status          string     `json:"status"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID              uuid.UUID `json:"id"`
+	SchoolName      string    `json:"school_name"`
+	SchoolCode      string    `json:"school_code"`
+	NPSN            *string   `json:"npsn,omitempty"`
+	InstitutionType string    `json:"institution_type"`
+	EducationLevel  string    `json:"education_level"`
+	SchoolStatus    string    `json:"school_status"`
+	YayasanName     *string   `json:"yayasan_name,omitempty"`
+	Province        *string   `json:"province,omitempty"`
+	City            *string   `json:"city,omitempty"`
+	District        *string   `json:"district,omitempty"`
+	Village         *string   `json:"village,omitempty"`
+	Address         *string   `json:"address,omitempty"`
+	PostalCode      *string   `json:"postal_code,omitempty"`
+	Phone           *string   `json:"phone,omitempty"`
+	Email           *string   `json:"email,omitempty"`
+	Website         *string   `json:"website,omitempty"`
+	CurriculumCode  *string   `json:"curriculum_code,omitempty"`
+	PrincipalName   *string   `json:"principal_name,omitempty"`
+	Accreditation   *string   `json:"accreditation,omitempty"`
+	Status          string    `json:"status"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type SchoolSetting struct {
@@ -77,12 +83,24 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+const schoolSelectCols = `s.id, s.name AS school_name,
+	COALESCE(s.npsn,'') AS school_code, s.npsn,
+	COALESCE(s.institution_type,'SEKOLAH') AS institution_type,
+	COALESCE(s.education_level,'') AS education_level,
+	COALESCE(s.school_status,'NEGERI') AS school_status,
+	s.yayasan_name, s.province, s.city AS city, s.district, s.village,
+	s.address, s.postal_code, s.phone, s.email, s.website, s.curriculum_code,
+	NULL::text AS principal_name, NULL::text AS accreditation,
+	s.is_active, CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+	s.created_at, s.updated_at`
+
 func scanSchool(s pgx.Row) (*School, error) {
 	sc := &School{}
-	err := s.Scan(&sc.ID, &sc.SchoolName, &sc.SchoolCode, &sc.NPSN, &sc.EducationLevel,
-		&sc.Address, &sc.Province, &sc.Regency, &sc.District, &sc.PostalCode,
-		&sc.Phone, &sc.Email, &sc.Website, &sc.PrincipalName, &sc.Accreditation,
-		&sc.Status, &sc.CreatedAt, &sc.UpdatedAt)
+	err := s.Scan(&sc.ID, &sc.SchoolName, &sc.SchoolCode, &sc.NPSN, &sc.InstitutionType,
+		&sc.EducationLevel, &sc.SchoolStatus, &sc.YayasanName, &sc.Province, &sc.City,
+		&sc.District, &sc.Village, &sc.Address, &sc.PostalCode, &sc.Phone, &sc.Email,
+		&sc.Website, &sc.CurriculumCode, &sc.PrincipalName, &sc.Accreditation,
+		&sc.IsActive, &sc.Status, &sc.CreatedAt, &sc.UpdatedAt)
 	return sc, err
 }
 
@@ -90,10 +108,11 @@ func scanSchoolRows(rows pgx.Rows) ([]School, error) {
 	var schools []School
 	for rows.Next() {
 		var sc School
-		err := rows.Scan(&sc.ID, &sc.SchoolName, &sc.SchoolCode, &sc.NPSN, &sc.EducationLevel,
-			&sc.Address, &sc.Province, &sc.Regency, &sc.District, &sc.PostalCode,
-			&sc.Phone, &sc.Email, &sc.Website, &sc.PrincipalName, &sc.Accreditation,
-			&sc.Status, &sc.CreatedAt, &sc.UpdatedAt)
+		err := rows.Scan(&sc.ID, &sc.SchoolName, &sc.SchoolCode, &sc.NPSN, &sc.InstitutionType,
+			&sc.EducationLevel, &sc.SchoolStatus, &sc.YayasanName, &sc.Province, &sc.City,
+			&sc.District, &sc.Village, &sc.Address, &sc.PostalCode, &sc.Phone, &sc.Email,
+			&sc.Website, &sc.CurriculumCode, &sc.PrincipalName, &sc.Accreditation,
+			&sc.IsActive, &sc.Status, &sc.CreatedAt, &sc.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -104,52 +123,61 @@ func scanSchoolRows(rows pgx.Rows) ([]School, error) {
 
 func (r *Repository) Create(ctx context.Context, sc *School) error {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO academic.school (npsn, name, education_level, province, city, district, address, phone, email, website, is_active)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)
+		`INSERT INTO academic.school (npsn, name, education_level, institution_type, school_status, yayasan_name,
+		 province, city, district, village, address, postal_code, phone, email, website, curriculum_code, is_active)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,true)
 		 ON CONFLICT (npsn) WHERE npsn IS NOT NULL AND deleted_at IS NULL DO NOTHING
 		 RETURNING id, created_at, updated_at`,
-		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
-		sc.Address, sc.Phone, sc.Email, sc.Website,
+		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.InstitutionType, sc.SchoolStatus, sc.YayasanName,
+		sc.Province, sc.City, sc.District, sc.Village,
+		sc.Address, sc.PostalCode, sc.Phone, sc.Email, sc.Website, sc.CurriculumCode,
 	).Scan(&sc.ID, &sc.CreatedAt, &sc.UpdatedAt)
 	return err
 }
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*School, error) {
 	return scanSchool(r.pool.QueryRow(ctx,
-		`SELECT s.id, s.name AS school_name,
-		        COALESCE(s.npsn, '') AS school_code, s.npsn,
-		        COALESCE(s.education_level, '') AS education_level, s.address, s.province, s.city AS regency, s.district,
-		        NULL::text AS postal_code, s.phone, s.email, s.website,
-		        NULL::text AS principal_name, NULL::text AS accreditation,
-		        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
-		        s.created_at, s.updated_at
+		`SELECT `+schoolSelectCols+`
 		 FROM academic.school s WHERE s.id = $1 AND s.deleted_at IS NULL`, id))
 }
 
-func (r *Repository) List(ctx context.Context, limit, offset int, search string) ([]School, int, error) {
+type ListFilter struct {
+	Page, Limit int
+	Search, Type, Level, Province string
+}
+
+func (r *Repository) List(ctx context.Context, f ListFilter) ([]School, int, error) {
 	where := "WHERE s.deleted_at IS NULL"
 	args := []interface{}{}
-	argN := 1
-	if search != "" {
-		where += " AND (s.name ILIKE $" + strconv.Itoa(argN) + " OR s.npsn ILIKE $" + strconv.Itoa(argN) + ")"
-		args = append(args, "%"+search+"%")
-		argN++
+	n := 1
+	if f.Search != "" {
+		where += fmt.Sprintf(" AND (s.name ILIKE $%d OR COALESCE(s.npsn,'') ILIKE $%d)", n, n)
+		args = append(args, "%"+f.Search+"%")
+		n++
+	}
+	if f.Type != "" {
+		where += fmt.Sprintf(" AND s.institution_type = $%d", n)
+		args = append(args, f.Type)
+		n++
+	}
+	if f.Level != "" {
+		where += fmt.Sprintf(" AND s.education_level = $%d", n)
+		args = append(args, f.Level)
+		n++
+	}
+	if f.Province != "" {
+		where += fmt.Sprintf(" AND COALESCE(s.province,'') ILIKE $%d", n)
+		args = append(args, "%"+f.Province+"%")
+		n++
 	}
 
 	var total int
-	q := "SELECT COUNT(*) FROM academic.school s " + where
-	r.pool.QueryRow(ctx, q, args...).Scan(&total)
-
-	query := `SELECT s.id, s.name AS school_name,
-	        COALESCE(s.npsn, '') AS school_code, s.npsn,
-	        COALESCE(s.education_level, '') AS education_level, s.address, s.province, s.city AS regency, s.district,
-	        NULL::text AS postal_code, s.phone, s.email, s.website,
-	        NULL::text AS principal_name, NULL::text AS accreditation,
-	        CASE WHEN s.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
-	        s.created_at, s.updated_at
-	 FROM academic.school s ` + where +
-		` ORDER BY s.created_at DESC LIMIT $` + strconv.Itoa(argN) + ` OFFSET $` + strconv.Itoa(argN+1)
-	args = append(args, limit, offset)
+	if err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM academic.school s "+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	query := `SELECT ` + schoolSelectCols + ` FROM academic.school s ` + where +
+		fmt.Sprintf(" ORDER BY s.name LIMIT $%d OFFSET $%d", n, n+1)
+	args = append(args, f.Limit, (f.Page-1)*f.Limit)
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -160,13 +188,29 @@ func (r *Repository) List(ctx context.Context, limit, offset int, search string)
 	return schools, total, err
 }
 
+// ListByIDs mengambil sekolah berdasarkan kumpulan id (soft-delete diabaikan).
+func (r *Repository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]School, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := `SELECT ` + schoolSelectCols + ` FROM academic.school s WHERE s.deleted_at IS NULL AND s.id = ANY($1) ORDER BY s.name`
+	rows, err := r.pool.Query(ctx, query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSchoolRows(rows)
+}
+
 func (r *Repository) Update(ctx context.Context, sc *School) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE academic.school SET npsn=$1, name=$2, education_level=$3, province=$4, city=$5, district=$6,
-		 address=$7, phone=$8, email=$9, website=$10, is_active=$11, updated_at=NOW()
-		 WHERE id=$12 AND deleted_at IS NULL`,
-		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.Province, sc.Regency, sc.District,
-		sc.Address, sc.Phone, sc.Email, sc.Website,
+		`UPDATE academic.school SET npsn=$1, name=$2, education_level=$3, institution_type=$4, school_status=$5,
+		 yayasan_name=$6, province=$7, city=$8, district=$9, village=$10, address=$11, postal_code=$12,
+		 phone=$13, email=$14, website=$15, curriculum_code=$16, is_active=$17, updated_at=NOW()
+		 WHERE id=$18 AND deleted_at IS NULL`,
+		sc.NPSN, sc.SchoolName, sc.EducationLevel, sc.InstitutionType, sc.SchoolStatus, sc.YayasanName,
+		sc.Province, sc.City, sc.District, sc.Village,
+		sc.Address, sc.PostalCode, sc.Phone, sc.Email, sc.Website, sc.CurriculumCode,
 		sc.Status == "ACTIVE", sc.ID)
 	return err
 }
@@ -179,9 +223,47 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 }
 
 func (r *Repository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE academic.school SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Hapus payung target_school + scores (score cascade via FK ON DELETE CASCADE).
+	if _, err := tx.Exec(ctx, `DELETE FROM academic.target_school WHERE school_id = $1`, id); err != nil {
+		return err
+	}
+	// Hapus turunan tanpa kolom deleted_at (FK ON DELETE CASCADE dari school,
+	// tapi sekolah di-soft-delete sehingga tidak terpicu otomatis).
+	if _, err := tx.Exec(ctx, `DELETE FROM academic.student_enrollment WHERE school_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM academic.school_class WHERE school_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM academic.teacher_subject WHERE school_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM academic.school_demographic WHERE school_id = $1`, id); err != nil {
+		return err
+	}
+	// Soft-delete sekolah (row tetap utk recoverability + kompatibilitas unique index).
+	if _, err := tx.Exec(ctx, `UPDATE academic.school SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// CountTargetScores menghitung nilai penerimaan yang masih melekat pada sekolah
+// (via payung target_school) — dipakai untuk memblokir soft-delete sekolah.
+func (r *Repository) CountTargetScores(ctx context.Context, id uuid.UUID) (int, error) {
+	var n int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*)
+		 FROM academic.target_school_score tss
+		 JOIN academic.target_school ts ON ts.id = tss.target_school_id
+		 WHERE ts.school_id = $1 AND ts.deleted_at IS NULL`, id).Scan(&n)
+	return n, err
 }
 
 func (r *Repository) GetSettings(ctx context.Context, schoolID uuid.UUID) (*SchoolSetting, error) {
@@ -253,20 +335,27 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, req CreateSchoolReq) (*School, error) {
+	if err := validateCreateReq(req); err != nil {
+		return nil, err
+	}
+	normalizeCreateReq(&req)
 	sc := &School{
-		SchoolName:     req.SchoolName,
-		NPSN:           req.NPSN,
-		EducationLevel: req.EducationLevel,
-		Address:        req.Address,
-		Province:       req.Province,
-		Regency:        req.Regency,
-		District:       req.District,
-		PostalCode:     req.PostalCode,
-		Phone:          req.Phone,
-		Email:          req.Email,
-		Website:        req.Website,
-		PrincipalName:  req.PrincipalName,
-		Accreditation:  req.Accreditation,
+		SchoolName:      req.SchoolName,
+		NPSN:            req.NPSN,
+		InstitutionType: req.InstitutionType,
+		EducationLevel:  derefStr(req.EducationLevel),
+		SchoolStatus:    req.SchoolStatus,
+		YayasanName:     req.YayasanName,
+		Address:         req.Address,
+		Province:        req.Province,
+		City:            req.City,
+		District:        req.District,
+		Village:         req.Village,
+		PostalCode:      req.PostalCode,
+		Phone:           req.Phone,
+		Email:           req.Email,
+		Website:         req.Website,
+		CurriculumCode:  req.CurriculumCode,
 	}
 	if err := s.repo.Create(ctx, sc); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -282,8 +371,8 @@ func (s *Service) Create(ctx context.Context, req CreateSchoolReq) (*School, err
 	return sc, nil
 }
 
-func (s *Service) List(ctx context.Context, page, limit int, search string) ([]School, int, error) {
-	return s.repo.List(ctx, limit, (page-1)*limit, search)
+func (s *Service) List(ctx context.Context, f ListFilter) ([]School, int, error) {
+	return s.repo.List(ctx, f)
 }
 
 func (s *Service) FindByID(ctx context.Context, id uuid.UUID) (*School, error) {
@@ -298,6 +387,9 @@ func (s *Service) FindByID(ctx context.Context, id uuid.UUID) (*School, error) {
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq) (*School, error) {
+	if err := validateUpdateReq(req); err != nil {
+		return nil, err
+	}
 	sc, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -308,8 +400,17 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq)
 	if req.NPSN != nil {
 		sc.NPSN = req.NPSN
 	}
+	if req.InstitutionType != nil {
+		sc.InstitutionType = *req.InstitutionType
+	}
 	if req.EducationLevel != nil {
 		sc.EducationLevel = *req.EducationLevel
+	}
+	if req.SchoolStatus != nil {
+		sc.SchoolStatus = *req.SchoolStatus
+	}
+	if req.YayasanName != nil {
+		sc.YayasanName = req.YayasanName
 	}
 	if req.Address != nil {
 		sc.Address = req.Address
@@ -317,11 +418,14 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq)
 	if req.Province != nil {
 		sc.Province = req.Province
 	}
-	if req.Regency != nil {
-		sc.Regency = req.Regency
+	if req.City != nil {
+		sc.City = req.City
 	}
 	if req.District != nil {
 		sc.District = req.District
+	}
+	if req.Village != nil {
+		sc.Village = req.Village
 	}
 	if req.PostalCode != nil {
 		sc.PostalCode = req.PostalCode
@@ -335,11 +439,8 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, req UpdateSchoolReq)
 	if req.Website != nil {
 		sc.Website = req.Website
 	}
-	if req.PrincipalName != nil {
-		sc.PrincipalName = req.PrincipalName
-	}
-	if req.Accreditation != nil {
-		sc.Accreditation = req.Accreditation
+	if req.CurriculumCode != nil {
+		sc.CurriculumCode = req.CurriculumCode
 	}
 	if err := s.repo.Update(ctx, sc); err != nil {
 		var pgErr *pgconn.PgError
@@ -362,16 +463,26 @@ func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, status string)
 		if n > 0 {
 			return fiber.NewError(409, "Cannot deactivate school with active members")
 		}
+		scoreCount, err := s.repo.CountTargetScores(ctx, id)
+		if err != nil {
+			return err
+		}
+		if scoreCount > 0 {
+			return fiber.NewError(409, "Cannot deactivate school with target school scores")
+		}
 	}
 	return s.repo.UpdateStatus(ctx, id, status)
 }
 
 func (s *Service) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	n, err := s.repo.CountMembers(ctx, id)
-	if err == nil && n > 0 {
-		return fiber.NewError(409, "Cannot delete school with active members")
-	}
 	return s.repo.SoftDelete(ctx, id)
+}
+
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 func (s *Service) GetSettings(ctx context.Context, schoolID uuid.UUID) (*SchoolSetting, error) {
@@ -450,35 +561,123 @@ func (s *Service) GetBrandingByID(ctx context.Context, id uuid.UUID) (*SchoolBra
 // --- DTOs ---
 
 type CreateSchoolReq struct {
-	SchoolName     string  `json:"school_name"`
-	NPSN           *string `json:"npsn,omitempty"`
-	EducationLevel string  `json:"education_level"`
-	Address        *string `json:"address,omitempty"`
-	Province       *string `json:"province,omitempty"`
-	Regency        *string `json:"regency,omitempty"`
-	District       *string `json:"district,omitempty"`
-	PostalCode     *string `json:"postal_code,omitempty"`
-	Phone          *string `json:"phone,omitempty"`
-	Email          *string `json:"email,omitempty"`
-	Website        *string `json:"website,omitempty"`
-	PrincipalName  *string `json:"principal_name,omitempty"`
-	Accreditation  *string `json:"accreditation,omitempty"`
+	SchoolName      string  `json:"school_name"`
+	NPSN            *string `json:"npsn,omitempty"`
+	InstitutionType string  `json:"institution_type"`
+	EducationLevel  *string `json:"education_level,omitempty"`
+	SchoolStatus    string  `json:"school_status"`
+	YayasanName     *string `json:"yayasan_name,omitempty"`
+	Province        *string `json:"province,omitempty"`
+	City            *string `json:"city,omitempty"`
+	District        *string `json:"district,omitempty"`
+	Village         *string `json:"village,omitempty"`
+	Address         *string `json:"address,omitempty"`
+	PostalCode      *string `json:"postal_code,omitempty"`
+	Phone           *string `json:"phone,omitempty"`
+	Email           *string `json:"email,omitempty"`
+	Website         *string `json:"website,omitempty"`
+	CurriculumCode  *string `json:"curriculum_code,omitempty"`
 }
 
 type UpdateSchoolReq struct {
-	SchoolName     *string `json:"school_name,omitempty"`
-	NPSN           *string `json:"npsn,omitempty"`
-	EducationLevel *string `json:"education_level,omitempty"`
-	Address        *string `json:"address,omitempty"`
-	Province       *string `json:"province,omitempty"`
-	Regency        *string `json:"regency,omitempty"`
-	District       *string `json:"district,omitempty"`
-	PostalCode     *string `json:"postal_code,omitempty"`
-	Phone          *string `json:"phone,omitempty"`
-	Email          *string `json:"email,omitempty"`
-	Website        *string `json:"website,omitempty"`
-	PrincipalName  *string `json:"principal_name,omitempty"`
-	Accreditation  *string `json:"accreditation,omitempty"`
+	SchoolName      *string `json:"school_name,omitempty"`
+	NPSN            *string `json:"npsn,omitempty"`
+	InstitutionType *string `json:"institution_type,omitempty"`
+	EducationLevel  *string `json:"education_level,omitempty"`
+	SchoolStatus    *string `json:"school_status,omitempty"`
+	YayasanName     *string `json:"yayasan_name,omitempty"`
+	Province        *string `json:"province,omitempty"`
+	City            *string `json:"city,omitempty"`
+	District        *string `json:"district,omitempty"`
+	Village         *string `json:"village,omitempty"`
+	Address         *string `json:"address,omitempty"`
+	PostalCode      *string `json:"postal_code,omitempty"`
+	Phone           *string `json:"phone,omitempty"`
+	Email           *string `json:"email,omitempty"`
+	Website         *string `json:"website,omitempty"`
+	CurriculumCode  *string `json:"curriculum_code,omitempty"`
+}
+
+var validInstitutionTypes = map[string]bool{"SEKOLAH": true, "PT": true}
+var validSchoolStatuses = map[string]bool{"NEGERI": true, "SWASTA": true}
+var validSchoolLevels = map[string]bool{"SD": true, "SMP": true, "SMA": true, "SMK": true, "UNIVERSITY": true}
+
+func is8DigitNPSN(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeCreateReq(req *CreateSchoolReq) {
+	if req.InstitutionType == "" {
+		req.InstitutionType = "SEKOLAH"
+	}
+	if req.SchoolStatus == "" {
+		req.SchoolStatus = "NEGERI"
+	}
+	if req.InstitutionType == "PT" {
+		lvl := "UNIVERSITY"
+		req.EducationLevel = &lvl
+	} else if req.SchoolStatus == "NEGERI" {
+		req.YayasanName = nil
+	}
+}
+
+func validateCreateReq(req CreateSchoolReq) error {
+	normalizeCreateReq(&req)
+	if req.SchoolName == "" {
+		return fiber.NewError(400, "school_name required")
+	}
+	if !validInstitutionTypes[req.InstitutionType] {
+		return fiber.NewError(400, "institution_type must be SEKOLAH or PT")
+	}
+	if !validSchoolStatuses[req.SchoolStatus] {
+		return fiber.NewError(400, "school_status must be NEGERI or SWASTA")
+	}
+	if req.NPSN != nil && *req.NPSN != "" && !is8DigitNPSN(*req.NPSN) {
+		return fiber.NewError(400, "npsn must be 8 digits")
+	}
+	if req.InstitutionType == "SEKOLAH" {
+		if req.EducationLevel == nil || *req.EducationLevel == "" {
+			return fiber.NewError(400, "education_level required for SEKOLAH")
+		}
+		if !validSchoolLevels[*req.EducationLevel] {
+			return fiber.NewError(400, "invalid education_level")
+		}
+	}
+	if req.SchoolStatus == "SWASTA" {
+		if req.YayasanName == nil || *req.YayasanName == "" {
+			return fiber.NewError(400, "yayasan_name required when SWASTA")
+		}
+	}
+	return nil
+}
+
+func validateUpdateReq(req UpdateSchoolReq) error {
+	if req.InstitutionType != nil && !validInstitutionTypes[*req.InstitutionType] {
+		return fiber.NewError(400, "institution_type must be SEKOLAH or PT")
+	}
+	if req.SchoolStatus != nil && !validSchoolStatuses[*req.SchoolStatus] {
+		return fiber.NewError(400, "school_status must be NEGERI or SWASTA")
+	}
+	if req.NPSN != nil && *req.NPSN != "" && !is8DigitNPSN(*req.NPSN) {
+		return fiber.NewError(400, "npsn must be 8 digits")
+	}
+	if req.InstitutionType != nil && *req.InstitutionType == "SEKOLAH" &&
+		req.EducationLevel != nil && *req.EducationLevel != "" && !validSchoolLevels[*req.EducationLevel] {
+		return fiber.NewError(400, "invalid education_level")
+	}
+	if req.SchoolStatus != nil && *req.SchoolStatus == "SWASTA" &&
+		(req.YayasanName == nil || *req.YayasanName == "") {
+		return fiber.NewError(400, "yayasan_name required when SWASTA")
+	}
+	return nil
 }
 
 type UpdateSettingReq struct {
@@ -527,15 +726,24 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r.Put("/:id/settings", admin, h.UpdateSettings)
 	r.Get("/:id/branding", h.GetBranding)
 	r.Put("/:id/branding", admin, h.UpsertBranding)
+	r.Post("/import/xlsx", admin, h.ImportSchoolsXlsx)
+	r.Get("/import/template", h.ImportSchoolsTemplate)
+	r.Post("/export/xlsx", admin, h.ExportSchoolsXlsx)
+	r.Post("/bulk-delete", admin, h.BulkDelete)
+	r.Post("/bulk-status", admin, h.BulkStatus)
+
+	d := router.Group("/school-demographics", admin)
+	d.Get("/", h.ListDemographics)
+	d.Get("/:id", h.GetDemographic)
+	d.Post("/", h.CreateDemographic)
+	d.Put("/:id", h.UpdateDemographic)
+	d.Delete("/:id", h.DeleteDemographic)
 }
 
 func (h *Handler) Create(c *fiber.Ctx) error {
 	var req CreateSchoolReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
-	}
-	if req.SchoolName == "" || req.EducationLevel == "" {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "school_name, education_level required"))
 	}
 	sc, err := h.svc.Create(c.Context(), req)
 	if err != nil {
@@ -549,8 +757,15 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 func (h *Handler) List(c *fiber.Ctx) error {
 	page, limit := shared.ParsePagination(c)
-	search := c.Query("search", "")
-	schools, total, err := h.svc.List(c.Context(), page, limit, search)
+	f := ListFilter{
+		Page:     page,
+		Limit:    limit,
+		Search:   c.Query("q", c.Query("search", "")),
+		Type:     c.Query("type", ""),
+		Level:    c.Query("level", ""),
+		Province: c.Query("province", ""),
+	}
+	schools, total, err := h.svc.List(c.Context(), f)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list schools"))
 	}
@@ -686,4 +901,33 @@ func (h *Handler) GetBranding(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get branding"))
 	}
 	return c.JSON(shared.Success(b))
+}
+
+func (h *Handler) ImportSchoolsXlsx(c *fiber.Ctx) error {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "file required"))
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to open file"))
+	}
+	defer file.Close()
+
+	result, err := h.svc.ImportSchools(c.Context(), file, fileHeader.Filename)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to import schools"))
+	}
+	return c.JSON(shared.Success(result))
+}
+
+func (h *Handler) ImportSchoolsTemplate(c *fiber.Ctx) error {
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", `attachment; filename="template-schools.xlsx"`)
+	b, err := h.svc.SchoolImportTemplate(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to generate template"))
+	}
+	return c.Send(b)
 }

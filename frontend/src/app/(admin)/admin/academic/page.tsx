@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Filter, Plus, ChevronRight, Home, AlertCircle, BookOpen } from "lucide-react";
+import { GraduationCap, Filter, Plus, ChevronRight, Home, AlertCircle, BookOpen, Upload, RefreshCw } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,12 +21,10 @@ import {
 } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { academicMasterService } from "@/services/academic-master.service";
-import type { Curriculum, Program } from "@/types/academic-master";
+import type { Curriculum, Program, EducationLevel, Grade, Subject } from "@/types/academic-master";
 import { LevelTable } from "@/components/table/LevelTable";
 import { GradeTable } from "@/components/table/GradeTable";
 import { SubjectTable } from "@/components/table/SubjectTable";
-import { CurriculumTable } from "@/components/table/CurriculumTable";
-import { ProgramTable } from "@/components/table/ProgramTable";
 import BabTable from "./bab/BabTable";
 import { AcademicStatsOverview } from "@/components/admin/academic/AcademicStatsOverview";
 import { LevelFormDialog } from "./forms/LevelFormDialog";
@@ -34,15 +32,34 @@ import { GradeFormDialog } from "./forms/GradeFormDialog";
 import { SubjectFormDialog } from "./forms/SubjectFormDialog";
 import { CurriculumFormDialog } from "./forms/CurriculumFormDialog";
 import { ProgramFormDialog } from "./forms/ProgramFormDialog";
+import { SubjectsTab } from "./tabs/subjects-tab";
+import { CurriculumsTab } from "./tabs/curriculums-tab";
+import { ProgramsTab } from "./tabs/programs-tab";
+import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminAcademicPage() {
   const [activeTab, setActiveTab] = useState("hierarchy");
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [editingLevel, setEditingLevel] = useState<any>(null);
-  const [editingGrade, setEditingGrade] = useState<any>(null);
-  const [editingSubject, setEditingSubject] = useState<any>(null);
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
+  const [editingLevel, setEditingLevel] = useState<EducationLevel | null>(null);
+  const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
+  const [editingSubject, setEditingSubject] = useState<{
+    id: string;
+    education_level_id: string;
+    grade_id?: string | null;
+    name: string;
+    code: string;
+    description?: string | null;
+    display_order: number;
+  } | null>(null);
   const [editingCurriculum, setEditingCurriculum] = useState<Curriculum | null>(null);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
 
@@ -66,27 +83,27 @@ export default function AdminAcademicPage() {
   });
 
   const subjectsQuery = useQuery({
-    queryKey: ["academic-subjects", selectedLevel, selectedGrade],
+    queryKey: ["academic-subjects", selectedLevel, selectedGrade, filterStatus],
     queryFn: () => selectedLevel && selectedGrade
-      ? academicMasterService.getSubjects(selectedLevel, selectedGrade)
+      ? academicMasterService.getSubjects(selectedLevel, selectedGrade, filterStatus)
       : Promise.resolve([]),
     enabled: !!selectedLevel && !!selectedGrade,
   });
 
   // Global subjects query for Mapel tab and KPI overview
   const allSubjectsQuery = useQuery({
-    queryKey: ["academic-all-subjects"],
-    queryFn: () => academicMasterService.getSubjects(),
+    queryKey: ["academic-all-subjects", filterStatus],
+    queryFn: () => academicMasterService.getSubjects(undefined, undefined, filterStatus),
   });
 
   const curriculumsQuery = useQuery({
-    queryKey: ["academic-curriculums"],
-    queryFn: academicMasterService.getCurriculums,
+    queryKey: ["academic-curriculums", filterStatus],
+    queryFn: () => academicMasterService.getCurriculums(filterStatus),
   });
 
   const programsQuery = useQuery({
-    queryKey: ["academic-programs"],
-    queryFn: academicMasterService.getPrograms,
+    queryKey: ["academic-programs", filterStatus],
+    queryFn: () => academicMasterService.getPrograms(filterStatus),
   });
 
   const selectedLevelData = selectedLevel ? levelsQuery.data?.find(l => l.id === selectedLevel) : null;
@@ -102,7 +119,6 @@ export default function AdminAcademicPage() {
   };
 
   const handleSubjectSelect = (subjectId: string) => {
-    // If selecting from global subject tab, switch active tab to hierarchy view
     setActiveTab("hierarchy");
     setSelectedSubject(subjectId);
   };
@@ -117,7 +133,7 @@ export default function AdminAcademicPage() {
     }
   };
 
-  const renderContent = () => {
+  const renderHierarchyContent = () => {
     if (selectedSubject) {
       return <BabTable subjectId={selectedSubject} />;
     }
@@ -130,7 +146,7 @@ export default function AdminAcademicPage() {
         <SubjectTable
           subjects={filteredSubjects}
           onSelect={handleSubjectSelect}
-          onEdit={(subject) => { setEditingSubject(subject); setSubjectDialogOpen(true); }}
+          onEdit={(s) => { setEditingSubject({ id: s.id, education_level_id: s.level_id, grade_id: s.grade_id, name: s.name, code: s.code, description: s.description, display_order: s.display_order }); setSubjectDialogOpen(true); }}
           selectedSubject={selectedSubject}
         />
       );
@@ -156,61 +172,112 @@ export default function AdminAcademicPage() {
     );
   };
 
+  const handleRefreshAll = () => {
+    levelsQuery.refetch();
+    allSubjectsQuery.refetch();
+    curriculumsQuery.refetch();
+    programsQuery.refetch();
+    if (selectedLevel) gradesQuery.refetch();
+    if (selectedGrade) subjectsQuery.refetch();
+  };
+
   const getActions = () => {
+    const commonActions = (
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="rounded-xl gap-2" />}>
+            <Upload className="h-4 w-4" />
+            Import
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl w-48">
+            <DropdownMenuItem>
+              <Link href="/admin/academic/import" className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg text-sm">
+                <Upload className="h-4 w-4" />
+                Buka Halaman Import
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button variant="outline" size="sm" onClick={handleRefreshAll} className="rounded-xl gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Muat Ulang
+        </Button>
+      </div>
+    );
+
     if (activeTab === "subjects") {
       return (
-        <Button onClick={() => setSubjectDialogOpen(true)} className="rounded-xl">
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Mata Pelajaran
-        </Button>
+        <div className="flex items-center gap-2">
+          {commonActions}
+          <Button onClick={() => setSubjectDialogOpen(true)} className="rounded-xl">
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Mata Pelajaran
+          </Button>
+        </div>
       );
     }
 
     if (activeTab === "curriculum") {
       return (
-        <Button onClick={() => { setEditingCurriculum(null); setCurriculumDialogOpen(true); }} className="rounded-xl">
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Kurikulum
-        </Button>
+        <div className="flex items-center gap-2">
+          {commonActions}
+          <Button onClick={() => { setEditingCurriculum(null); setCurriculumDialogOpen(true); }} className="rounded-xl">
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Kurikulum
+          </Button>
+        </div>
       );
     }
 
     if (activeTab === "program") {
       return (
-        <Button onClick={() => { setEditingProgram(null); setProgramDialogOpen(true); }} className="rounded-xl">
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Program
-        </Button>
+        <div className="flex items-center gap-2">
+          {commonActions}
+          <Button onClick={() => { setEditingProgram(null); setProgramDialogOpen(true); }} className="rounded-xl">
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Program
+          </Button>
+        </div>
       );
     }
 
     if (selectedSubject) {
-      return null;
+      return commonActions;
     }
 
     if (selectedGrade) {
       return (
-        <Button onClick={() => setSubjectDialogOpen(true)} className="rounded-xl">
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Mata Pelajaran
-        </Button>
+        <div className="flex items-center gap-2">
+          {commonActions}
+          <Button onClick={() => setSubjectDialogOpen(true)} className="rounded-xl">
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Mata Pelajaran
+          </Button>
+        </div>
       );
     }
 
     if (selectedLevel) {
       return (
-        <Button onClick={() => setGradeDialogOpen(true)} className="rounded-xl">
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Kelas
-        </Button>
+        <div className="flex items-center gap-2">
+          {commonActions}
+          <Button onClick={() => setGradeDialogOpen(true)} className="rounded-xl">
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Kelas
+          </Button>
+        </div>
       );
     }
 
     return (
-      <Button onClick={() => setLevelDialogOpen(true)} className="rounded-xl">
-        <Plus className="mr-2 h-4 w-4" />
-        Tambah Jenjang
-      </Button>
+      <div className="flex items-center gap-2">
+        {commonActions}
+        <Button onClick={() => setLevelDialogOpen(true)} className="rounded-xl">
+          <Plus className="mr-2 h-4 w-4" />
+          Tambah Jenjang
+        </Button>
+      </div>
     );
   };
 
@@ -221,7 +288,7 @@ export default function AdminAcademicPage() {
       <div className="space-y-6">
         <PageHeader
           title="Master Akademik"
-          description="Kelola hirarki akademik: Jenjang → Kelas → Mata Pelajaran → Bab → Topik → CP/KD"
+          description="Kelola hirarki akademik: Jenjang, Kelas, Mata Pelajaran, Kurikulum, Program"
           actions={getActions()}
         />
 
@@ -258,10 +325,10 @@ export default function AdminAcademicPage() {
         {/* Tabs & Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted p-1 rounded-xl">
-            <TabsTrigger value="hierarchy" className="rounded-lg">Jenjang &amp; Hirarki</TabsTrigger>
-            <TabsTrigger value="subjects" className="rounded-lg">Mata Pelajaran (Mapel)</TabsTrigger>
+            <TabsTrigger value="hierarchy" className="rounded-lg">Kelas</TabsTrigger>
+            <TabsTrigger value="subjects" className="rounded-lg">Mata Pelajaran</TabsTrigger>
             <TabsTrigger value="curriculum" className="rounded-lg">Kurikulum</TabsTrigger>
-            <TabsTrigger value="program" className="rounded-lg">Program Belajar</TabsTrigger>
+            <TabsTrigger value="program" className="rounded-lg">Program</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hierarchy" className="space-y-6 m-0">
@@ -343,7 +410,7 @@ export default function AdminAcademicPage() {
             {/* Active Selection Filter Bar */}
             <div className="flex items-center gap-2 p-3.5 bg-card rounded-2xl border border-border/60 shadow-xs">
               <Filter className="h-4 w-4 text-muted-foreground ml-1" />
-              <span className="text-xs font-semibold text-muted-foreground">Hirarki Terpilih:</span>
+              <span className="text-xs font-semibold text-muted-foreground">Filter:</span>
               <div className="flex items-center gap-2 flex-wrap">
                 {selectedLevelData ? (
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-semibold">
@@ -365,48 +432,58 @@ export default function AdminAcademicPage() {
                     {selectedSubjectData.name}
                   </div>
                 )}
+                <span className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as "all" | "active" | "inactive")}
+                  className="text-xs px-3 py-1 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Non-aktif</option>
+                </select>
               </div>
             </div>
 
             {/* Main Hierarchy Content */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-              {renderContent()}
+              {renderHierarchyContent()}
             </div>
           </TabsContent>
 
           <TabsContent value="subjects" className="m-0">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-              <SubjectTable
-                subjects={allSubjectsQuery.data || []}
+              <SubjectsTab
+          onEdit={(s) => { setEditingSubject({ id: s.id, education_level_id: s.level_id, grade_id: s.grade_id, name: s.name, code: s.code, description: s.description, display_order: s.display_order }); setSubjectDialogOpen(true); }}
+                onAdd={() => setSubjectDialogOpen(true)}
                 onSelect={handleSubjectSelect}
-                onEdit={(subject) => { setEditingSubject(subject); setSubjectDialogOpen(true); }}
-                selectedSubject={selectedSubject}
+                filterStatus={filterStatus}
               />
             </div>
           </TabsContent>
 
           <TabsContent value="curriculum" className="m-0">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-              <CurriculumTable
-                curriculums={curriculumsQuery.data || []}
+              <CurriculumsTab
                 onEdit={(curr) => {
                   setEditingCurriculum(curr);
                   setCurriculumDialogOpen(true);
                 }}
-                onDelete={(curr) => academicMasterService.deleteCurriculum(curr.id).then(() => curriculumsQuery.refetch())}
+                onAdd={() => { setEditingCurriculum(null); setCurriculumDialogOpen(true); }}
+                filterStatus={filterStatus}
               />
             </div>
           </TabsContent>
 
           <TabsContent value="program" className="m-0">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-              <ProgramTable
-                programs={programsQuery.data || []}
+              <ProgramsTab
                 onEdit={(prog) => {
                   setEditingProgram(prog);
                   setProgramDialogOpen(true);
                 }}
-                onDelete={(prog) => academicMasterService.deleteProgram(prog.id).then(() => programsQuery.refetch())}
+                onAdd={() => { setEditingProgram(null); setProgramDialogOpen(true); }}
+                filterStatus={filterStatus}
               />
             </div>
           </TabsContent>
@@ -421,6 +498,7 @@ export default function AdminAcademicPage() {
           setLevelDialogOpen(false);
           levelsQuery.refetch();
         }}
+        editing={editingLevel}
       />
       <GradeFormDialog
         open={gradeDialogOpen}
@@ -429,6 +507,7 @@ export default function AdminAcademicPage() {
           setGradeDialogOpen(false);
           gradesQuery.refetch();
         }}
+        editing={editingGrade}
       />
       <SubjectFormDialog
         open={subjectDialogOpen}
@@ -438,6 +517,7 @@ export default function AdminAcademicPage() {
           subjectsQuery.refetch();
           allSubjectsQuery.refetch();
         }}
+        editing={editingSubject}
       />
       <CurriculumFormDialog
         open={curriculumDialogOpen}

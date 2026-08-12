@@ -12,13 +12,17 @@ export type MembershipStatus = "ACTIVE" | "INACTIVE" | "TRIAL";
 
 export interface User {
     id: string;
+    username: string;
     email: string;
     full_name: string;
     role: UserRole;
+    status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING";
     is_active: boolean;
-    avatar_url?: string;
-    grade_id?: string;
+    school_id?: string;
     school_name?: string;
+    grade_id?: string;
+    academic_year_id?: string;
+    avatar_url?: string;
     gender?: string;
     phone?: string;
     major?: string;
@@ -27,6 +31,40 @@ export interface User {
     membership_status?: MembershipStatus;
     created_at: string;
     updated_at: string;
+}
+
+export interface Role {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    priority: number;
+    is_system: boolean;
+    user_count: number;
+    created_at: string;
+}
+
+export interface RolePermission {
+    id: string;
+    label: string;
+    desc: string;
+    allow: boolean;
+}
+
+export interface UserStat {
+    total: number;
+    active: number;
+    inactive: number;
+    siswa: number;
+    guru: number;
+}
+
+export interface UserBulkResult {
+    processed: number;
+    deleted?: number;
+    updated?: number;
+    failed: number;
+    errors?: string[];
 }
 
 export interface GreetingInfo {

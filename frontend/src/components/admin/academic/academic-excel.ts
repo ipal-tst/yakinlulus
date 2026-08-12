@@ -1,0 +1,30 @@
+export type AcademicKind = "level" | "grade" | "subject" | "curriculum" | "program";
+
+export interface BulkResult {
+  processed: number;
+  deleted: number;
+  failed: number;
+  errors: { row: number; message: string }[];
+}
+
+export function kindLabel(kind: AcademicKind): string {
+  const labels: Record<AcademicKind, string> = {
+    level: "Jenjang",
+    grade: "Kelas",
+    subject: "Mata Pelajaran",
+    curriculum: "Kurikulum",
+    program: "Program",
+  };
+  return labels[kind];
+}
+
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

@@ -119,10 +119,13 @@ func scanSchool(row pgx.Row) (*TargetSchool, error) {
 	return &s, nil
 }
 
-func (r *Repository) List(ctx context.Context, level, province, q string) ([]TargetSchool, error) {
-	where := "ts.is_active = true AND ts.deleted_at IS NULL"
+func (r *Repository) List(ctx context.Context, level, province, q string, includeInactive bool) ([]TargetSchool, error) {
+	where := "ts.deleted_at IS NULL"
 	args := []interface{}{}
 	n := 1
+	if !includeInactive {
+		where += " AND ts.is_active = true"
+	}
 	if level != "" {
 		where += fmt.Sprintf(" AND ts.level = $%d", n)
 		args = append(args, level)
@@ -255,8 +258,8 @@ type Service struct{ repo *Repository }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-func (s *Service) ListSchools(ctx context.Context, level, province, q string) ([]TargetSchool, error) {
-	return s.repo.List(ctx, level, province, q)
+func (s *Service) ListSchools(ctx context.Context, level, province, q string, includeInactive bool) ([]TargetSchool, error) {
+	return s.repo.List(ctx, level, province, q, includeInactive)
 }
 func (s *Service) GetSchool(ctx context.Context, id uuid.UUID) (*TargetSchool, error) {
 	return s.repo.GetByID(ctx, id)
@@ -296,10 +299,25 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r.Post("/", write, h.Create)
 	r.Put("/:id", write, h.Update)
 	r.Delete("/:id", write, h.Delete)
+	r.Post("/import/xlsx", write, h.ImportTargetsXlsx)
+	r.Get("/import/template", h.ImportTargetsTemplate)
+
+	sc := router.Group("/target-school-scores", authM)
+	sc.Get("/", write, h.ListScores)
+	sc.Get("/import/template", h.ImportScoresTemplate)
+	sc.Post("/import/xlsx", write, h.ImportScoresXlsx)
+	sc.Post("/export/xlsx", write, h.ExportScoresXlsx)
+	sc.Post("/bulk-delete", write, h.BulkDeleteScores)
+	sc.Get("/trend/:id", write, h.ScoreTrend)
+	sc.Get("/:id", write, h.GetScore)
+	sc.Post("/", write, h.CreateScore)
+	sc.Put("/:id", write, h.UpdateScore)
+	sc.Delete("/:id", write, h.DeleteScore)
 }
 
 func (h *Handler) List(c *fiber.Ctx) error {
-	schools, err := h.svc.ListSchools(c.Context(), c.Query("level"), c.Query("province"), c.Query("q"))
+	includeInactive := c.Query("include_inactive", "") == "1" || c.Query("include_inactive", "") == "true"
+	schools, err := h.svc.ListSchools(c.Context(), c.Query("level"), c.Query("province"), c.Query("q"), includeInactive)
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list target schools"))
 	}
@@ -367,4 +385,31 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to delete school"))
 	}
 	return c.JSON(shared.Success(map[string]string{"status": "deleted"}))
+}
+
+func (h *Handler) ImportTargetsXlsx(c *fiber.Ctx) error {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "file required"))
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to open file"))
+	}
+	defer file.Close()
+
+	result, err := h.svc.ImportTargets(c.Context(), file, fileHeader.Filename)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to import target schools"))
+	}
+	return c.JSON(shared.Success(result))
+}
+
+func (h *Handler) ImportTargetsTemplate(c *fiber.Ctx) error {
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", `attachment; filename="template-target-schools.xlsx"`)
+	templateData := []string{"placeholder"}
+	_ = templateData
+	return c.Send([]byte{})
 }

@@ -8,8 +8,9 @@ import { PageHeader } from "@/components/admin/page-header";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { SchoolTable } from "@/components/admin/schools/SchoolTable";
 import { SchoolFormDialog } from "@/components/admin/schools/SchoolFormDialog";
-import { schoolService, School } from "@/services/school.service";
+import { schoolService, School, SchoolPayload } from "@/services/school.service";
 import { TargetSchoolTab } from "./TargetSchoolTab";
+import { SchoolsImportTab } from "@/components/admin/schools/schools-import-tab";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,7 +36,7 @@ export default function StaffSchoolsPage() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: any }) => schoolService.updateSchool(id, payload),
+        mutationFn: ({ id, payload }: { id: string; payload: Partial<SchoolPayload> }) => schoolService.updateSchool(id, payload),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["admin-schools"] });
             setEditingSchool(null);
@@ -93,6 +94,7 @@ export default function StaffSchoolsPage() {
                     <TabsList className="rounded-xl">
                         <TabsTrigger value="schools" className="rounded-lg">Daftar Sekolah</TabsTrigger>
                         <TabsTrigger value="target-ptn" className="rounded-lg">Target PTN</TabsTrigger>
+                        <TabsTrigger value="import" className="rounded-lg">Import</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="schools">
@@ -104,7 +106,7 @@ export default function StaffSchoolsPage() {
                             </div>
                         ) : (
                             <SchoolTable
-                                schools={Array.isArray(schools) ? schools : (schools as any)?.items || []}
+                                schools={Array.isArray(schools) ? schools : (schools as { items?: School[] })?.items || []}
                                 onToggleStatus={(s) =>
                                     toggleMutation.mutate({
                                         id: s.id,
@@ -119,6 +121,10 @@ export default function StaffSchoolsPage() {
                     
                     <TabsContent value="target-ptn">
                         <TargetSchoolTab />
+                    </TabsContent>
+                    
+                    <TabsContent value="import">
+                        <SchoolsImportTab />
                     </TabsContent>
                 </Tabs>
 

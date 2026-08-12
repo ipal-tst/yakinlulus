@@ -123,28 +123,34 @@ func TestRepositoryListFilters(t *testing.T) {
 		return false
 	}
 
-	if list, err := r.List(ctx, "SMA", "", ""); err != nil {
+	if list, err := r.List(ctx, "SMA", "", "", false); err != nil {
 		t.Fatalf("List level: %v", err)
 	} else if !find(list, s.ID) {
 		t.Fatal("List level=SMA missing created target")
 	}
 
-	if list, err := r.List(ctx, "", "DKI", ""); err != nil {
+	if list, err := r.List(ctx, "", "DKI", "", false); err != nil {
 		t.Fatalf("List province: %v", err)
 	} else if !find(list, s.ID) {
 		t.Fatal("List province=DKI missing created target")
 	}
 
-	if list, err := r.List(ctx, "", "Jawa Timur", ""); err != nil {
+	if list, err := r.List(ctx, "", "Jawa Timur", "", false); err != nil {
 		t.Fatalf("List province mismatch: %v", err)
 	} else if find(list, s.ID) {
 		t.Fatal("List province=Jawa Timur should not match DKI Jakarta school")
 	}
 
-	if list, err := r.List(ctx, "", "", "SMA Negeri 1"); err != nil {
+	if list, err := r.List(ctx, "", "", "SMA Negeri 1", false); err != nil {
 		t.Fatalf("List q: %v", err)
 	} else if !find(list, s.ID) {
 		t.Fatal("List q missing created target")
+	}
+
+	if list, err := r.List(ctx, "", "", "", true); err != nil {
+		t.Fatalf("List include_inactive: %v", err)
+	} else if !find(list, s.ID) {
+		t.Fatal("List include_inactive missing created target")
 	}
 }
 
@@ -189,7 +195,7 @@ func TestRepositoryRoundTrip(t *testing.T) {
 	})
 
 	t.Run("ListByLevel", func(t *testing.T) {
-		list, err := repo.List(ctx, "SMA", "", "")
+		list, err := repo.List(ctx, "SMA", "", "", false)
 		if err != nil {
 			t.Fatalf("List: %v", err)
 		}

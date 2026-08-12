@@ -49,10 +49,10 @@ Menu ditentukan **seluruhnya berdasarkan `user.role`** dari `useAuthStore`. Satu
 | `/practice/:sessionId` | Runner latihan (full main, tanpa timer) | navigasi soal + flag ragu-ragu; jawaban hanya terekam saat Selesai |
 | `/practice/:sessionId/result` | Hasil latihan (statistik detik) | CTA pembahasan |
 | `/practice/:sessionId/review` | Pembahasan vertikal (soal→opsi→pembahasan) | juga dibuka dari riwayat |
-| `/exams` | Katalog paket ujian (1-attempt & repeatable) + widget (nilai terakhir, rata-rata); `/:packageId` = detail/sub-test; `/:packageId/instructions` = petunjuk | lihat wireframe `04-siswa-ujian.md` |
-| `/exams/run/:sessionId` | Runner ujian (full-screen, timer) | tanpa AppShell |
-| `/exams/run/:sessionId/result` | Hasil ujian (nilai + statistik detik) | CTA pembahasan |
-| `/exams/run/:sessionId/review` | Pembahasan soal (opsi benar ter-highlight) | |
+| `/exams` | Katalog paket ujian (1-attempt & repeatable) + widget (nilai terakhir, rata-rata); `/:packageId` = detail/sub-test; `/:packageId/instructions` = petunjuk (Setuju → start); runner dipakai via kompat `/:packageId/cbt?session_id=` | lihat wireframe `04-siswa-ujian.md` |
+| `/exams/run/:sessionId` | Runner ujian (full-screen, timer) | diimplementasi sbg `/:packageId/cbt?session_id=` (kompat, wireframe-allow) |
+| `/exams/run/:sessionId/result` | Hasil ujian (nilai + statistik detik) | diimplementasi sbg `/:packageId/result?session_id=` |
+| `/exams/run/:sessionId/review` | Pembahasan soal (opsi benar ter-highlight) | diimplementasi sbg `/:packageId/cbt/review?session_id=` |
 | `/results` | Analisis hasil belajar lengkap (materi + latihan + ujian): KPI + BarChart per mapel + Donut status + rekomendasi penguatan; `/subjects/:subjectId` = drill per mapel (materi/bab/topic mastery + saran) | lihat wireframe `05-siswa-hasil.md` |
 | `/ranking` | Peringkat seluruh siswa: mode nilai terbaik (1-attempt per paket) & rata-rata multi ujian; podium + tabel sortable + highlight posisi saya; `/subjects/:subjectId` = ranking per mapel | lihat wireframe `06-siswa-peringkat.md` |
 | `/targets` | Target Sekolah: katalog sekolah (SMP/SMA/UNIVERSITY sesuai jenjang siswa+1), filter provinsi/kabupaten/kota + cari, banding nilai siswa vs nilai masuk tahun terakhir, badge peluang (hijau/amber/merah), panel "Target Saya" (max 2 slot, CRUD) | lihat wireframe `07-siswa-target.md`; data via `GET /target-schools` + `GET /targets/catalog` (BARU) + `GET/PUT /profile/targets` |

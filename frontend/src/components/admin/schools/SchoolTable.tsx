@@ -3,9 +3,15 @@
 
 import { Column, DataTable } from "@/components/data-display/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { School } from "@/services/school.service";
-import { MoreHorizontal, Pen, Power, Trash2, Users } from "lucide-react";
+import { levelLabel } from "@/lib/school-form-values";
+import { MoreHorizontal, Pen, Power, Trash2 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,31 +24,63 @@ interface SchoolTableProps {
     onToggleStatus: (school: School) => void;
     onDelete: (school: School) => void;
     onEdit: (school: School) => void;
+    selectable?: boolean;
+    selectedRowIds?: Set<string>;
+    onSelectionChange?: (ids: Set<string>) => void;
 }
 
-export function SchoolTable({ schools = [], onToggleStatus, onDelete, onEdit }: SchoolTableProps) {
+export function SchoolTable({
+    schools = [],
+    onToggleStatus,
+    onDelete,
+    onEdit,
+    selectable = false,
+    selectedRowIds,
+    onSelectionChange,
+}: SchoolTableProps) {
     const safeSchools = Array.isArray(schools) ? schools : ((schools as unknown as { items?: School[] })?.items ?? []);
     const columns: Column<School>[] = [
         {
             header: "Nama Sekolah",
-            accessorKey: "name",
+            accessorKey: "school_name",
             cell: (row) => (
-                <div className="flex flex-col text-left">
-                    <span className="font-semibold text-foreground leading-none">{row.name}</span>
-                    <span className="text-xs text-muted-foreground mt-1">Kode: {row.code || "-"}</span>
+                <div className="flex flex-col text-left max-w-[320px]">
+                    <TooltipProvider delay={200}>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <span className="font-semibold text-foreground leading-tight truncate">
+                                        {row.school_name}
+                                    </span>
+                                }
+                            />
+                            <TooltipContent>{row.school_name}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    {row.school_code && (
+                        <span className="text-xs text-muted-foreground mt-0.5">Kode: {row.school_code}</span>
+                    )}
                 </div>
             ),
         },
-        { header: "NPSN", accessorKey: (row) => row.npsn || "-" },
-        { header: "Jenjang", accessorKey: (row) => row.education_level || "-" },
         {
-            header: "Siswa",
-            accessorKey: "total_students",
+            header: "Bentuk",
+            accessorKey: "institution_type",
             cell: (row) => (
-                <span className="inline-flex items-center gap-1 text-xs font-medium">
-                    <Users className="h-3.5 w-3.5 text-primary" /> {row.total_students ?? 0}
-                </span>
+                <Badge variant={row.institution_type === "PT" ? "secondary" : "outline"}>
+                    {row.institution_type === "PT" ? "PT" : "Sekolah"}
+                </Badge>
             ),
+        },
+        {
+            header: "Jenjang",
+            accessorKey: "education_level",
+            cell: (row) => <span className="text-sm text-foreground">{levelLabel(row.education_level)}</span>,
+        },
+        {
+            header: "Kota/Kab",
+            accessorKey: "city",
+            cell: (row) => <span className="text-sm text-foreground">{row.city || row.regency || "-"}</span>,
         },
         {
             header: "Status",
@@ -80,5 +118,15 @@ export function SchoolTable({ schools = [], onToggleStatus, onDelete, onEdit }: 
         },
     ];
 
-    return <DataTable columns={columns} data={safeSchools} searchPlaceholder="Cari nama sekolah..." />;
+    return (
+        <DataTable
+            columns={columns}
+            data={safeSchools}
+            searchPlaceholder="Cari nama sekolah..."
+            selectable={selectable}
+            selectedRowIds={selectedRowIds}
+            onSelectionChange={onSelectionChange}
+            getRowId={(row) => row.id}
+        />
+    );
 }

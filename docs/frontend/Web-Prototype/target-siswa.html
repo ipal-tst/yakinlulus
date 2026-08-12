@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Target — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+/* Dark mode */
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .bar { background: #1e293b; }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 50; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 40; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.red { background: var(--red-50); color: var(--red-700); }
+.pill.ambers { background: var(--amber-50); color: var(--amber-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-ghost { color: var(--blue); }
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-hover { transition: box-shadow .18s, transform .18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-pad { padding: 20px; }
+.section { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title { font-size: 17px; font-weight: 700; }
+
+/* Banner jenjang */
+.level-banner { display: flex; align-items: center; gap: 12px; background: var(--blue-50); color: var(--blue); border-radius: var(--radius-md); padding: 12px 16px; margin-top: 14px; font-size: 14px; }
+.level-banner svg { width: 18px; height: 18px; flex: none; }
+.level-banner b { font-weight: 700; }
+
+/* Filter */
+.filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 18px; }
+.filters .field { display: flex; flex-direction: column; gap: 6px; }
+.filters .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.filters .field select, .filters .field input[type="text"] { height: 42px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--fg); padding: 0 12px; font-size: 13.5px; min-width: 190px; }
+.filters .field select:focus-visible, .filters .field input:focus-visible { box-shadow: var(--ring); outline: none; }
+.check-hi { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 6px; font-size: 13.5px; font-weight: 600; color: var(--fg-2); cursor: pointer; }
+.check-hi input { width: 18px; height: 18px; accent-color: var(--green); cursor: pointer; }
+
+/* Sekolah list */
+.school-row { padding: 16px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.school-row:not(:last-child) { border-bottom: 1px solid var(--border-soft); }
+.school-row .s-ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; flex: none; }
+.school-row .s-ic svg { width: 20px; height: 20px; }
+.sc-blue { background: var(--blue); } .sc-green { background: #16a34a; } .sc-orange { background: var(--orange); } .sc-violet { background: #8b5cf6; }
+.school-row .s-main { flex: 1; min-width: 200px; }
+.school-row .s-main .t { font-weight: 700; font-size: 14.5px; }
+.school-row .s-main .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.score-comp { display: flex; gap: 16px; align-items: center; }
+.score-block { text-align: right; }
+.score-block .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.score-block .v { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+.gap-pill { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.gap-hijau { background: var(--green-50); color: var(--green-700); }
+.gap-kuning { background: var(--amber-50); color: var(--amber-700); }
+.gap-merah { background: var(--red-50); color: var(--red-700); }
+.chance { font-size: 12px; font-weight: 600; }
+
+/* My targets */
+.tg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tg-slot { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.tg-slot .sl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tg-slot .sl-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.tg-slot .sl-actions { display: flex; gap: 6px; }
+.tg-slot .icon-mini { width: 34px; height: 34px; border-radius: var(--radius-sm); border: 1px solid var(--border); color: var(--fg-2); display: grid; place-items: center; }
+.tg-slot .icon-mini:hover { background: var(--muted-bg); }
+.tg-slot .icon-mini svg { width: 16px; height: 16px; }
+.tg-slot .sl-empty { border: 1.5px dashed var(--border); border-radius: var(--radius-md); padding: 22px 16px; text-align: center; color: var(--muted); font-size: 13.5px; display: flex; flex-direction: column; gap: 10px; align-items: center; flex: 1; justify-content: center; }
+.tg-slot .sl-name { font-family: var(--font-display); font-weight: 800; font-size: 16px; }
+.tg-slot .sl-meta { font-size: 12.5px; color: var(--muted); }
+.tg-slot .sl-prog { margin-top: 4px; }
+.bar { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.bar > span.orange { background: var(--orange); }
+
+/* Drawer */
+.backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 120; display: none; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 100vw; background: var(--bg); z-index: 121; box-shadow: var(--shadow-lg); transform: translateX(100%); transition: transform .2s cubic-bezier(.16,1,.3,1); display: flex; flex-direction: column; }
+.backdrop.open, .drawer.open { display: block; }
+.drawer.open { transform: none; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.drawer-head h3 { font-size: 16px; font-weight: 800; font-family: var(--font-display); }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.drawer-body .f { margin-bottom: 16px; }
+.drawer-body label { display: block; font-size: 12.5px; font-weight: 600; color: var(--fg-2); margin-bottom: 6px; }
+.drawer-body select, .drawer-body input[type="text"], .drawer-body input[type="number"] { width: 100%; height: 42px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--fg); padding: 0 12px; font-size: 13.5px; }
+.drawer-body select:focus-visible, .drawer-body input:focus-visible { box-shadow: var(--ring); outline: none; }
+.drawer-body .ro { background: var(--muted-bg); color: var(--muted); }
+.summary { background: var(--muted-bg); border-radius: var(--radius-md); padding: 14px 16px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+.drawer-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid var(--border); }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1000px) { .tg-grid { grid-template-columns: 1fr; } }
+@media (max-width: 920px) {
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+}
+@media (max-width: 560px) { .search { display: none; } .filters .field select { min-width: 100%; } .school-row { flex-direction: column; align-items: flex-start; } .score-comp { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item" href="belajar-siswa.html" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item" href="latihan-siswa.html" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item" href="peringkat-siswa.html" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item active" href="#" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+      <a class="nav-item" href="membership-siswa.html" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="konfigurasi-siswa.html" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari sekolah target…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="target">
+      <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Target</span></div>
+
+      <div class="header">
+        <h1>Target Sekolah</h1>
+        <p>Cari sekolah tujuan, bandingkan dengan nilaimu, atur pilihan target.</p>
+        <div class="level-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg><span>Jenjang terdeteksi: <b>SMA · Kelas 12</b> — filter target otomatis ke jenjang <b>UNIVERSITY</b>.</span></div>
+      </div>
+
+      <div class="filters" data-od-id="filter">
+        <div class="field"><label for="prov">Provinsi</label><select id="prov"><option value="">Semua Provinsi</option><option>DKI Jakarta</option><option>Jawa Barat</option><option>Jawa Timur</option></select></div>
+        <div class="field"><label for="kota">Kab./Kota</label><select id="kota"><option value="">Semua Kab./Kota</option><option>Jakarta Selatan</option><option>Kota Bandung</option><option>Surabaya</option></select></div>
+        <div class="field"><label for="cari">Cari</label><input type="text" id="cari" placeholder="Nama sekolah…"></div>
+        <label class="check-hi"><input type="checkbox" id="only-hi"> Hanya peluang tinggi (hijau)</label>
+      </div>
+
+      <div class="section" data-od-id="section-sekolah">
+        <div class="section-head"><h2 class="section-title">Sekolah Tersedia</h2><span class="pill gray" id="cnt-sekolah"></span></div>
+        <div class="card" data-od-id="list-sekolah" id="list-sekolah"></div>
+      </div>
+
+      <div class="section" data-od-id="section-target-saya">
+        <div class="section-head"><h2 class="section-title">Target Saya</h2><span class="pill blue">maksimal 2 pilihan</span></div>
+        <div class="tg-grid" data-od-id="target-saya" id="target-saya"></div>
+      </div>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- Drawer CRUD -->
+<div class="backdrop" id="drawer-backdrop"></div>
+<div class="drawer" data-od-id="drawer-target" id="drawer" role="dialog" aria-modal="true" aria-label="Tambah/ubah target">
+  <div class="drawer-head"><h3 id="drawer-title">Tambah Target Sekolah</h3><button class="icon-btn" id="drawer-close" aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="drawer-body">
+    <div class="f"><label>Jenjang target</label><select id="dg-level"><option>SMA</option><option>Universitas</option></select></div>
+    <div class="f"><label>Sekolah</label><select id="dg-school"></select></div>
+    <div class="f"><label>Provinsi · Kab/Kota</label><input class="ro" type="text" id="dg-loc" value="DKI Jakarta — Jakarta Selatan" readonly></div>
+    <div class="f"><label>Nilai masuk (tahun terakhir)</label><input class="ro" type="text" id="dg-min" readonly></div>
+    <div class="f"><label>Jurusan (opsional)</label><input type="text" id="dg-major" placeholder="mis. IPA / IPS / Teknik"></div>
+    <div class="f"><label>Target skor (opsional)</label><input type="number" id="dg-score" placeholder="mis. 735"></div>
+    <div class="summary"><span><b>Nilaimu saat ini</b><br><small style="color:var(--muted)">654 dari tryout terbaik</small></span><span id="dg-summary" style="font-weight:700"></span></div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-secondary" id="drawer-cancel">Batal</button>
+    <button class="btn btn-primary" id="drawer-save">Simpan Target</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+
+<script>
+(function () {
+  var MY_SCORE = 654; /* skor terbaik tryout siswa */
+
+  var SCHOOLS = [
+    { name: 'Universitas Indonesia', type: 'UNIVERSITY', prov: 'DKI Jakarta', kota: 'Jakarta Selatan', min: 577, max: 700, year: '2025/2026', cls: 'sc-blue', target1: true },
+    { name: 'Institut Teknologi Bandung', type: 'UNIVERSITY', prov: 'Jawa Barat', kota: 'Kota Bandung', min: 590, max: 690, year: '2025/2026', cls: 'sc-violet' },
+    { name: 'Universitas Airlangga', type: 'UNIVERSITY', prov: 'Jawa Timur', kota: 'Surabaya', min: 555, max: 680, year: '2025/2026', cls: 'sc-green' },
+    { name: 'Universitas Gadjah Mada', type: 'UNIVERSITY', prov: 'DKI Jakarta', kota: 'Jakarta Selatan', min: 610, max: 720, year: '2025/2026', cls: 'sc-orange' },
+    { name: 'Universitas Brawijaya', type: 'UNIVERSITY', prov: 'Jawa Timur', kota: 'Surabaya', min: 520, max: 650, year: '2025/2026', cls: 'sc-green' },
+    { name: 'Institut Teknologi Sepuluh Nopember', type: 'UNIVERSITY', prov: 'Jawa Timur', kota: 'Surabaya', min: 540, max: 660, year: '2025/2026', cls: 'sc-blue' }
+  ];
+
+  var targets = {
+    1: { school: 'Universitas Indonesia', major: 'IPA', note: '' },
+    2: null
+  };
+
+  function chanceOf(min) {
+    var gap = MY_SCORE - min;
+    if (gap >= 0) return { key: 'hijau', label: 'Peluang Tinggi', pct: Math.min(96, 70 + Math.min(26, gap / 2)) };
+    if (gap >= -30) return { key: 'kuning', label: 'Peluang Sedang', pct: Math.max(30, 60 + gap / 2) };
+    return { key: 'merah', label: 'Cukup Sulit', pct: 25 };
+  }
+
+  function gapInfo(min) {
+    var gap = MY_SCORE - min;
+    if (gap >= 0) return { cls: 'gap-hijau', txt: '+' + gap + ' lolos' };
+    if (gap >= -30) return { cls: 'gap-kuning', txt: gap + ' dekat' };
+    return { cls: 'gap-merah', txt: gap + ' jauh' };
+  }
+
+  function schoolIcon(cls, type) {
+    return '<span class="s-ic ' + cls + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>';
+  }
+
+  function renderSchools() {
+    var box = document.getElementById('list-sekolah');
+    var prov = document.getElementById('prov').value;
+    var kota = document.getElementById('kota').value;
+    var q = (document.getElementById('cari').value || '').toLowerCase();
+    var onlyHi = document.getElementById('only-hi').checked;
+    var rows = SCHOOLS.filter(function (s) {
+      if (prov && s.prov !== prov) return false;
+      if (kota && s.kota !== kota) return false;
+      if (q && s.name.toLowerCase().indexOf(q) === -1) return false;
+      if (onlyHi && chanceOf(s.min).key !== 'hijau') return false;
+      return true;
+    });
+    document.getElementById('cnt-sekolah').textContent = rows.length + ' sekolah';
+    box.innerHTML = '';
+    rows.sort(function (a, b) { return a.min - b.min; });
+    rows.forEach(function (s) {
+      var ch = chanceOf(s.min), gp = gapInfo(s.min);
+      var inTarget = Object.keys(targets).some(function (k) { return targets[k] && targets[k].school === s.name; });
+      var el = document.createElement('div');
+      el.className = 'card-hover school-row';
+      el.setAttribute('data-od-id', 'sekolah-' + s.name.toLowerCase().replace(/\s+/g, '-'));
+      el.innerHTML =
+        schoolIcon(s.cls, s.type) +
+        '<div class="s-main"><div class="t">' + s.name + ' <span class="pill ' + (s.type === 'UNIVERSITY' ? 'blue' : 'green') + '" style="margin-left:4px">' + s.type + '</span></div>' +
+        '<div class="meta">' + s.prov + ' · ' + s.kota + ' · Tahun ajaran ' + s.year + '</div></div>' +
+        '<div class="score-comp">' +
+          '<div class="score-block"><div class="k">Nilai min</div><div class="v">' + s.min + '</div></div>' +
+          '<div class="score-block"><div class="k">Nilaimu</div><div class="v">' + MY_SCORE + '</div></div>' +
+          '<span class="gap-pill ' + gp.cls + '">' + gp.txt + '</span>' +
+          '<div class="chance" style="color:var(--' + (ch.key === 'hijau' ? 'green-700' : ch.key === 'kuning' ? 'amber-700' : 'red-700') + ')">' + ch.label + '</div>' +
+        '</div>' +
+        (inTarget ? '<span class="pill green"><i></i>Sudah jadi target</span>' : '<button class="btn btn-secondary btn-sm" data-set="' + s.name + '">Jadikan Target</button>');
+      var set = el.querySelector('[data-set]');
+      if (set) set.addEventListener('click', function () { openDrawer(s.name); });
+      box.appendChild(el);
+    });
+    if (!rows.length) box.innerHTML = '<div class="card-pad" style="text-align:center;color:var(--muted)">Belum ada sekolah yang cocok dengan filter.</div>';
+  }
+
+  function renderTargets() {
+    var box = document.getElementById('target-saya');
+    box.innerHTML = '';
+    [1, 2].forEach(function (slot) {
+      var t = targets[slot];
+      var el = document.createElement('div');
+      el.className = 'card tg-slot';
+      el.setAttribute('data-od-id', 'slot-' + slot);
+      var actions = '<div class="sl-actions">' +
+        (t ? '<button class="icon-mini" data-edit="' + slot + '" aria-label="Ubah"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>' +
+              '<button class="icon-mini" data-del="' + slot + '" aria-label="Hapus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>' : '') +
+        '</div>';
+      if (t) {
+        var s = SCHOOLS.find(function (x) { return x.name === t.school; });
+        var ch = chanceOf(s ? s.min : 0);
+        var pct = ch.pct;
+        el.innerHTML =
+          '<div class="sl-top"><span class="sl-label">Pilihan ' + slot + '</span>' + actions + '</div>' +
+          '<div class="sl-name">' + t.school + '</div>' +
+          '<div class="sl-meta">' + (t.major ? 'Jurusan ' + t.major + ' · ' : '') + 'Nilai masuk ' + (s ? s.min : '—') + ' · Nilaimu ' + MY_SCORE + '</div>' +
+          '<div class="sl-prog"><div class="bar" style="background:var(--muted-bg)"><span class="' + (ch.key === 'hijau' ? '' : 'orange') + '" style="width:' + pct + '%"></span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:5px"><span style="color:var(--green-700)">' + ch.label + '</span><b style="font-family:var(--font-mono)">' + pct + '%</b></div></div>';
+      } else {
+        el.innerHTML =
+          '<div class="sl-top"><span class="sl-label">Pilihan ' + slot + '</span>' + actions + '</div>' +
+          '<button class="sl-empty btn-ghost" data-add="' + slot + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>Set Target</span><small>Pilih sekolah tujuan kamu</small></button>';
+      }
+      var add = el.querySelector('[data-add]');
+      if (add) add.addEventListener('click', function () { openDrawer(null, parseInt(add.getAttribute('data-add'), 10)); });
+      var edit = el.querySelector('[data-edit]');
+      if (edit) edit.addEventListener('click', function () { openDrawer(targets[edit.getAttribute('data-edit')].school); });
+      var del = el.querySelector('[data-del]');
+      if (del) del.addEventListener('click', function () { targets[del.getAttribute('data-del')] = null; renderTargets(); });
+      box.appendChild(el);
+    });
+  }
+
+  /* Drawer */
+  var dlg = document.getElementById('drawer');
+  var dlgBk = document.getElementById('drawer-backdrop');
+  var editingSlot = null;
+  function fillSchoolSelect() {
+    var sel = document.getElementById('dg-school');
+    sel.innerHTML = '';
+    SCHOOLS.forEach(function (s) {
+      var o = document.createElement('option');
+      o.value = s.name; o.textContent = s.name;
+      sel.appendChild(o);
+    });
+  }
+  function openDrawer(school, slot) {
+    fillSchoolSelect();
+    editingSlot = slot || null;
+    var sel = document.getElementById('dg-school');
+    if (school) { sel.value = school; var s = SCHOOLS.find(function (x) { return x.name === school; }); if (s) { document.getElementById('dg-loc').value = s.prov + ' — ' + s.kota; document.getElementById('dg-min').value = s.min; } }
+    updateSummary();
+    dlgBk.classList.add('open'); dlg.classList.add('open');
+  }
+  function closeDrawer() { dlgBk.classList.remove('open'); dlg.classList.remove('open'); }
+  function updateSummary() {
+    var name = document.getElementById('dg-school').value;
+    var s = SCHOOLS.find(function (x) { return x.name === name; });
+    var el = document.getElementById('dg-summary');
+    if (!s) { el.textContent = '—'; return; }
+    var ch = chanceOf(s.min);
+    el.innerHTML = '<span style="color:var(--' + (ch.key === 'hijau' ? 'green-700' : ch.key === 'kuning' ? 'amber-700' : 'red-700') + ')">' + MY_SCORE + ' / ' + s.min + ' · ' + ch.label + '</span>';
+  }
+  document.getElementById('dg-school').addEventListener('change', updateSummary);
+  dlgBk.addEventListener('click', closeDrawer);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-cancel').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-save').addEventListener('click', function () {
+    var name = document.getElementById('dg-school').value;
+    if (!name) return;
+    var slot;
+    if (editingSlot) slot = editingSlot;
+    else {
+      slot = targets[1] ? 2 : 1;
+      if (targets[2] && targets[1]) { alert('Slot target penuh — hapus salah satu dulu.'); return; }
+    }
+    targets[slot] = { school: name, major: document.getElementById('dg-major').value || '' };
+    closeDrawer();
+    renderTargets();
+  });
+
+  /* Filters */
+  ['prov', 'kota', 'cari', 'only-hi'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('change', renderSchools);
+    el.addEventListener('input', renderSchools);
+  });
+
+  renderSchools();
+  renderTargets();
+})();
+</script>
+</body>
+</html>

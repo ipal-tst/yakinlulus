@@ -607,6 +607,47 @@ func (r *repository) GetUserGradeID(ctx context.Context, userID uuid.UUID) (*uui
 	return gradeID, nil
 }
 
+// IsContentAccessible checks if a student can access the content based on their grade enrollment.
+// Returns true if the content's grade matches the student's enrolled grade, or if content has no grade restriction.
+func (r *repository) IsContentAccessible(ctx context.Context, contentID, userID uuid.UUID) (bool, error) {
+	// Get the content's grade ID
+	var contentGradeID *uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT grade_id FROM (
+			SELECT grade_id FROM cbt.exam WHERE id = $1 AND deleted_at IS NULL
+			UNION ALL
+			SELECT grade_id FROM content.material WHERE id = $1 AND deleted_at IS NULL
+			UNION ALL
+			SELECT grade_id FROM content.question WHERE id = $1 AND deleted_at IS NULL
+		) t WHERE grade_id IS NOT NULL LIMIT 1
+	`, contentID).Scan(&contentGradeID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Content has no grade restriction, accessible to all
+			return true, nil
+		}
+		return false, err
+	}
+
+	if contentGradeID == nil {
+		// Content has no grade restriction
+		return true, nil
+	}
+
+	// Get student's enrolled grade
+	studentGradeID, err := r.GetUserGradeID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if studentGradeID == nil {
+		// Student not enrolled in any grade
+		return false, nil
+	}
+
+	// Check if grades match
+	return *contentGradeID == *studentGradeID, nil
+}
+
 // listContentBranch returns a CTE subquery name + the unified projection for a
 // given master type so ListContent can filter across material/exam/question
 // masters with one ORDER BY/LIMIT. Each branch yields the 15-column Content shape
@@ -1911,10 +1952,21 @@ func (r *repository) createExamContent(ctx context.Context, c *Content) error {
 
 	packedDesc := packDescriptionWithBlueprint(c.Body, c.Metadata)
 	code := "exm_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	
+	metadataJSON := "{}"
+	if c.Metadata != nil && len(c.Metadata) > 0 {
+		b, err := json.Marshal(c.Metadata)
+		if err != nil {
+			metadataJSON = "{}"
+		} else {
+			metadataJSON = string(b)
+		}
+	}
+	
 	_, err = tx.Exec(ctx, `
-		INSERT INTO cbt.exam (id, exam_code, title, description, exam_type, status_id, owner_id, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		c.ID, code, c.Title, packedDesc, dbExamType, statusID, c.CreatedBy, c.CreatedBy)
+		INSERT INTO cbt.exam (id, exam_code, title, description, exam_type, status_id, owner_id, created_by, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
+		c.ID, code, c.Title, packedDesc, dbExamType, statusID, c.CreatedBy, c.CreatedBy, metadataJSON)
 	if err != nil {
 		return err
 	}
@@ -1944,15 +1996,23 @@ func (r *repository) updateExamContent(ctx context.Context, id uuid.UUID, req Up
 		}
 	}
 
-	bodyStr := ""
-	if req.Body != nil {
-		bodyStr = *req.Body
-	}
-	packedDesc := packDescriptionWithBlueprint(bodyStr, req.Metadata)
+	sets := []string{"title = COALESCE($2, title)", "status_id = COALESCE($3, status_id)", "updated_at = NOW()"}
+	args := []interface{}{id, req.Title, statusID}
 
-	sets := []string{"title = COALESCE($2, title)", "description = $3", "status_id = COALESCE($4, status_id)", "updated_at = NOW()"}
-	args := []interface{}{id, req.Title, packedDesc, statusID}
-	if req.Metadata != nil {
+	// Only update description/metadata when the request actually carries them.
+	// Status-only updates (approve/publish) must NOT wipe stored exam config.
+	if req.Body != nil {
+		packedDesc := packDescriptionWithBlueprint(*req.Body, req.Metadata)
+		sets = append(sets, fmt.Sprintf("description = $%d", len(args)+1))
+		args = append(args, packedDesc)
+	}
+	if req.Metadata != nil && len(req.Metadata) > 0 {
+		b, err := json.Marshal(req.Metadata)
+		if err != nil {
+			return err
+		}
+		sets = append(sets, fmt.Sprintf("metadata = $%d::jsonb", len(args)+1))
+		args = append(args, string(b))
 		if cat, ok := req.Metadata["category"].(string); ok && cat != "" {
 			sets = append(sets, fmt.Sprintf("exam_type = $%d", len(args)+1))
 			args = append(args, mapCategoryToExamType(cat))
@@ -2031,20 +2091,20 @@ func mapExamTypeToCategory(examType string) string {
 
 // examColumns projects a cbt.exam master plus its status, metadata,
 // randomization, schedule and academic junctions into the ExamFull shape.
-const examColumns = `
-	m.id,
-	'EXAM'::text,
-	COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
-	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
-	ch.chapter_id,
-	tp.topic_id,
-	NULL::uuid,
-	m.title,
-	m.description,
-	COALESCE(st.code, 'DRAFT')::text,
-	COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
-	NULL::jsonb,
-	NULL::timestamptz,
+	const examColumns = `
+ 	m.id,
+ 	'EXAM'::text,
+ 	COALESCE(gr.grade_id, '00000000-0000-0000-0000-000000000000')::uuid,
+ 	COALESCE(subj.subject_id, '00000000-0000-0000-0000-000000000000')::uuid,
+ 	ch.chapter_id,
+ 	tp.topic_id,
+ 	NULL::uuid,
+ 	m.title,
+ 	m.description,
+ 	COALESCE(st.code, 'DRAFT')::text,
+ 	COALESCE(m.owner_id, '00000000-0000-0000-0000-000000000000')::uuid,
+ 	m.metadata,
+ 	NULL::timestamptz,
 	m.created_at,
 	m.updated_at,
 	COALESCE(m.description, '')::text,
@@ -2111,6 +2171,13 @@ func scanExam(row pgx.Row) (*ExamFull, error) {
 		"grade_level":     gradeName,
 		"total_questions": totalQuestions,
 		"scoring_system":  defaultScoring,
+	}
+
+	// Merge database metadata into blueprint
+	for k, v := range meta {
+		if v != nil && v != "" {
+			bp[k] = v
+		}
 	}
 
 	for k, v := range unpackedBp {
@@ -2222,6 +2289,14 @@ func (r *repository) CreateExam(ctx context.Context, e *Exam) error {
 	if err != nil {
 		return err
 	}
+	// A cms.exam_packages row is only surfaced when a cbt.exam_package row
+	// exists (view joins package->exam). Create the default package so the
+	// exam appears in student/package catalogs immediately.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO cbt.exam_package (exam_id, name) VALUES ($1, 'default')
+		ON CONFLICT (exam_id, name) DO NOTHING`, e.ContentID); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -2258,8 +2333,8 @@ func (r *repository) UpdateExam(ctx context.Context, contentID uuid.UUID, e *Exa
 		INSERT INTO cbt.exam_metadata (exam_id, duration_minute, passing_score, negative_marking)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (exam_id) DO UPDATE SET
-			duration_minute = EXCLUDED.duration_minute,
-			passing_score = EXCLUDED.passing_score,
+			duration_minute = CASE WHEN EXCLUDED.duration_minute > 0 THEN EXCLUDED.duration_minute ELSE cbt.exam_metadata.duration_minute END,
+			passing_score = CASE WHEN EXCLUDED.passing_score > 0 THEN EXCLUDED.passing_score ELSE cbt.exam_metadata.passing_score END,
 			negative_marking = CASE WHEN $4 THEN $4 ELSE cbt.exam_metadata.negative_marking END`,
 		contentID, e.DurationMinutes, e.PassingScore, e.NegativeMarking > 0)
 	if err != nil {
@@ -2508,6 +2583,18 @@ func (r *repository) GetExamParticipants(ctx context.Context, examContentID uuid
 		participants = append(participants, ep)
 	}
 	return participants, nil
+}
+
+// IsExamParticipant checks if a user is enrolled as a participant in an exam.
+func (r *repository) IsExamParticipant(ctx context.Context, examContentID, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM cbt.exam_participant WHERE exam_id = $1 AND student_id = $2)
+	`, examContentID, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // ========== EXAM ATTEMPTS ==========

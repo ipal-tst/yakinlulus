@@ -29,6 +29,7 @@ server.out.log
 backend/yakinlulus-api
 backend/hermes-s1-api.exe
 
+
 # IDE
 .idea/
 .vscode/
@@ -47,3 +48,12 @@ Thumbs.db
 .superpowers/sdd/progress.md
 .superpowers/sdd/task-*-brief.md
 .superpowers/sdd/task-*-report.md
+
+#dokumen
+D:\Project\EdTech\Yakinlulus.id\struktur database
+D:\Project\EdTech\Yakinlulus.id\scratch
+D:\Project\EdTech\Yakinlulus.id\Mockup halaman
+D:\Project\EdTech\Yakinlulus.id\Hierarki Mapel
+D:\Project\EdTech\Yakinlulus.id\.superpowers
+D:\Project\EdTech\Yakinlulus.id\.agents
+D:\Project\EdTech\Yakinlulus.id\doc

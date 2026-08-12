@@ -292,6 +292,23 @@ func (h *Handler) GetExam(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(shared.Error(shared.ErrValidation, "Invalid exam ID"))
 	}
 
+	role, _ := c.Locals("role").(string)
+	if role == "SISWA" || role == "SUPER_SISWA" {
+		userIDStr, _ := c.Locals("user_id").(string)
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+		}
+		exam, err := h.svc.GetExamForStudent(c.Context(), id, userID)
+		if err != nil {
+			if fe, ok := err.(*fiber.Error); ok {
+				return c.Status(fe.Code).JSON(shared.Error(shared.ErrorCode(fe.Message), fe.Message))
+			}
+			return c.Status(http.StatusNotFound).JSON(shared.Error(shared.ErrNotFound, "Exam not found"))
+		}
+		return c.JSON(shared.Success(exam))
+	}
+
 	exam, err := h.svc.GetExam(c.Context(), id)
 	if err != nil {
 		return c.Status(http.StatusNotFound).JSON(shared.Error(shared.ErrNotFound, "Exam not found"))
@@ -377,11 +394,7 @@ func (h *Handler) UpdateExam(c *fiber.Ctx) error {
 	}
 
 	bp := make(map[string]interface{})
-	if req.Blueprint != nil {
-		if m, ok := req.Blueprint.(map[string]interface{}); ok {
-			bp = m
-		}
-	}
+	// Priority: use individual fields if provided, otherwise from blueprint object
 	if req.Category != nil {
 		bp["category"] = *req.Category
 	}
@@ -402,6 +415,13 @@ func (h *Handler) UpdateExam(c *fiber.Ctx) error {
 	}
 	if req.Subtests != nil {
 		bp["subtests"] = req.Subtests
+	}
+	
+	// Fallback: use blueprint object if individual fields not provided (for backward compat)
+	if len(bp) == 0 && req.Blueprint != nil {
+		if m, ok := req.Blueprint.(map[string]interface{}); ok {
+			bp = m
+		}
 	}
 
 	contentReq := content.UpdateContentReq{

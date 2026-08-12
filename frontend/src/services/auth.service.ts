@@ -54,7 +54,18 @@ export const authService = {
     async changePassword(old_password: string, new_password: string): Promise<{ message: string }> {
         return api<{ message: string }>("/auth/change-password", {
             method: "POST",
-            body: { old_password, new_password },
+            body: { current_password: old_password, new_password },
+        });
+    },
+
+    // Academic pickers (settings page)
+    async getEducationLevels(): Promise<{ id: string; name: string; code: string; display_order: number; is_active: boolean }[]> {
+        return api<{ id: string; name: string; code: string; display_order: number; is_active: boolean }[]>("/academic/levels");
+    },
+
+    async getGradesByLevel(level_id: string): Promise<{ id: string; education_level_id: string; level_code: string; name: string; alias?: string; display_order: number; is_active: boolean }[]> {
+        return api<{ id: string; education_level_id: string; level_code: string; name: string; alias?: string; display_order: number; is_active: boolean }[]>("/academic/grades", {
+            params: { level_id },
         });
     },
 

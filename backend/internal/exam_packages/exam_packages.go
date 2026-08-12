@@ -351,6 +351,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	r := router.Group("/exam-packages", authM)
 	r.Get("/", h.List)
 	r.Post("/", write, h.Create)
+	r.Get("/:id", h.Get)
 	r.Put("/:id", write, h.Update)
 	r.Delete("/:id", write, h.Delete)
 	r.Get("/:id/exams", h.ListExams)
@@ -375,6 +376,39 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		items = []ExamPackage{}
 	}
 	return c.JSON(shared.Success(items))
+}
+
+func (h *Handler) Get(c *fiber.Ctx) error {
+	id, err := h.parseID(c)
+	if err != nil {
+		return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
+	}
+	pkg, err := h.svc.Get(c.Context(), id)
+	if err != nil {
+		return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "Exam package not found"))
+	}
+	subjects, err := h.svc.ListExams(c.Context(), id)
+	if err != nil {
+		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list package exams"))
+	}
+	if subjects == nil {
+		subjects = []PackageExam{}
+	}
+	if len(subjects) == 1 {
+		subjects[0].DisplayOrder = 1
+	}
+	return c.JSON(shared.Success(fiber.Map{
+		"id":             pkg.ID,
+		"code":           pkg.Code,
+		"name":           pkg.Name,
+		"education_level": pkg.EducationLevel,
+		"grade_id":       pkg.GradeID,
+		"is_active":      pkg.IsActive,
+		"created_at":     pkg.CreatedAt,
+		"updated_at":     pkg.UpdatedAt,
+		"subjects":       subjects,
+		"package_mode":   "SINGLE",
+	}))
 }
 
 func (h *Handler) Create(c *fiber.Ctx) error {

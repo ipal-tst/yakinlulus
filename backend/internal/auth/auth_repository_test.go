@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -72,7 +73,7 @@ func TestAuthAdminCRUD(t *testing.T) {
 	updatedEmail := "updated_" + uid.String()[:8] + "@example.com"
 
 	t.Run("FindAll", func(t *testing.T) {
-		users, total, err := r.FindAll(ctx, 1, 20)
+		users, total, err := r.FindAll(ctx, UserListFilter{Page: 1, Limit: 20})
 		if err != nil {
 			t.Fatalf("FindAll: %v", err)
 		}
@@ -111,7 +112,7 @@ func TestAuthAdminCRUD(t *testing.T) {
 
 	t.Run("UpdateUser", func(t *testing.T) {
 		u := &User{ID: uid, Email: updatedEmail, FullName: "Nama Baru", Role: "SISWA", IsActive: true}
-		if err := r.UpdateUser(ctx, u); err != nil {
+		if err := r.UpdateUser(ctx, u, nil); err != nil {
 			t.Fatalf("UpdateUser: %v", err)
 		}
 		var gotEmail string
@@ -132,7 +133,7 @@ func TestAuthAdminCRUD(t *testing.T) {
 
 	t.Run("Search", func(t *testing.T) {
 		frag := "updated_" + uid.String()[:8]
-		users, total, err := r.Search(ctx, frag, 1, 20)
+		users, total, err := r.Search(ctx, frag, UserListFilter{Page: 1, Limit: 20})
 		if err != nil {
 			t.Fatalf("Search: %v", err)
 		}
@@ -154,18 +155,23 @@ func TestAuthAdminCRUD(t *testing.T) {
 		if err := r.SoftDelete(ctx, uid); err != nil {
 			t.Fatalf("SoftDelete: %v", err)
 		}
+		var deletedAt *time.Time
+		var status string
+		if err := p.QueryRow(ctx, `SELECT deleted_at, status FROM identity.user WHERE id = $1`, uid).Scan(&deletedAt, &status); err != nil {
+			t.Fatalf("read user after SoftDelete: %v", err)
+		}
+		if deletedAt == nil {
+			t.Errorf("user.deleted_at is NULL after SoftDelete")
+		}
+		if status != "INACTIVE" {
+			t.Errorf("status = %q, want INACTIVE", status)
+		}
 		var n int
-		if err := p.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user WHERE id = $1`, uid).Scan(&n); err != nil {
-			t.Fatalf("count user: %v", err)
-		}
-		if n != 0 {
-			t.Errorf("user still present after SoftDelete (n=%d)", n)
-		}
 		if err := p.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user_profile WHERE user_id = $1`, uid).Scan(&n); err != nil {
 			t.Fatalf("count profile: %v", err)
 		}
-		if n != 0 {
-			t.Errorf("profile still present after SoftDelete (n=%d)", n)
+		if n != 1 {
+			t.Errorf("profile count = %d, want 1 (soft delete keeps rows)", n)
 		}
 	})
 }

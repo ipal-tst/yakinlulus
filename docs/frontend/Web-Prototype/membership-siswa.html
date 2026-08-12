@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Membership — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --violet: #8b5cf6;
+  --violet-50: #f5f3ff;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --violet: #a78bfa;
+  --violet-50: #2e1065;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 50; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 40; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.red { background: var(--red-50); color: var(--red-700); }
+.pill.ambers { background: var(--amber-50); color: var(--amber-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.pill.violet { background: var(--violet-50); color: var(--violet); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-ghost { color: var(--blue); }
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-hover { transition: box-shadow .18s, transform .18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-pad { padding: 20px; }
+.section { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title { font-size: 17px; font-weight: 700; }
+.bar { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.bar > span.orange { background: var(--orange); }
+
+/* Status card */
+.status-card { background: var(--blue); color: #fff; border-radius: var(--radius-lg); padding: 26px 28px; display: flex; gap: 24px; flex-wrap: wrap; }
+html[data-theme="dark"] .status-card { background: #1d4ed8; }
+.status-card .sc-left { flex: 1; min-width: 240px; }
+.status-card .sc-left h2 { font-size: 18px; font-weight: 700; }
+.status-card .sc-left .sc-meta { font-size: 13px; opacity: .9; margin-top: 4px; line-height: 1.6; }
+.status-card .sc-left .sc-meta b { opacity: 1; }
+.status-card .sc-left .sc-row { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; background: rgba(255,255,255,.14); padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
+.status-card .sc-actions { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.status-card .btn-secondary { background: #fff; border: 0; color: var(--blue); }
+.status-card .btn-secondary:hover { background: var(--blue-50); color: var(--blue); }
+.status-card .btn-ghost { color: #fff; }
+.status-card .btn-ghost:hover { background: rgba(255,255,255,.15); }
+.limits { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.limit { flex: 1; min-width: 130px; background: rgba(255,255,255,.12); border-radius: var(--radius-md); padding: 12px 14px; }
+.limit .k { font-size: 11px; opacity: .85; }
+.limit .v { font-family: var(--font-display); font-weight: 800; font-size: 18px; margin-top: 2px; }
+.limit .m { font-size: 11px; opacity: .75; }
+
+/* Pricing */
+.plans { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.plan-card { padding: 22px 20px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.plan-card .tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); }
+.plan-card .p-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.plan-card .p-price { display: flex; align-items: baseline; gap: 6px; }
+.plan-card .p-price b { font-family: var(--font-display); font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.plan-card .p-price small { color: var(--muted); font-size: 12.5px; }
+.plan-card .p-desc { font-size: 12.5px; color: var(--muted); }
+.plan-card ul { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 4px 0 8px; }
+.plan-card li { display: flex; gap: 8px; font-size: 13px; color: var(--fg-2); align-items: flex-start; }
+.plan-card li svg { width: 14px; height: 14px; flex: none; color: var(--green); margin-top: 2px; }
+.plan-card .p-cta { margin-top: auto; }
+.plan-card.active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.plan-card.active .p-name { color: var(--blue); }
+
+/* Durasi tabs */
+.duration { display: inline-flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 4px; }
+.duration button { padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); font-weight: 600; font-size: 13px; color: var(--fg-2); background: var(--bg); }
+.duration button:hover { background: var(--muted-bg); }
+.duration button[aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* History */
+.his-list { display: flex; flex-direction: column; }
+.his-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+.his-row:last-child { border-bottom: 0; }
+.his-row .h-inv { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.his-row .h-name { font-weight: 600; }
+.his-row .h-amt { margin-left: auto; font-family: var(--font-mono); font-weight: 700; }
+
+/* Drawer */
+.backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 120; display: none; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100vw; background: var(--bg); z-index: 121; box-shadow: var(--shadow-lg); transform: translateX(100%); transition: transform .2s cubic-bezier(.16,1,.3,1); display: flex; flex-direction: column; }
+.backdrop.open, .drawer.open { display: block; }
+.drawer.open { transform: none; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.drawer-head h3 { font-size: 16px; font-weight: 800; font-family: var(--font-display); }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.drawer-body .f { margin-bottom: 18px; }
+.drawer-body label { display: block; font-size: 12.5px; font-weight: 600; color: var(--fg-2); margin-bottom: 8px; }
+.pay-methods { display: flex; flex-direction: column; gap: 8px; }
+.pay-method { display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.pay-method .dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex: none; }
+.pay-method.on { border-color: var(--blue); background: var(--blue-50); }
+.pay-method.on .dot { border-color: var(--blue); background: var(--blue); box-shadow: inset 0 0 0 3px #fff; }
+.order-sum { background: var(--muted-bg); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.order-sum .os-row { display: flex; justify-content: space-between; font-size: 13px; }
+.order-sum .os-row b { font-weight: 700; }
+.order-sum .os-total { display: flex; justify-content: space-between; font-family: var(--font-display); font-weight: 800; font-size: 16px; border-top: 1px solid var(--border); padding-top: 10px; }
+.switch { position: relative; width: 44px; height: 24px; border-radius: 999px; background: var(--border); transition: background .2s; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .2s; }
+.switch.on { background: var(--green); }
+.switch.on::after { left: 23px; }
+.auto-row { display: flex; align-items: center; gap: 12px; }
+.drawer-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid var(--border); }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1100px) { .plans { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 920px) {
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+  .status-card { flex-direction: column; }
+}
+@media (max-width: 560px) { .search { display: none; } .plans { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item" href="belajar-siswa.html" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item" href="latihan-siswa.html" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item" href="peringkat-siswa.html" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item" href="target-siswa.html" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+<a class="nav-item active" href="#" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="konfigurasi-siswa.html" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari paket, fitur…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="membership">
+      <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Membership</span></div>
+      <div class="header">
+        <h1>Membership</h1>
+        <p>Kelola status keanggotaan, perpanjang, atau tingkatkan paketmu.</p>
+      </div>
+
+      <div class="status-card" data-od-id="status-membership" id="status-card"></div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Pilih Paket</h2><span class="pill gray">harga sudah termasuk pajak</span></div>
+        <div class="duration" data-od-id="duration-tabs" id="duration-tabs">
+          <button aria-pressed="true" data-dur="1">1 bulan</button>
+          <button aria-pressed="false" data-dur="3">3 bulan (−10%)</button>
+          <button aria-pressed="false" data-dur="6">6 bulan (−15%)</button>
+          <button aria-pressed="false" data-dur="12">1 tahun (−20%)</button>
+        </div>
+        <div class="plans" data-od-id="plans" id="plans"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Riwayat Transaksi</h2></div>
+        <div class="card card-pad"><div class="his-list" id="his-list"></div></div>
+      </div>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- Drawer order -->
+<div class="backdrop" id="drawer-backdrop"></div>
+<div class="drawer" data-od-id="drawer-order" id="drawer" role="dialog" aria-modal="true" aria-label="Buat pesanan">
+  <div class="drawer-head"><h3 id="drawer-title">Buat Pesanan</h3><button class="icon-btn" id="drawer-close" aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="drawer-body">
+    <div class="f"><label>Paket</label><div id="dg-paket" style="font-weight:700;font-size:15px"></div><div id="dg-mode" style="font-size:13px;color:var(--muted);margin-top:2px"></div></div>
+    <div class="f"><label>Durasi</label>
+      <div class="duration" id="dg-duration" style="margin:0">
+        <button aria-pressed="true" data-dur="1">1 bulan</button>
+        <button aria-pressed="false" data-dur="3">3 bln −10%</button>
+        <button aria-pressed="false" data-dur="6">6 bln −15%</button>
+        <button aria-pressed="false" data-dur="12">1 thn −20%</button>
+      </div>
+    </div>
+    <div class="f"><label class="auto-row"><span style="flex:1">Perpanjang otomatis <small style="display:block;color:var(--muted);font-weight:400;font-size:12px">Tagihan berjalan otomatis tiap periode</small></span><span class="switch on" id="dg-auto" role="switch" aria-checked="true"></span></label></div>
+    <div class="f"><label>Metode pembayaran</label>
+      <div class="pay-methods" id="dg-pay">
+        <div class="pay-method on" data-pay="Transfer Bank"><span class="dot"></span>Transfer Bank</div>
+        <div class="pay-method" data-pay="E-wallet"><span class="dot"></span>E-wallet (GoPay · OVO · DANA)</div>
+        <div class="pay-method" data-pay="QRIS"><span class="dot"></span>QRIS</div>
+      </div>
+    </div>
+    <div class="f">
+      <div class="order-sum">
+        <div class="os-row"><span>Harga</span><b id="dg-price"></b></div>
+        <div class="os-row"><span>Diskon durasi</span><b id="dg-disc" style="color:var(--green-700)"></b></div>
+        <div class="os-total"><span>Total</span><span id="dg-total"></span></div>
+        <div class="os-row" style="font-size:12px;color:var(--muted)"><span id="dg-period"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-secondary" id="drawer-cancel">Batal</button>
+    <button class="btn btn-primary" id="drawer-save">Buat Pesanan</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+
+<script>
+(function () {
+  var ACTIVE = 'premium';
+  var DUR = 1;
+
+  var PLANS = [
+    { key: 'basic', name: 'Basic', price: 49000, note: '/bulan', desc: 'Untuk mulai belajar', feats: ['Latihan soal terbatas 100/bulan', 'Materi standar', '1 paket tryout/bulan'], rec: false },
+    { key: 'premium', name: 'Premium', price: 99000, note: '/bulan', desc: 'Favorit siswa', feats: ['Latihan soal tanpa batas', 'Semua materi premium', '5 paket tryout/bulan', 'Analitik lengkap'], rec: true },
+    { key: 'pro', name: 'Pro', price: 199000, note: '/bulan', desc: 'Maksimalkan nilai', feats: ['Semua fitur Premium', 'Tryout tanpa batas', 'AI Tutor & pembahasan', 'Riwayat per topik'], rec: false },
+    { key: 'enterprise', name: 'Enterprise', price: 499000, note: '/tahun', desc: 'Untuk sekolah & bimbel', feats: ['Semua fitur Pro', 'Kelola kelas', 'Laporan sekolah', 'Prioritas support'], rec: false }
+  ];
+
+  var DUR_DISC = { 1: 0, 3: 0.1, 6: 0.15, 12: 0.2 };
+  var DUR_LBL = { 1: '1 bulan', 3: '3 bulan', 6: '6 bulan', 12: '1 tahun' };
+
+  function rupiah(n) { return 'Rp ' + n.toLocaleString('id-ID'); }
+
+  function renderStatus() {
+    var el = document.getElementById('status-card');
+    var p = PLANS.find(function (x) { return x.key === ACTIVE; });
+    el.innerHTML =
+      '<div class="sc-left">' +
+        '<h2>' + p.name + ' · Paket Aktif</h2>' +
+        '<div class="sc-meta"><b>Aktif</b> sejak 02-07-2026 · berakhir <b>30-08-2026</b> · sisa <b>21 hari</b><br>auto-renew <b>ON</b></div>' +
+        '<div class="sc-row"><i></i> Paket ' + p.name + ' · sisa 21 hari ·</div>' +
+        '<div class="limits">' +
+          '<div class="limit"><div class="k">Tryout/bulan</div><div class="v">5/10</div><div class="m">tersisa 5</div></div>' +
+'<div class="limit"><div class="k">Materi premium</div><div class="v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:14px;height:14px"><path d="M5 13l4 4L19 7"/></svg></div><div class="m">semua terbuka</div></div>' +
+          '<div class="limit"><div class="k">Download</div><div class="v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:14px;height:14px"><path d="M5 13l4 4L19 7"/></svg></div><div class="m">terbuka</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sc-actions">' +
+        '<button class="btn btn-secondary" data-order="renew">Perpanjang ' + p.name + '</button>' +
+        '<button class="btn btn-ghost" data-order="upgrade">Naik ke Pro →</button>' +
+      '</div>';
+    el.querySelector('[data-order="renew"]').addEventListener('click', function () { openDrawer('renew', ACTIVE); });
+    el.querySelector('[data-order="upgrade"]').addEventListener('click', function () { openDrawer('upgrade', 'pro'); });
+  }
+
+  function renderPlans() {
+    var box = document.getElementById('plans');
+    box.innerHTML = '';
+    PLANS.forEach(function (p) {
+      var el = document.createElement('div');
+      el.className = 'card plan-card' + (p.key === ACTIVE ? ' active' : '');
+      el.setAttribute('data-od-id', 'plan-' + p.key);
+      el.innerHTML =
+        (p.rec ? '<span class="pill orange tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 2l2.6 6.1L21 9l-4.8 4.2L17.5 20 12 16.6 6.5 20l1.3-6.8L3 9l6.4-.9L12 2z"/></svg>Rekomendasi</span>' : '') +
+        '<div class="p-name">' + p.name + '</div>' +
+        '<div class="p-price"><b>' + (p.key === 'enterprise' ? 'Rp 499rb' : rupiah(p.price)) + '</b><small>' + p.note + '</small></div>' +
+        '<div class="p-desc">' + p.desc + '</div>' +
+        '<ul>' + p.feats.map(function (f) { return '<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>' + f + '</li>'; }).join('') + '</ul>' +
+        '<div class="p-cta">' + (p.key === ACTIVE ? '<button class="btn btn-primary btn-sm" data-order="renew" style="background:var(--gray,#64748b)">Perpanjang</button>' : '<button class="btn ' + (p.rec ? 'btn-primary' : 'btn-secondary') + ' btn-sm" data-order="pick">' + (p.key === 'enterprise' ? 'Hubungi Kami' : 'Pilih') + '</button>') + '</div>';
+      el.querySelector('[data-order="renew"]') && el.querySelector('[data-order="renew"]').addEventListener('click', function () { openDrawer('renew', p.key); });
+      el.querySelector('[data-order="pick"]') && el.querySelector('[data-order="pick"]').addEventListener('click', function () { openDrawer('upgrade', p.key); });
+      box.appendChild(el);
+    });
+  }
+
+  /* durasi main */
+  document.querySelectorAll('#duration-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#duration-tabs button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      DUR = parseInt(b.getAttribute('data-dur'), 10);
+    });
+  });
+
+  /* drawer */
+  var dlg = document.getElementById('drawer');
+  var dlgBk = document.getElementById('drawer-backdrop');
+  var orderType = 'renew', orderKey = ACTIVE, dur = DUR;
+
+  function openDrawer(type, key) {
+    orderType = type; orderKey = key;
+    var p = PLANS.find(function (x) { return x.key === key; });
+    var title = type === 'renew' ? 'Perpanjang ' + p.name : (key === ACTIVE ? '' : 'Upgrade ke ') + p.name;
+    document.getElementById('drawer-title').textContent = title.trim();
+    document.getElementById('dg-paket').textContent = p.name;
+    document.getElementById('dg-mode').textContent = type === 'renew' ? 'Perpanjang paket yang sama' : 'Upgrade level paket';
+    dlgBk.classList.add('open'); dlg.classList.add('open');
+    updateOrder(dur);
+  }
+  function closeDrawer() { dlgBk.classList.remove('open'); dlg.classList.remove('open'); }
+  function updateOrder(d) {
+    var discount = DUR_DISC[d] || 0;
+    var p = PLANS.find(function (x) { return x.key === orderKey; });
+    var base = p.price;
+    document.getElementById('dg-price').textContent = rupiah(base) + ' × ' + DUR_LBL[d];
+    document.getElementById('dg-disc').textContent = discount > 0 ? '−' + Math.round(discount * 100) + '% = −' + rupiah(Math.round(base * discount)) : '−';
+    document.getElementById('dg-total').textContent = rupiah(Math.round(base * (1 - discount)));
+    document.getElementById('dg-period').textContent = 'Aktif dari hari ini · sampai ' + new Date(Date.now() + d * 30 * 86400000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ' ' + (new Date(Date.now() + d * 30 * 86400000).getFullYear());
+  }
+  dlgBk.addEventListener('click', closeDrawer);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-cancel').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-save').addEventListener('click', function () {
+    closeDrawer();
+    alert('Pesanan dibuat — invoice akan dikirim. (demo, gateway pembayaran belum terhubung)');
+  });
+  document.querySelectorAll('#dg-duration button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#dg-duration button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      updateOrder(parseInt(b.getAttribute('data-dur'), 10));
+    });
+  });
+  document.getElementById('dg-auto').addEventListener('click', function () { this.classList.toggle('on'); });
+  document.querySelectorAll('#dg-pay .pay-method').forEach(function (m) {
+    m.addEventListener('click', function () {
+      document.querySelectorAll('#dg-pay .pay-method').forEach(function (x) { x.classList.remove('on'); });
+      m.classList.add('on');
+    });
+  });
+
+  /* riwayat */
+  document.getElementById('his-list').innerHTML =
+    '<div class="his-row"><span class="h-inv">#INV-2026-0012</span><span class="h-name">Premium · 3 bulan</span><span class="pill green">Paid</span><span class="h-amt">Rp 267.000</span></div>' +
+    '<div class="his-row"><span class="h-inv">#INV-2026-0008</span><span class="h-name">Premium · 1 bulan</span><span class="pill green">Paid</span><span class="h-amt">Rp 99.000</span></div>' +
+    '<div class="his-row"><span class="h-inv">#INV-2026-0002</span><span class="h-name">Basic · 1 bulan</span><span class="pill gray">Expired</span><span class="h-amt">Rp 49.000</span></div>';
+
+  renderStatus();
+  renderPlans();
+})();
+</script>
+</body>
+</html>

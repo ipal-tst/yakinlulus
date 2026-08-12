@@ -63,6 +63,22 @@ func (m *mockContentRepo) GetPracticeSession(ctx context.Context, sessionID uuid
 	return m.practiceSession, nil
 }
 
+func (m *mockContentRepo) IsExamParticipant(ctx context.Context, examContentID, userID uuid.UUID) (bool, error) {
+	if m.attempt != nil && m.attempt.UserID == userID {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (m *mockContentRepo) GetExam(ctx context.Context, contentID uuid.UUID) (*content.ExamFull, error) {
+	return &content.ExamFull{
+		Content: content.Content{
+			ID:    contentID,
+			Title: "Test Exam",
+		},
+	}, nil
+}
+
 func (m *mockContentRepo) UpdatePracticeSession(ctx context.Context, ps *content.PracticeSession) error {
 	m.updatedPractice = ps
 	return nil
@@ -327,4 +343,30 @@ func TestSubmitAttemptStripsClientGradingFields(t *testing.T) {
 	require.Nil(stored.GradedBy)
 	require.Nil(stored.GradedAt)
 	require.Equal(content.AttemptSubmitted, mock.updatedAt.Status)
+}
+
+func TestGetExamForStudentOwnership(t *testing.T) {
+	owner := uuid.New()
+	intruder := uuid.New()
+	examID := uuid.New()
+
+	mock := &mockContentRepo{
+		attempt: &content.ExamAttempt{
+			UserID: owner,
+		},
+	}
+
+	svc := NewService(mock)
+
+	// Intruder gets someone else's exam -> 403
+	_, err := svc.GetExamForStudent(context.Background(), examID, intruder)
+	assert.Error(t, err)
+	fe, ok := err.(*fiber.Error)
+	assert.True(t, ok)
+	assert.Equal(t, fiber.StatusForbidden, fe.Code)
+
+	// Owner gets exam -> Success
+	exam, err := svc.GetExamForStudent(context.Background(), examID, owner)
+	assert.NoError(t, err)
+	assert.Equal(t, examID, exam.Content.ID)
 }

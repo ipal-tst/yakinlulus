@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,20 +24,24 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID  `json:"id"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	FullName     string     `json:"full_name"`
-	Role         string     `json:"role"`
-	GradeID      *uuid.UUID `json:"grade_id,omitempty"`
-	IsActive     bool       `json:"is_active"`
-	AvatarURL    *string    `json:"avatar_url,omitempty"`
-	SchoolName   *string    `json:"school_name,omitempty"`
-	Gender       *string    `json:"gender,omitempty"`
-	Phone        *string    `json:"phone,omitempty"`
-	Major        *string    `json:"major,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	PasswordHash   string     `json:"-"`
+	FullName       string     `json:"full_name"`
+	Role           string     `json:"role"`
+	Status         string     `json:"status"`
+	IsActive       bool       `json:"is_active"`
+	GradeID        *uuid.UUID `json:"grade_id,omitempty"`
+	SchoolID       *uuid.UUID `json:"school_id,omitempty"`
+	SchoolName     *string    `json:"school_name,omitempty"`
+	AcademicYearID *uuid.UUID `json:"academic_year_id,omitempty"`
+	AvatarURL      *string    `json:"avatar_url,omitempty"`
+	Gender         *string    `json:"gender,omitempty"`
+	Phone          *string    `json:"phone,omitempty"`
+	Major          *string    `json:"major,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 type RegisterRequest struct {
@@ -80,10 +85,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 const userSelect = `
-	SELECT u.id, u.email, u.password_hash,
-	       COALESCE(p.full_name, ''), COALESCE(r.code, ''), (u.status = 'ACTIVE'), u.avatar,
-	       NULL::uuid AS grade_id, NULL::text AS school_name,
-	       p.gender, u.phone, NULL::text AS major,
+	SELECT u.id, u.email, u.password_hash, u.username, u.status,
+	       COALESCE(p.full_name, ''), COALESCE(r.code, ''), (u.status = 'ACTIVE'),
+	       u.avatar, p.gender, u.phone,
+	       se.grade_id, se.school_id, se.academic_year_id, s.name, NULL::text AS major,
 	       u.created_at, u.updated_at
 	FROM identity.user u
 	LEFT JOIN identity.user_profile p ON p.user_id = u.id
@@ -92,13 +97,21 @@ const userSelect = `
 		JOIN identity.role r ON r.id = ur.role_id
 		WHERE ur.user_id = u.id ORDER BY ur.is_primary DESC, r.priority ASC LIMIT 1
 	) r ON true
+	LEFT JOIN LATERAL (
+		SELECT se.grade_id, se.school_id, se.academic_year_id
+		FROM academic.student_enrollment se
+		WHERE se.student_id = u.id
+		ORDER BY se.updated_at DESC LIMIT 1
+	) se ON true
+	LEFT JOIN academic.school s ON s.id = se.school_id
 `
 
-func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
+func (r *Repository) scanUser(row pgx.Row) (*User, error) {
 	u := &User{}
-	err := r.pool.QueryRow(ctx, userSelect+" WHERE u.email = $1 AND u.deleted_at IS NULL", email).
-		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.IsActive, &u.AvatarURL,
-			&u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Username, &u.Status,
+		&u.FullName, &u.Role, &u.IsActive, &u.AvatarURL, &u.Gender, &u.Phone,
+		&u.GradeID, &u.SchoolID, &u.AcademicYearID, &u.SchoolName, &u.Major,
+		&u.CreatedAt, &u.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -106,29 +119,56 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, erro
 		return nil, err
 	}
 	return u, nil
+}
+
+func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	return r.scanUser(r.pool.QueryRow(ctx, userSelect+" WHERE u.email = $1 AND u.deleted_at IS NULL", email))
 }
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	u := &User{}
-	err := r.pool.QueryRow(ctx, userSelect+" WHERE u.id = $1 AND u.deleted_at IS NULL", id).
-		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role, &u.IsActive, &u.AvatarURL,
-			&u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
+	return r.scanUser(r.pool.QueryRow(ctx, userSelect+" WHERE u.id = $1 AND u.deleted_at IS NULL", id))
 }
 
-func (r *Repository) Create(ctx context.Context, u *User) error {
+type AcademicUpsert struct {
+	SchoolID *uuid.UUID
+	GradeID  *uuid.UUID
+	MajorID  *uuid.UUID
+}
+
+func (r *Repository) resolveActiveAcademicYear(ctx context.Context) *uuid.UUID {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM academic.academic_year WHERE is_active = true ORDER BY created_at DESC LIMIT 1`).Scan(&id)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+func (r *Repository) upsertEnrollment(ctx context.Context, tx pgx.Tx, userID uuid.UUID, academic *AcademicUpsert) error {
+	if academic == nil || (academic.SchoolID == nil && academic.GradeID == nil && academic.MajorID == nil) {
+		return nil
+	}
+	yearID := r.resolveActiveAcademicYear(ctx)
+	if yearID == nil {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO academic.student_enrollment (student_id, school_id, grade_id, major_id, academic_year_id, status)
+		VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+		ON CONFLICT (student_id, academic_year_id)
+		DO UPDATE SET school_id = EXCLUDED.school_id, grade_id = EXCLUDED.grade_id,
+		              major_id = EXCLUDED.major_id, updated_at = NOW()`,
+		userID, academic.SchoolID, academic.GradeID, academic.MajorID, yearID)
+	return err
+}
+
+func (r *Repository) Create(ctx context.Context, u *User, roleCode string, academic *AcademicUpsert) error {
 	u.ID = uuid.New()
-	baseUsername := strings.ToLower(strings.Split(u.Email, "@")[0])
-	username := baseUsername
+	u.Username = strings.ToLower(strings.Split(u.Email, "@")[0])
+	username := u.Username
 	var count int
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user WHERE username = $1`, username).Scan(&count); err == nil && count > 0 {
-		username = fmt.Sprintf("%s_%s", baseUsername, u.ID.String()[:8])
+		username = fmt.Sprintf("%s_%s", u.Username, u.ID.String()[:8])
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -136,25 +176,34 @@ func (r *Repository) Create(ctx context.Context, u *User) error {
 	}
 	defer tx.Rollback(ctx)
 
+	status := u.Status
+	if status == "" {
+		status = "ACTIVE"
+	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO identity.user (id, username, email, password_hash, status)
-		VALUES ($1, $2, $3, $4, 'ACTIVE')`,
-		u.ID, username, u.Email, u.PasswordHash)
+		INSERT INTO identity.user (id, username, email, phone, password_hash, status)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		u.ID, username, u.Email, nilString(u.Phone), u.PasswordHash, status)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `
-		INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2)`,
-		u.ID, u.FullName)
-	if err != nil {
+	profileQ := `INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2)`
+	profileArgs := []interface{}{u.ID, u.FullName}
+	if u.Gender != nil {
+		profileQ = `INSERT INTO identity.user_profile (user_id, full_name, gender) VALUES ($1, $2, $3)`
+		profileArgs = append(profileArgs, nilString(u.Gender))
+	}
+	if _, err := tx.Exec(ctx, profileQ, profileArgs...); err != nil {
 		return err
 	}
-	// Attach SISWA role.
 	_, err = tx.Exec(ctx, `
 		INSERT INTO identity.user_role (user_id, role_id, is_primary)
 		SELECT $1, id, true FROM identity.role WHERE code = $2`,
-		u.ID, middleware.RoleSiswa)
+		u.ID, roleCode)
 	if err != nil {
+		return err
+	}
+	if err := r.upsertEnrollment(ctx, tx, u.ID, academic); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -282,16 +331,62 @@ func (r *Repository) RevokeSession(ctx context.Context, refreshToken string) err
 	return err
 }
 
-func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int, error) {
+type UserListFilter struct {
+	Page           int
+	Limit          int
+	Q              string
+	Role           string
+	Status         string
+	EducationLevel string
+}
+
+func itoa(n int) string { return strconv.Itoa(n) }
+
+func buildUserWhere(f UserListFilter) (string, []interface{}) {
+	conds := []string{"u.deleted_at IS NULL"}
+	args := []interface{}{}
+	n := 1
+	if f.Q != "" {
+		conds = append(conds, "(u.email ILIKE $"+itoa(n)+" OR p.full_name ILIKE $"+itoa(n)+" OR u.username ILIKE $"+itoa(n)+")")
+		args = append(args, "%"+f.Q+"%")
+		n++
+	}
+	if f.Role != "" {
+		conds = append(conds, "r.code = $"+itoa(n))
+		args = append(args, f.Role)
+		n++
+	}
+	if f.Status != "" {
+		conds = append(conds, "u.status = $"+itoa(n))
+		args = append(args, f.Status)
+		n++
+	}
+	if f.EducationLevel != "" {
+		conds = append(conds, "el.code = $"+itoa(n))
+		args = append(args, f.EducationLevel)
+		n++
+	}
+	return " WHERE " + strings.Join(conds, " AND "), args
+}
+
+func (r *Repository) FindAll(ctx context.Context, f UserListFilter) ([]User, int, error) {
+	where, args := buildUserWhere(f)
+	argsWithP := append(args, f.Limit, (f.Page-1)*f.Limit)
+	whereP := where + fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
+
 	var total int
-	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user u WHERE u.deleted_at IS NULL`).Scan(&total)
-	if err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM identity.user u
+		LEFT JOIN identity.user_profile p ON p.user_id = u.id
+		LEFT JOIN LATERAL (SELECT r.code FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id WHERE ur.user_id = u.id ORDER BY ur.is_primary DESC, r.priority ASC LIMIT 1) r ON true
+		LEFT JOIN LATERAL (SELECT se.grade_id, se.school_id FROM academic.student_enrollment se WHERE se.student_id = u.id ORDER BY se.updated_at DESC LIMIT 1) se ON true
+		LEFT JOIN academic.grade g ON g.id = se.grade_id
+		LEFT JOIN academic.education_level el ON el.id = g.education_level_id`+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	offset := (page - 1) * limit
-	rows, err := r.pool.Query(ctx,
-		userSelect+` WHERE u.deleted_at IS NULL ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	listQuery := userSelect + `LEFT JOIN academic.grade g ON g.id = se.grade_id
+	LEFT JOIN academic.education_level el ON el.id = g.education_level_id`
+	rows, err := r.pool.Query(ctx, listQuery+whereP, argsWithP...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -299,14 +394,18 @@ func (r *Repository) FindAll(ctx context.Context, page, limit int) ([]User, int,
 
 	var users []User
 	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := r.scanUser(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		users = append(users, u)
+		users = append(users, *u)
 	}
 	return users, total, nil
+}
+
+func (r *Repository) Search(ctx context.Context, q string, f UserListFilter) ([]User, int, error) {
+	f.Q = q
+	return r.FindAll(ctx, f)
 }
 
 func (r *Repository) SetActive(ctx context.Context, userID uuid.UUID, active bool) error {
@@ -316,30 +415,35 @@ func (r *Repository) SetActive(ctx context.Context, userID uuid.UUID, active boo
 	return err
 }
 
-// buildUpdateUserQuery returns the identity.user statement used by UpdateUser.
-func buildUpdateUserQuery() string {
-	return "UPDATE identity.user SET email = $1, updated_at = NOW() WHERE id = $2"
-}
-
-func (r *Repository) UpdateUser(ctx context.Context, u *User) error {
+func (r *Repository) UpdateUser(ctx context.Context, u *User, academic *AcademicUpsert) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, buildUpdateUserQuery(), u.Email, u.ID); err != nil {
+	if _, err := tx.Exec(ctx, `
+		UPDATE identity.user SET email = $1, phone = COALESCE($3, phone), updated_at = NOW() WHERE id = $2`,
+		u.Email, u.ID, nilString(u.Phone)); err != nil {
 		return err
 	}
 
-	profileQ := `INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, updated_at = NOW()`
+	profileQ := `INSERT INTO identity.user_profile (user_id, full_name) VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, updated_at = NOW()`
 	profileArgs := []interface{}{u.ID, u.FullName}
 	if u.Gender != nil {
-		profileQ = `INSERT INTO identity.user_profile (user_id, full_name, gender) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, gender = EXCLUDED.gender, updated_at = NOW()`
+		profileQ = `INSERT INTO identity.user_profile (user_id, full_name, gender) VALUES ($1, $2, $3)
+			ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name, gender = EXCLUDED.gender, updated_at = NOW()`
 		profileArgs = append(profileArgs, nilString(u.Gender))
 	}
 	if _, err := tx.Exec(ctx, profileQ, profileArgs...); err != nil {
 		return err
+	}
+
+	if u.Status != "" {
+		if _, err := tx.Exec(ctx, `UPDATE identity.user SET status = $1, updated_at = NOW() WHERE id = $2`, u.Status, u.ID); err != nil {
+			return err
+		}
 	}
 
 	if u.Role != "" {
@@ -353,59 +457,26 @@ func (r *Repository) UpdateUser(ctx context.Context, u *User) error {
 		}
 	}
 
+	if err := r.upsertEnrollment(ctx, tx, u.ID, academic); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
 func (r *Repository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tx, err := r.pool.Begin(ctx)
+	var active bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM academic.student_enrollment
+		              WHERE student_id = $1 AND status = 'ACTIVE')`, id).Scan(&active)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx, `DELETE FROM identity.login_session WHERE user_id = $1`, id); err != nil {
-		return err
+	if active {
+		return fiber.NewError(fiber.StatusConflict, "User has active student enrollment")
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM identity.password_reset WHERE user_id = $1`, id); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM identity.user WHERE id = $1`, id); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
-func (r *Repository) Search(ctx context.Context, q string, page, limit int) ([]User, int, error) {
-	var total int
-	pattern := "%" + q + "%"
-	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM identity.user u
-		 LEFT JOIN identity.user_profile p ON p.user_id = u.id
-		 WHERE u.deleted_at IS NULL AND (u.email ILIKE $1 OR p.full_name ILIKE $1)`, pattern,
-	).Scan(&total)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * limit
-	rows, err := r.pool.Query(ctx,
-		userSelect+` WHERE u.deleted_at IS NULL AND (u.email ILIKE $1 OR p.full_name ILIKE $1)
-		 ORDER BY u.created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var users []User
-	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &u.Role,
-			&u.IsActive, &u.AvatarURL, &u.GradeID, &u.SchoolName, &u.Gender, &u.Phone, &u.Major, &u.CreatedAt, &u.UpdatedAt); err != nil {
-			return nil, 0, err
-		}
-		users = append(users, u)
-	}
-	return users, total, nil
+	_, err = r.pool.Exec(ctx, `
+		UPDATE identity.user SET deleted_at = NOW(), status = 'INACTIVE' WHERE id = $1 AND deleted_at IS NULL`, id)
+	return err
 }
 
 type Session struct {
@@ -473,7 +544,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 		Role:         middleware.RoleSiswa,
 	}
 
-	if err := s.repo.Create(ctx, user); err != nil {
+	if err := s.repo.Create(ctx, user, middleware.RoleSiswa, nil); err != nil {
 		slog.Error("register Create failed", "email", req.Email, "error", err)
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user")
 	}
@@ -606,11 +677,24 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	admin := r.Group("", middleware.RequireAuth(h.jwt), middleware.RequireRole("SUPER_ADMIN", "STAFF"))
 	admin.Get("/users", h.ListUsers)
 	admin.Get("/users/search", h.SearchUsers)
+	admin.Get("/users/import/template", h.UsersImportTemplate)
+	admin.Post("/users/import/xlsx", h.ImportUsersXlsx)
+	admin.Post("/users/export/xlsx", h.ExportUsersXlsx)
+	admin.Post("/users/bulk-delete", h.BulkDeleteUsers)
+	admin.Post("/users/bulk-status", h.BulkStatusUsers)
 	admin.Get("/users/:id", h.AdminGetUser)
 	admin.Post("/users", h.AdminCreateUser)
 	admin.Put("/users/:id", h.AdminUpdateUser)
-	admin.Delete("/users/:id", h.AdminDeleteUser)
 	admin.Patch("/users/:id/activate", h.ActivateUser)
+	admin.Delete("/users/:id", h.AdminDeleteUser)
+	admin.Get("/roles", h.ListRoles)
+	admin.Get("/roles/:id/permissions", h.GetRolePermissions)
+	admin.Put("/roles/:id/permissions", h.UpdateRolePermissions)
+
+	saOnly := r.Group("", middleware.RequireAuth(h.jwt), middleware.RequireRole("SUPER_ADMIN"))
+	saOnly.Post("/roles", h.CreateRole)
+	saOnly.Put("/roles/:id", h.UpdateRole)
+	saOnly.Delete("/roles/:id", h.DeleteRole)
 }
 
 func (h *Handler) Register(c *fiber.Ctx) error {
@@ -798,7 +882,7 @@ func (h *Handler) ResetPassword(c *fiber.Ctx) error {
 
 func (h *Handler) ListUsers(c *fiber.Ctx) error {
 	page, limit := shared.ParsePagination(c)
-	users, total, err := h.svc.repo.FindAll(c.Context(), page, limit)
+	users, total, err := h.svc.repo.FindAll(c.Context(), UserListFilter{Page: page, Limit: limit})
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to list users"))
 	}
@@ -811,7 +895,7 @@ func (h *Handler) SearchUsers(c *fiber.Ctx) error {
 		return h.ListUsers(c)
 	}
 	page, limit := shared.ParsePagination(c)
-	users, total, err := h.svc.repo.Search(c.Context(), q, page, limit)
+	users, total, err := h.svc.repo.Search(c.Context(), q, UserListFilter{Page: page, Limit: limit})
 	if err != nil {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to search users"))
 	}
@@ -850,119 +934,6 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Internal error"))
 	}
 	return c.JSON(shared.Success(resp))
-}
-
-// --- Admin User CRUD ---
-
-type AdminCreateUserReq struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	FullName string `json:"full_name"`
-	Role     string `json:"role"`
-}
-
-type AdminUpdateUserReq struct {
-	Email      *string    `json:"email,omitempty"`
-	FullName   *string    `json:"full_name,omitempty"`
-	Role       *string    `json:"role,omitempty"`
-	IsActive   *bool      `json:"is_active,omitempty"`
-	GradeID    *uuid.UUID `json:"grade_id,omitempty"`
-	SchoolName *string    `json:"school_name,omitempty"`
-}
-
-func (h *Handler) AdminGetUser(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid user ID"))
-	}
-	user, err := h.svc.repo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get user"))
-	}
-	if user == nil {
-		return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "User not found"))
-	}
-	return c.JSON(shared.Success(user))
-}
-
-func (h *Handler) AdminCreateUser(c *fiber.Ctx) error {
-	var req AdminCreateUserReq
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
-	}
-	if req.Email == "" || req.Password == "" || req.FullName == "" || req.Role == "" {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "email, password, full_name, role required"))
-	}
-	if err := validatePassword(req.Password); err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, err.Error()))
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to hash password"))
-	}
-	user := &User{
-		Email:        req.Email,
-		PasswordHash: string(hash),
-		FullName:     req.FullName,
-		Role:         req.Role,
-		IsActive:     true,
-	}
-	if err := h.svc.repo.Create(c.Context(), user); err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to create user"))
-	}
-	return c.Status(201).JSON(shared.Success(user))
-}
-
-func (h *Handler) AdminUpdateUser(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid user ID"))
-	}
-	user, err := h.svc.repo.FindByID(c.Context(), id)
-	if err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to get user"))
-	}
-	if user == nil {
-		return c.Status(404).JSON(shared.Error(shared.ErrNotFound, "User not found"))
-	}
-	var req AdminUpdateUserReq
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid request body"))
-	}
-	if req.Email != nil {
-		user.Email = *req.Email
-	}
-	if req.FullName != nil {
-		user.FullName = *req.FullName
-	}
-	if req.Role != nil {
-		user.Role = *req.Role
-	}
-	if req.IsActive != nil {
-		user.IsActive = *req.IsActive
-	}
-	if req.GradeID != nil {
-		user.GradeID = req.GradeID
-	}
-	if req.SchoolName != nil {
-		user.SchoolName = req.SchoolName
-	}
-	if err := h.svc.repo.UpdateUser(c.Context(), user); err != nil {
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to update user"))
-	}
-	return c.JSON(shared.Success(user))
-}
-
-func (h *Handler) AdminDeleteUser(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid user ID"))
-	}
-	if err := h.svc.repo.SoftDelete(c.Context(), id); err != nil {
-		fmt.Printf("[AdminDeleteUser ERROR] id=%s err=%v\n", id, err)
-		return c.Status(500).JSON(shared.Error(shared.ErrInternal, err.Error()))
-	}
-	return c.JSON(shared.Success(fiber.Map{"message": "User deleted"}))
 }
 
 func (s *Service) ForgotPassword(ctx context.Context, email string) error {

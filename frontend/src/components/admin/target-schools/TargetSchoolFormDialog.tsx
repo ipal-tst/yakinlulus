@@ -24,10 +24,10 @@ const levelLabels: Record<string, string> = {
 };
 
 const createSchema = z.object({
-    name: z.string().min(1, "Nama sekolah/PT wajib diisi"),
+    school_name: z.string().min(1, "Nama sekolah/PT wajib diisi"),
     npsn: z.string().optional(),
     province: z.string().optional(),
-    regency: z.string().optional(),
+    city: z.string().optional(),
 });
 type CreateValues = z.infer<typeof createSchema>;
 
@@ -118,12 +118,12 @@ export function TargetSchoolFormDialog({
     // --- create school in-form (tombol "+ Baru") ---
     const createForm = useForm<CreateValues>({
         resolver: zodResolver(createSchema),
-        defaultValues: { name: "", npsn: "", province: "", regency: "" },
+        defaultValues: { school_name: "", npsn: "", province: "", city: "" },
     });
 
     useEffect(() => {
         if (createOpen) {
-            createForm.reset({ name: "", npsn: "", province: "", regency: "" });
+            createForm.reset({ school_name: "", npsn: "", province: "", city: "" });
             setCreateError("");
         }
     }, [createOpen, createForm]);
@@ -133,10 +133,10 @@ export function TargetSchoolFormDialog({
         setCreateError("");
         try {
             const school = await schoolService.createSchool({
-                name: data.name,
+                school_name: data.school_name,
                 education_level: effectiveLevel,
                 province: data.province,
-                regency: data.regency,
+                city: data.city,
                 npsn: data.npsn,
             });
             setValue("school_id", school.id, { shouldValidate: true });
@@ -246,9 +246,9 @@ export function TargetSchoolFormDialog({
                     <form onSubmit={createForm.handleSubmit(handleCreateSchool)} className="space-y-4 pt-4">
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-foreground">Nama Sekolah / PT</label>
-                            <Input {...createForm.register("name")} className="h-11" placeholder="cth: SMA Negeri 1 Jakarta" />
-                            {createForm.formState.errors.name && (
-                                <p className="text-xs text-destructive">{createForm.formState.errors.name.message}</p>
+                            <Input {...createForm.register("school_name")} className="h-11" placeholder="cth: SMA Negeri 1 Jakarta" />
+                            {createForm.formState.errors.school_name && (
+                                <p className="text-xs text-destructive">{createForm.formState.errors.school_name.message}</p>
                             )}
                         </div>
                         <div className="space-y-1.5">
@@ -264,7 +264,7 @@ export function TargetSchoolFormDialog({
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-foreground">Kota/Kab</label>
-                                <Input {...createForm.register("regency")} className="h-11" />
+                                <Input {...createForm.register("city")} className="h-11" />
                             </div>
                         </div>
                         <div className="space-y-1.5">

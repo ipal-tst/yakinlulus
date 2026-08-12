@@ -1,0 +1,52 @@
+﻿--- FAIL: TestParse (0.02s)
+    --- FAIL: TestParse/basic_parsing (0.01s)
+        importxlsx_test.go:23: 
+            	Error Trace:	D:/Project/EdTech/Yakinlulus.id/backend/internal/importxlsx/importxlsx_test.go:23
+            	Error:      	Not equal: 
+            	            	expected: "JOHN DOE"
+            	            	actual  : "John Doe"
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1 +1 @@
+            	            	-JOHN DOE
+            	            	+John Doe
+            	Test:       	TestParse/basic_parsing
+        importxlsx_test.go:24: 
+            	Error Trace:	D:/Project/EdTech/Yakinlulus.id/backend/internal/importxlsx/importxlsx_test.go:24
+            	Error:      	Not equal: 
+            	            	expected: "JOHN@EXAMPLE.COM"
+            	            	actual  : "john@example.com"
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1 +1 @@
+            	            	-JOHN@EXAMPLE.COM
+            	            	+john@example.com
+            	Test:       	TestParse/basic_parsing
+--- FAIL: TestFirstSheet (0.01s)
+    --- FAIL: TestFirstSheet/empty_file_fails (0.00s)
+        importxlsx_test.go:144: 
+            	Error Trace:	D:/Project/EdTech/Yakinlulus.id/backend/internal/importxlsx/importxlsx_test.go:144
+            	Error:      	An error is expected but got nil.
+            	Test:       	TestFirstSheet/empty_file_fails
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal 0xc0000005 code=0x0 addr=0x18 pc=0x7ff7206ea062]
+
+goroutine 20 [running]:
+testing.tRunner.func1.2({0x7ff72077bbe0, 0x7ff720b3e0b0})
+	C:/Program Files/Go/src/testing/testing.go:1974 +0x239
+testing.tRunner.func1()
+	C:/Program Files/Go/src/testing/testing.go:1977 +0x349
+panic({0x7ff72077bbe0?, 0x7ff720b3e0b0?})
+	C:/Program Files/Go/src/runtime/panic.go:860 +0x13a
+yakinlulus.id/backend/internal/importxlsx.TestFirstSheet.func3(0x3ae837429800)
+	D:/Project/EdTech/Yakinlulus.id/backend/internal/importxlsx/importxlsx_test.go:145 +0x182
+testing.tRunner(0x3ae837429800, 0x7ff720811d98)
+	C:/Program Files/Go/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 14
+	C:/Program Files/Go/src/testing/testing.go:2101 +0x4a9
+FAIL	yakinlulus.id/backend/internal/importxlsx	0.221s
+FAIL

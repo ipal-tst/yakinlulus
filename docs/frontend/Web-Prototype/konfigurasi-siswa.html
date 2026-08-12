@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Konfigurasi — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+input, select { font: inherit; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 50; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 40; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.red { background: var(--red-50); color: var(--red-700); }
+.pill.ambers { background: var(--amber-50); color: var(--amber-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-ghost { color: var(--blue); }
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-pad { padding: 22px; }
+.section { margin-top: 24px; }
+.section-title { font-size: 17px; font-weight: 700; }
+
+/* Layout */
+.cfg-grid { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+
+/* Profile sidebar */
+.pf-side { position: sticky; top: 84px; text-align: center; padding: 24px 18px; display: flex; flex-direction: column; gap: 12px; }
+.pf-avatar { width: 88px; height: 88px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; margin: 0 auto; font-family: var(--font-display); font-weight: 800; font-size: 30px; }
+.pf-side .pf-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.pf-side .pf-mail { font-size: 13px; color: var(--muted); }
+.pf-side .pf-role { font-size: 12px; color: var(--blue); background: var(--blue-50); padding: 3px 10px; border-radius: 999px; display: inline-block; margin-top: 2px; font-weight: 700; }
+.pf-nav { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.pf-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; }
+.pf-nav a svg { width: 18px; height: 18px; }
+.pf-nav a:hover { background: var(--muted-bg); }
+.pf-nav a.on { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+
+/* Forms */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 13px; font-weight: 600; color: var(--fg-2); margin-bottom: 6px; }
+.field label .opt { color: var(--muted); font-weight: 400; font-size: 12px; }
+.field input[type="text"], .field input[type="email"], .field input[type="password"], .field input[type="tel"], .field select { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--fg); padding: 0 14px; font-size: 14px; }
+.field input:focus-visible, .field select:focus-visible { box-shadow: var(--ring); outline: none; }
+.field input.ro { background: var(--muted-bg); color: var(--muted); }
+.field .hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.field .err { font-size: 12px; color: var(--red); margin-top: 5px; display: none; }
+.field.invalid input { border-color: var(--red); }
+.field.invalid .err { display: block; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+.save-ok { display: none; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--green-700); }
+.save-ok svg { width: 16px; height: 16px; }
+.save-ok.show { display: inline-flex; }
+
+/* Sandi strength */
+.strength { display: flex; gap: 4px; margin-top: 6px; }
+.strength i { height: 4px; flex: 1; border-radius: 999px; background: var(--border); }
+.strength i.ok { background: var(--green); }
+.strength i.mid { background: var(--orange); }
+
+/* Switch toggle */
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
+.switch-row:last-child { border-bottom: 0; }
+.switch-row .sw-t { font-size: 14px; font-weight: 600; }
+.switch-row .sw-s { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.switch { position: relative; width: 46px; height: 26px; border-radius: 999px; background: var(--border); transition: background .2s; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; }
+.switch.on { background: var(--green); }
+.switch.on::after { left: 23px; }
+
+/* Target card */
+.tgt-card { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--border-soft); border-radius: var(--radius-md); }
+.tgt-card .t-ic { width: 42px; height: 42px; border-radius: 12px; background: var(--orange-50); color: var(--orange-700); display: grid; place-items: center; flex: none; }
+.tgt-card .t-ic svg { width: 20px; height: 20px; }
+.tgt-card .t-main { flex: 1; }
+.tgt-card .t-main .t { font-weight: 700; font-size: 14px; }
+.tgt-card .t-main .s { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* Avatar dialog */
+.dlg-bk { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 120; display: none; }
+.dlg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 121; width: 380px; max-width: calc(100vw - 32px); padding: 24px; display: none; }
+.dlg-bk.open, .dlg.open { display: block; }
+.dlg h3 { font-size: 16px; font-weight: 800; font-family: var(--font-display); }
+.dlg .dlg-x { position: absolute; top: 14px; right: 14px; }
+.drop { border: 1.5px dashed var(--border); border-radius: var(--radius-md); padding: 28px 16px; text-align: center; color: var(--muted); cursor: pointer; margin: 16px 0; font-size: 13px; }
+.drop:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-50); }
+.drop input { display: none; }
+.prev { width: 96px; height: 96px; border-radius: 50%; margin: 12px auto; background: var(--muted-bg); display: grid; place-items: center; color: var(--muted); font-size: 30px; }
+.dlg-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 920px) {
+  .cfg-grid { grid-template-columns: 1fr; }
+  .pf-side { position: static; }
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+}
+@media (max-width: 560px) { .search { display: none; } .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item" href="belajar-siswa.html" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item" href="latihan-siswa.html" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item" href="peringkat-siswa.html" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item" href="target-siswa.html" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="membership-siswa.html" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+<a class="nav-item active" href="#" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari pengaturan…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="konfigurasi">
+      <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Konfigurasi</span></div>
+      <div class="header">
+        <h1>Konfigurasi & Profil</h1>
+        <p>Kelola profil, keamanan akun, target, dan preferensi notifikasi.</p>
+      </div>
+
+      <div class="cfg-grid">
+        <aside class="card card-pad pf-side" data-od-id="pf-sidebar">
+          <div class="pf-avatar" id="av-big">RA</div>
+          <div class="pf-name">Raka Aditya</div>
+          <div class="pf-mail">raka.aditya@mail.com</div>
+          <span class="pf-role">SISWA</span>
+          <button class="btn btn-secondary btn-sm" id="btn-avatar" style="margin:4px auto 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M3 5h18v14H3z"/><circle cx="9" cy="9" r="2"/><path d="M5 19l5-5 4 4 3-3 2 2"/></svg> Ubah Foto</button>
+          <nav class="pf-nav" data-od-id="pf-nav">
+            <a href="#profil" class="on" data-anchor="profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profil & Keamanan</a>
+            <a href="#target" data-anchor="target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+            <a href="#preferensi" data-anchor="preferensi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Preferensi</a>
+          </nav>
+        </aside>
+
+        <div>
+          <!-- PROFIL -->
+          <section class="card card-pad" data-od-id="form-profil" id="profil">
+            <h2 class="section-title" style="margin-bottom:18px">Profil</h2>
+            <div class="field"><label for="f-name">Nama Lengkap</label><input type="text" id="f-name" value="Raka Aditya"></div>
+            <div class="field"><label for="f-email">Email</label><input class="ro" type="email" id="f-email" value="raka.aditya@mail.com" readonly></div>
+            <div class="field"><label for="f-school">Asal Sekolah</label><input type="text" id="f-school" value="SMA Islam Al-Azhar 12"></div>
+            <div class="two-col">
+              <div class="field"><label for="f-level">Jenjang</label><select id="f-level"><option selected>SMA</option><option disabled>SMP</option><option disabled>SD</option></select></div>
+              <div class="field"><label for="f-grade">Kelas <span class="opt">(opsional)</span></label><select id="f-grade"><option selected>XII IPA</option><option>XII IPS</option><option>XI IPA</option><option>XI IPS</option></select></div>
+            </div>
+            <div class="field" id="f-phone-wrap"><label for="f-phone">No. HP <span class="opt">(opsional, 10–13 digit)</span></label><input type="tel" id="f-phone" value="081234567890"><div class="err" id="f-phone-err">Format nomor HP tidak valid (10–13 digit).</div></div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="save-profile">Simpan Perubahan</button>
+              <span class="save-ok" id="save-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>Profil tersimpan</span>
+            </div>
+          </section>
+
+          <!-- KEAMANAN -->
+          <section class="card card-pad section" data-od-id="form-sandi" id="keamanan">
+            <h2 class="section-title" style="margin-bottom:18px">Ubah Kata Sandi</h2>
+            <div class="field" id="f-old-wrap"><label for="f-old">Sandi Lama</label><input type="password" id="f-old" placeholder="••••••••"><div class="err" id="f-old-err">Sandi lama salah.</div></div>
+            <div class="field" id="f-new-wrap">
+              <label for="f-new">Sandi Baru</label><input type="password" id="f-new" placeholder="Minimal 10 karakter, kombinasi huruf, angka, simbol">
+              <div class="strength" id="f-strength"><i></i><i></i><i></i><i></i></div>
+              <div class="err" id="f-new-err">Sandi harus minimal 10 karakter dengan huruf besar, kecil, angka, dan simbol.</div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" id="save-pw">Perbarui Kata Sandi</button>
+              <span class="save-ok" id="pw-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>Kata sandi diperbarui</span>
+            </div>
+          </section>
+
+          <!-- TARGET -->
+          <section class="card card-pad section" data-od-id="card-target" id="target">
+            <h2 class="section-title" style="margin-bottom:14px">Target Sekolah</h2>
+            <div class="tgt-card">
+              <span class="t-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L14.6 8.6 21 9l-5 4.3 1.6 6.4L12 15.8l-5.6 3.9L8 13.3 3 9l6.4-.4L12 2z"/></svg></span>
+              <div class="t-main"><div class="t">Universitas Indonesia — Teknik Informatika</div><div class="s">Pilihan 1 · Nilaimu 654 vs nilai masuk 577 · <span class="pill green" style="padding:2px 8px;font-size:11px">Peluang Tinggi</span></div></div>
+              <a class="btn btn-secondary btn-sm" href="target-siswa.html">Kelola Target</a>
+            </div>
+          </section>
+
+          <!-- PREFERENSI -->
+          <section class="card card-pad section" data-od-id="card-preferensi" id="preferensi">
+            <h2 class="section-title" style="margin-bottom:8px">Preferensi Notifikasi</h2>
+            <div class="switch-row"><div><div class="sw-t">Pengingat jadwal ujian</div><div class="sw-s">Notifikasi 24 jam sebelum ujian terjadwal.</div></div><span class="switch on" data-toggle></span></div>
+            <div class="switch-row"><div><div class="sw-t">Rekomendasi materi</div><div class="sw-s">Saran topik yang perlu kamu latih.</div></div><span class="switch on" data-toggle></span></div>
+            <div class="switch-row"><div><div class="sw-t">Promo membership</div><div class="sw-s">Info paket & penawaran khusus.</div></div><span class="switch" data-toggle></span></div>
+            <div class="switch-row"><div><div class="sw-t">Ringkasan mingguan</div><div class="sw-s">Laporan progres belajar tiap Senin.</div></div><span class="switch on" data-toggle></span></div>
+          </section>
+        </div>
+      </div>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- Avatar dialog -->
+<div class="dlg-bk" id="av-bk"></div>
+<div class="dlg" data-od-id="avatar-dialog" id="av-dlg" role="dialog" aria-modal="true" aria-label="Ganti foto profil">
+  <button class="icon-btn dlg-x" id="av-x" aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <h3>Ganti Foto Profil</h3>
+  <div class="prev" id="av-prev">RA</div>
+  <label class="drop" for="av-file">Drag & drop atau klik pilih gambar<br><small>(jpg, png · maks 2MB)</small><input type="file" id="av-file" accept="image/png,image/jpeg"></label>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:14px" id="av-note">Belum ada file dipilih.</div>
+  <div class="dlg-actions">
+    <button class="btn btn-secondary" id="av-cancel">Batal</button>
+    <button class="btn btn-primary" id="av-save">Upload & Simpan</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+
+<script>
+(function () {
+  /* Validasi profil */
+  function validPhone() {
+    var v = document.getElementById('f-phone').value.replace(/\D/g, '');
+    return v.length >= 10 && v.length <= 13;
+  }
+  document.getElementById('save-profile').addEventListener('click', function () {
+    var wrap = document.getElementById('f-phone-wrap');
+    var ok = validPhone();
+    wrap.classList.toggle('invalid', !ok);
+    if (!ok) return;
+    document.getElementById('save-ok').classList.add('show');
+    setTimeout(function () { document.getElementById('save-ok').classList.remove('show'); }, 2500);
+  });
+  document.getElementById('f-phone').addEventListener('input', function () {
+    document.getElementById('f-phone-wrap').classList.toggle('invalid', !validPhone());
+  });
+
+  /* Kata sandi strength + validasi */
+  function strength(s) {
+    var score = 0;
+    if (s.length >= 8) score++;
+    if (s.length >= 10) score++;
+    if (/[a-z]/.test(s) && /[A-Z]/.test(s)) score++;
+    if (/\d/.test(s) && /[^A-Za-z0-9]/.test(s)) score++;
+    return score;
+  }
+  document.getElementById('f-new').addEventListener('input', function () {
+    var s = document.getElementById('f-new').value;
+    var bars = document.querySelectorAll('#f-strength i');
+    var n = strength(s);
+    var cls = n >= 3 ? 'ok' : n >= 2 ? 'mid' : '';
+    bars.forEach(function (b, i) {
+      b.className = '';
+      if (i < n) b.classList.add(cls);
+    });
+  });
+  document.getElementById('save-pw').addEventListener('click', function () {
+    var old = document.getElementById('f-old').value;
+    var nw = document.getElementById('f-new').value;
+    var oldWrap = document.getElementById('f-old-wrap');
+    var newWrap = document.getElementById('f-new-wrap');
+    var oldBad = old !== 'raka123';
+    var newBad = !(nw.length >= 10 && /[a-z]/.test(nw) && /[A-Z]/.test(nw) && /\d/.test(nw) && /[^A-Za-z0-9]/.test(nw));
+    oldWrap.classList.toggle('invalid', oldBad);
+    newWrap.classList.toggle('invalid', newBad);
+    if (oldBad || newBad) return;
+    document.getElementById('pw-ok').classList.add('show');
+    setTimeout(function () { document.getElementById('pw-ok').classList.remove('show'); }, 2500);
+    document.getElementById('f-old').value = '';
+    document.getElementById('f-new').value = '';
+  });
+
+  /* Toggle preferensi */
+  document.querySelectorAll('[data-toggle]').forEach(function (t) {
+    t.addEventListener('click', function () { t.classList.toggle('on'); });
+  });
+
+  /* Nav anchor highlight */
+  document.querySelectorAll('.pf-nav a[data-anchor]').forEach(function (a) {
+    a.addEventListener('click', function () {
+      document.querySelectorAll('.pf-nav a').forEach(function (x) { x.classList.remove('on'); });
+      a.classList.add('on');
+    });
+  });
+
+  /* Avatar dialog */
+  var dlg = document.getElementById('av-dlg');
+  var bk = document.getElementById('av-bk');
+  var file = document.getElementById('av-file');
+  function openAv() { bk.classList.add('open'); dlg.classList.add('open'); }
+  function closeAv() { bk.classList.remove('open'); dlg.classList.remove('open'); }
+  document.getElementById('btn-avatar').addEventListener('click', openAv);
+  document.getElementById('av-x').addEventListener('click', closeAv);
+  document.getElementById('av-cancel').addEventListener('click', closeAv);
+  bk.addEventListener('click', closeAv);
+  file.addEventListener('change', function () {
+    var f = file.files[0];
+    if (!f) return;
+    var okType = ['image/png', 'image/jpeg'].indexOf(f.type) !== -1;
+    var okSize = f.size <= 2 * 1024 * 1024;
+    if (!okType || !okSize) { document.getElementById('av-note').textContent = 'File harus jpg/png, maks 2MB.'; return; }
+    document.getElementById('av-note').textContent = f.name + ' siap diunggah (' + Math.round(f.size / 1024) + ' KB).';
+    var rd = new FileReader();
+    rd.onload = function (e) {
+      document.getElementById('av-prev').innerHTML = '<img src="' + e.target.result + '" style="width:96px;height:96px;border-radius:50%;object-fit:cover">';
+      window._tempAvatar = e.target.result;
+    };
+    rd.readAsDataURL(f);
+  });
+  document.getElementById('av-save').addEventListener('click', function () {
+    if (window._tempAvatar) {
+      document.getElementById('av-big').innerHTML = '<img src="' + window._tempAvatar + '" style="width:88px;height:88px;border-radius:50%;object-fit:cover">';
+    }
+    closeAv();
+  });
+})();
+</script>
+</body>
+</html>

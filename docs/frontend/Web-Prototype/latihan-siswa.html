@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Latihan — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+/* Dark mode */
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .bar { background: #1e293b; }
+html[data-theme="dark"] .sn-ic, html[data-theme="dark"] .subj-icon { filter: brightness(1.1); }
+html[data-theme="dark"] .result-hero { background: #1d4ed8; }
+.shell { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 50; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 40; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover, .breadcrumb .nav-btn:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb .nav-btn { background: none; border: 0; padding: 0; cursor: pointer; font-size: inherit; color: var(--blue); font-weight: 500; }
+.breadcrumb .nav-btn:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.red { background: var(--red-50); color: var(--red-700); }
+.pill.amber { background: var(--amber-50); color: var(--amber-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-ghost { color: var(--blue); }
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-hover { transition: box-shadow .18s, transform .18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-pad { padding: 20px; }
+.section { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title { font-size: 17px; font-weight: 700; }
+
+.bar { height: 6px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.bar > span.green { background: var(--green); }
+.bar > span.orange { background: var(--orange); }
+.bar > span.red { background: var(--red); }
+
+/* Practice tree */
+.ptree { display: flex; flex-direction: column; gap: 10px; }
+.subject-node { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.sn-head { padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; }
+.sn-head:hover { background: var(--muted-bg); }
+.sn-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; flex: none; }
+.sn-ic svg { width: 20px; height: 20px; }
+.si-blue { background: var(--blue); } .si-pink { background: #ec4899; } .si-orange { background: var(--orange); } .si-violet { background: #8b5cf6; }
+.sn-main { flex: 1; min-width: 0; }
+.sn-main .t { font-weight: 700; font-size: 15px; }
+.sn-main .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.sn-prog { width: 150px; }
+.sn-chev { color: var(--muted); display: grid; place-items: center; transition: transform .18s; }
+.subject-node[data-open="true"] .sn-chev { transform: rotate(180deg); }
+.sn-body { display: none; padding: 4px 18px 18px; }
+.subject-node[data-open="true"] .sn-body { display: block; }
+.chapter-node { border: 1px solid var(--border-soft); border-radius: var(--radius-md); margin-bottom: 8px; overflow: hidden; }
+.cn-head { padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.cn-head:hover { background: var(--muted-bg); }
+.cn-chev { color: var(--muted); transition: transform .18s; display: grid; place-items: center; }
+.cn-chev svg { width: 16px; height: 16px; }
+.chapter-node[data-open="true"] > .cn-head .cn-chev { transform: rotate(180deg); }
+.cn-main { flex: 1; min-width: 0; }
+.cn-main .t { font-weight: 600; font-size: 14px; }
+.cn-main .meta { font-size: 12px; color: var(--muted); }
+.cn-prog { width: 110px; }
+.cn-body { display: none; padding: 4px 12px 12px; }
+.chapter-node[data-open="true"] > .cn-body { display: block; }
+.topic-row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; }
+.topic-row:hover { background: var(--muted-bg); border-radius: var(--radius-sm); }
+.topic-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--border); }
+.topic-dot.g { background: var(--green); }
+.topic-dot.a { background: var(--orange); }
+.topic-dot.r { background: var(--red); }
+.topic-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; }
+.topic-r { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; }
+.tr-good { color: var(--green-700); } .tr-mid { color: var(--amber-700); } .tr-bad { color: var(--red-700); } .tr-zero { color: var(--muted); }
+
+/* History */
+.history { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.h-item { padding: 16px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.h-item:hover { box-shadow: var(--shadow-lg); }
+.h-scope { font-weight: 600; font-size: 13.5px; }
+.h-scope .m { color: var(--muted); font-weight: 400; }
+.h-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; }
+.h-score { font-family: var(--font-mono); font-weight: 700; }
+.h-time { color: var(--muted); font-family: var(--font-mono); }
+.empty-card { text-align: center; padding: 40px 20px; }
+.empty-card svg { width: 48px; height: 48px; color: var(--border); }
+.empty-card h3 { font-family: var(--font-display); font-weight: 800; font-size: 16px; margin: 10px 0 4px; }
+.empty-card p { color: var(--muted); font-size: 13.5px; margin-bottom: 14px; }
+
+/* Runner */
+.runner-head { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 18px; display: flex; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.runner-head .rh-scope { flex: 1; min-width: 220px; }
+.runner-head .rh-scope .t { font-weight: 700; font-size: 14.5px; }
+.runner-head .rh-scope .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.runner-head .rh-flag { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--orange-700); background: var(--orange-50); padding: 6px 12px; border-radius: 999px; }
+.runner-head .rh-prog { width: 180px; }
+.runner-progress { height: 6px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.runner-progress > span { display: block; height: 100%; background: var(--blue); transition: width .2s; }
+.rh-prog-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+
+.q-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 26px 28px; }
+.q-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.q-count { font-size: 13px; color: var(--muted); font-weight: 600; }
+.q-count b { color: var(--fg); font-family: var(--font-display); }
+.flag-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: var(--muted-bg); color: var(--fg-2); transition: background .15s, color .15s; }
+.flag-btn svg { width: 15px; height: 15px; }
+.flag-btn.on { background: var(--orange-50); color: var(--orange-700); }
+.q-content { font-size: 15.5px; line-height: 1.6; margin-bottom: 20px; }
+.q-content .q-formula { font-family: var(--font-mono); background: var(--muted-bg); border-radius: var(--radius-sm); padding: 2px 8px; }
+.options { display: flex; flex-direction: column; gap: 10px; }
+.opt { display: flex; align-items: center; gap: 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 13px 16px; cursor: pointer; transition: border-color .15s, background .15s; }
+.opt:hover { border-color: var(--blue); background: var(--blue-50); }
+.opt .key { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--muted); flex: none; transition: all .15s; }
+.opt.selected { border-color: var(--blue); background: var(--blue-50); }
+.opt.selected .key { background: var(--blue); border-color: var(--blue); color: #fff; }
+.opt .txt { font-size: 14.5px; }
+.nav-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.nav-bottom .group { display: flex; gap: 10px; }
+
+/* Palette */
+.palette-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.4); z-index: 60; display: none; }
+.palette { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 61; width: 420px; max-width: calc(100vw - 32px); padding: 20px; display: none; }
+.palette-backdrop.open, .palette.open { display: block; }
+.palette-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.palette-head h3 { font-size: 15px; font-weight: 700; }
+.palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.palette-grid button { height: 44px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-weight: 700; font-size: 13px; color: var(--fg-2); transition: all .15s; }
+.palette-grid button:hover { border-color: var(--blue); }
+.palette-grid button.answered { background: var(--blue-50); border-color: var(--blue-50); color: var(--blue); }
+.palette-grid button.doubt { background: var(--orange-50); border-color: var(--orange-50); color: var(--orange-700); }
+.palette-grid button.current { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-50); color: var(--blue); }
+.palette-legend { display: flex; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.palette-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -2px; }
+
+/* Dialog */
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.4); z-index: 70; display: none; }
+.dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 71; width: 440px; max-width: calc(100vw - 32px); padding: 24px; display: none; }
+.dialog-backdrop.open, .dialog.open { display: block; }
+.dialog h3 { font-size: 17px; font-weight: 800; font-family: var(--font-display); }
+.dialog p { font-size: 14px; color: var(--fg-2); margin: 8px 0 20px; line-height: 1.55; }
+.dialog .d-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Result */
+.result-hero { background: var(--blue); border-radius: var(--radius-lg); color: #fff; padding: 30px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.result-hero .rh-big { display: flex; align-items: center; gap: 18px; }
+.result-hero .score-circle { width: 110px; height: 110px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.result-hero .score-circle b { font-family: var(--font-display); font-size: 30px; font-weight: 800; }
+.result-hero .score-circle small { display: block; font-size: 11px; opacity: .8; }
+.result-hero h2 { font-size: 21px; font-weight: 800; }
+.result-hero .scope { font-size: 13.5px; opacity: .9; margin-top: 4px; }
+.result-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; }
+.r-stat { padding: 16px 18px; }
+.r-stat .k { font-size: 12px; color: var(--muted); }
+.r-stat .v { font-family: var(--font-display); font-size: 22px; font-weight: 800; margin-top: 4px; }
+.r-stat .v.ok { color: var(--green-700); } .r-stat .v.bad { color: var(--red-700); }
+.result-cta { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+/* Review */
+.rev-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 14px; }
+.rev-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.rev-top .rn { font-weight: 700; font-size: 13.5px; }
+.rev-q { font-size: 15px; line-height: 1.6; margin-bottom: 14px; }
+.rev-opts { display: flex; flex-direction: column; gap: 8px; }
+.rev-opt { display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 11px 14px; font-size: 14px; }
+.rev-opt.correct { border-color: var(--green); background: var(--green-50); }
+.rev-opt.correct .rk { background: var(--green); color: #fff; }
+.rev-opt.wrong { border-color: var(--red); background: var(--red-50); }
+.rev-opt.wrong .rk { background: var(--red); color: #fff; }
+.rev-opt .rk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--muted); flex: none; }
+.rev-opt .tag { margin-left: auto; font-size: 11px; font-weight: 700; }
+.rev-opt.correct .tag { color: var(--green-700); }
+.rev-opt.wrong .tag { color: var(--red-700); }
+.rev-exp { display: flex; gap: 12px; background: var(--blue-50); border-radius: var(--radius-md); padding: 14px 16px; margin-top: 14px; font-size: 14px; color: var(--fg-2); line-height: 1.6; }
+.rev-exp svg { width: 18px; height: 18px; flex: none; color: var(--blue); }
+.rev-exp b { color: var(--blue); }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1100px) { .history { grid-template-columns: repeat(2, 1fr); } .result-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 920px) {
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+}
+@media (max-width: 560px) {
+  .history { grid-template-columns: 1fr; }
+  .nav-bottom { flex-direction: column; align-items: stretch; }
+  .nav-bottom .group { flex: 1; }
+  .nav-bottom .group .btn { flex: 1; }
+  .search { display: none; }
+  .sn-prog { width: 100%; }
+  .cn-prog { width: 90px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item" href="belajar-siswa.html" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item active" href="#" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item" href="peringkat-siswa.html" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item" href="target-siswa.html" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+      <a class="nav-item" href="membership-siswa.html" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="konfigurasi-siswa.html" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari latihan, bab, topik…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="latihan">
+
+      <!-- VIEW 1: Daftar Latihan -->
+      <section data-od-id="view-catalog" id="view-catalog">
+        <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Latihan</span></div>
+        <div class="header">
+          <h1>Latihan rutin, kunci nilai bagus</h1>
+          <p>Latihan mengikuti kurikulummu — <b>hijau = akurasi ≥ 85%</b>. Ulangi kapan saja, skor terbaik tetap tercatat.</p>
+          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+            <span class="pill blue"><i></i>SMA · Kelas 12 UTBK</span>
+            <span class="pill gray">Threshold dikuasai: ≥85%</span>
+          </div>
+        </div>
+
+        <div class="section" data-od-id="section-pohon">
+          <div class="section-head">
+            <h2 class="section-title">Daftar Latihan</h2>
+          </div>
+          <div class="ptree" data-od-id="practice-tree" id="practice-tree"></div>
+        </div>
+
+        <div class="section" data-od-id="section-riwayat">
+          <div class="section-head">
+            <h2 class="section-title">Riwayat Latihan</h2>
+          </div>
+          <div class="history" data-od-id="riwayat" id="riwayat"></div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: Runner -->
+      <section data-od-id="view-runner" id="view-runner" hidden>
+        <div class="breadcrumb"><button class="nav-btn" type="button" data-nav-catalog>Latihan</button><span class="sep">/</span><span id="bc-runner"></span></div>
+
+        <div class="runner-head" data-od-id="runner-head">
+          <div class="rh-scope">
+            <div class="t" id="rh-scope">Matematika · Bab 1 · Topik Aljabar</div>
+            <div class="meta" id="rh-ques">Soal 5 · dari 10</div>
+          </div>
+          <span class="rh-flag" id="rh-flag-count" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h12v12H4z" opacity="0"/><path d="M6 3v18M6 4l12 4-12 4"/></svg><span id="rh-flag-n">0</span> ragu</span>
+          <button class="icon-btn" id="open-palette" aria-label="Navigasi soal" style="border:1px solid var(--border)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+          <div class="rh-prog">
+            <div class="rh-prog-label"><span>Progres</span><b id="rh-prog-txt">5/10</b></div>
+            <div class="runner-progress"><span id="rh-prog-bar" style="width:50%"></span></div>
+          </div>
+        </div>
+
+        <div class="q-card" data-od-id="question-card" id="question-card"></div>
+
+        <div class="nav-bottom">
+          <button class="btn btn-secondary" id="prev-q">← Sebelumnya</button>
+          <div class="group" style="flex:1"></div>
+          <button class="btn btn-secondary" id="next-q">Berikutnya →</button>
+          <button class="btn btn-primary" id="finish-q" style="background:var(--green)">SELESAI UJIAN</button>
+        </div>
+      </section>
+
+      <!-- VIEW 3: Result -->
+      <section data-od-id="view-result" id="view-result" hidden>
+        <div class="breadcrumb"><button class="nav-btn" type="button" data-nav-catalog>Latihan</button><span class="sep">/</span><span>Hasil</span></div>
+        <div class="result-hero" data-od-id="result-hero">
+          <div class="rh-big">
+            <div class="score-circle"><div><b id="r-score">80%</b><small id="r-status-tag">belum hijau</small></div></div>
+            <div>
+              <h2 id="r-title">Matematika · Bab 1 · Topik Aljabar</h2>
+              <div class="scope" id="r-scope-note">Target dikuasai ≥ 85% — kerjakan ulang untuk menuntaskan topik.</div>
+            </div>
+          </div>
+        </div>
+        <div class="result-stats" data-od-id="result-stats">
+          <div class="card card-pad r-stat"><div class="k">Benar</div><div class="v ok" id="r-benar">8</div></div>
+          <div class="card card-pad r-stat"><div class="k">Salah</div><div class="v bad" id="r-salah">2</div></div>
+          <div class="card card-pad r-stat"><div class="k">Kosong</div><div class="v" id="r-kosong">0</div></div>
+          <div class="card card-pad r-stat"><div class="k">Waktu</div><div class="v" id="r-waktu">04:32</div></div>
+        </div>
+        <div class="result-cta">
+          <button class="btn btn-primary" id="r-review">Lihat Pembahasan →</button>
+          <button class="btn btn-secondary" id="r-ulangi">↻ Ulangi Latihan</button>
+          <button class="btn btn-ghost" id="r-kembali">Kembali ke Latihan</button>
+        </div>
+      </section>
+
+      <!-- VIEW 4: Review -->
+      <section data-od-id="view-review" id="view-review" hidden>
+        <div class="breadcrumb"><button class="nav-btn" type="button" data-nav-catalog>Latihan</button><span class="sep">/</span><span>Riwayat</span><span class="sep">/</span><span>Pembahasan</span></div>
+        <div class="header">
+          <h1 id="rv-title">Matematika · Bab 1 · Topik Aljabar</h1>
+          <p id="rv-meta">Skor 80% · Waktu 04:32</p>
+        </div>
+        <div data-od-id="review-list" id="review-list"></div>
+        <div style="margin-top:18px">
+          <button class="btn btn-secondary" data-nav-catalog>← Kembali ke Latihan</button>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- Palette -->
+<div class="palette-backdrop" id="palette-backdrop"></div>
+<div class="palette" data-od-id="palette" id="palette" role="dialog" aria-modal="true" aria-label="Navigasi soal">
+  <div class="palette-head"><h3>Navigasi Soal</h3><button class="icon-btn" id="palette-close" aria-label="Tutup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="palette-grid" id="palette-grid"></div>
+  <div class="palette-legend">
+    <span><i style="background:var(--blue-50);border:1px solid var(--blue-50)"></i>Dijawab</span>
+    <span><i style="background:var(--blue);border:1px solid var(--blue)"></i>Sedang</span>
+    <span><i style="background:var(--orange-50);border:1px solid var(--orange-50)"></i>Ragu</span>
+    <span><i style="border:1px solid var(--border)"></i>Belum</span>
+  </div>
+</div>
+
+<!-- Dialog keluar -->
+<div class="dialog-backdrop" id="exit-backdrop"></div>
+<div class="dialog" data-od-id="dialog-exit" id="exit-dialog" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+  <h3 id="exit-title">Akhiri latihan?</h3>
+  <p>Jawaban yang belum di-submit akan <b>HILANG</b>. Bila kamu keluar sekarang, tidak ada hasil yang direkam.</p>
+  <div class="d-actions">
+    <button class="btn btn-secondary" id="exit-cancel">Lanjut Mengerjakan</button>
+    <button class="btn btn-danger" id="exit-confirm">Akhiri — Jawaban Tidak Direkam</button>
+  </div>
+</div>
+
+<!-- Dialog selesai -->
+<div class="dialog-backdrop" id="finish-backdrop"></div>
+<div class="dialog" data-od-id="dialog-selesai" id="finish-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-title">
+  <h3 id="finish-title">Yakin selesai?</h3>
+  <p>Semua jawaban akan dikirim dan dinilai. Topik akan berikutnya dihitung dari hasil ini.</p>
+  <div class="d-actions">
+    <button class="btn btn-secondary" id="finish-cancel">Batal</button>
+    <button class="btn btn-primary" id="finish-confirm">Ya, Selesai</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var views = { catalog: document.getElementById('view-catalog'), runner: document.getElementById('view-runner'), result: document.getElementById('view-result'), review: document.getElementById('view-review') };
+  var THRESHOLD = 85;
+
+  /* Data simulasi — kontrak GET /practice/catalog */
+  var TREE = [
+    {
+      name: 'Matematika', pct: 82, color: 'si-blue', open: true, greenBabs: '6/8',
+      icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      chapters: [
+        { t: 'Bab 1 · Aljabar', pct: 90, open: true, topics: [
+          { t: 'Konsep Dasar', pct: 90 },
+          { t: 'Operasi Aljabar', pct: 88 },
+          { t: 'Faktorisasi', pct: 60 }
+        ]},
+        { t: 'Bab 2 · Persamaan Kuadrat', pct: 75, topics: [
+          { t: 'Rumus ABC', pct: 75 }
+        ]},
+        { t: 'Bab 3 · Trigonometri', pct: 85, topics: [
+          { t: 'Identitas Trigonometri', pct: 90 }
+        ]}
+      ]
+    },
+    {
+      name: 'Bahasa Indonesia', pct: 40, color: 'si-pink', open: false, greenBabs: '2/6',
+      icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      chapters: [
+        { t: 'Bab 1 · Teks Editorial', pct: 92, topics: [{ t: 'Struktur Teks', pct: 92 }, { t: 'Ide Pokok', pct: 88 }] },
+        { t: 'Bab 2 · Cerpen', pct: 30, topics: [{ t: 'Unsur Intrinsik', pct: 30 }] }
+      ]
+    },
+    {
+      name: 'Fisika', pct: 12, color: 'si-orange', open: false, greenBabs: '0/5',
+      icon: '<circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/>',
+      chapters: [
+        { t: 'Bab 1 · Listrik Statis', pct: 30, topics: [{ t: 'Hukum Coulomb', pct: 30 }] },
+        { t: 'Bab 2 · Medan Magnet', pct: 0, topics: [{ t: 'Gaya Lorentz', pct: 0 }] }
+      ]
+    }
+  ];
+
+  /* Data simulasi — kontrak GET /practice/sessions/:id (tanpa timer) */
+  var QUESTIONS = [
+    { q: 'Jika x² + 2x − 8 = 0, maka himpunan penyelesaiannya adalah …', correct: 1, exp: '(x + 4)(x − 2) = 0 → x = −4 atau x = 2. Jadi HP = {−4, 2}.', opts: ['{−4, 2}', '{−2, 4}', '{−4, −2}', '{2, 4}'] },
+    { q: 'Nilai dari <span class="q-formula">f(3)</span> bila <span class="q-formula">f(x) = 2x + 5</span> adalah …', correct: 3, exp: 'f(3) = 2(3) + 5 = 6 + 5 = 11.', opts: ['6', '8', '10', '11'] },
+    { q: 'Grafik fungsi <span class="q-formula">f(x) = x² − 4</span> memotong sumbu-x di titik …', correct: 0, exp: 'x² − 4 = 0 → (x − 2)(x + 2) = 0 → x = ±2. Titik (−2, 0) dan (2, 0).', opts: ['(−2, 0) dan (2, 0)', '(−4, 0) dan (4, 0)', '(0, −4)', 'hanya (2, 0)'] },
+    { q: 'Jika <span class="q-formula">(f ∘ g)(x) = f(g(x))</span>, f(x) = 3x dan g(x) = x + 2, maka (f ∘ g)(1) = …', correct: 1, exp: 'g(1) = 3, lalu f(3) = 9.', opts: ['6', '9', '3', '12'] },
+    { q: 'Sumbu simetri parabola <span class="q-formula">y = x² − 6x + 8</span> berada di …', correct: 0, exp: 'x = −b/2a = 6/2 = 3.', opts: ['x = 3', 'x = −3', 'x = 6', 'x = 2'] },
+    { q: 'Akar-akar persamaan <span class="q-formula">2x² − 4x − 6 = 0</span> adalah …', correct: 2, exp: 'Bagi 2: x² − 2x − 3 = 0 → (x − 3)(x + 1) = 0 → x = 3 atau x = −1.', opts: ['{−3, 1}', '{3, −1}', '{−1, 3}', '{3, 1}'] },
+    { q: 'Jumlah akar-akar <span class="q-formula">x² − 8x + 15 = 0</span> adalah …', correct: 0, exp: 'Jumlah akar = −b/a = 8.', opts: ['8', '−8', '15', '−15'] },
+    { q: 'Domain fungsi <span class="q-formula">f(x) = √(x − 3)</span> adalah …', correct: 1, exp: 'x − 3 ≥ 0 → x ≥ 3.', opts: ['x ≤ 3', 'x ≥ 3', 'x > 0', 'x ≠ 3'] },
+    { q: 'Hasil dari <span class="q-formula">(x − 2)(x + 5)</span> adalah …', correct: 2, exp: '(x − 2)(x + 5) = x² + 5x − 2x − 10 = x² + 3x − 10.', opts: ['x² + 7x + 10', 'x² − 3x − 10', 'x² + 3x − 10', 'x² − 7x − 10'] },
+    { q: 'Grafik <span class="q-formula">y = 2x − 1</span> melalui titik …', correct: 3, exp: 'Substitusi: 2(2) − 1 = 3 → titik (2, 3).', opts: ['(1, 3)', '(0, 1)', '(3, 5)', '(2, 3)'] }
+  ];
+  var SELECTED_READ = [1, 3, 0, 1, 0, 2, 0, 1, 2, 3]; /* riwayat: jawaban user utk review/result demo */
+  var INCORRECT = [2, 8]; /* soal yang salah pada sesi riwayat */
+
+  var state = { view: 'catalog', scope: '', idx: 0, answers: {}, doubts: {} };
+
+  function show(view) {
+    Object.keys(views).forEach(function (k) { views[k].hidden = k !== view; });
+    state.view = view;
+  }
+
+  /* ---------- Pohon latihan ---------- */
+  function statusClass(pct) {
+    if (pct >= THRESHOLD) return 'g';
+    if (pct > 0) return 'a';
+    return 'r';
+  }
+  function pctLabel(pct) {
+    if (pct >= THRESHOLD) return 'hijau';
+    if (pct > 0) return 'amber';
+    return 'belum';
+  }
+
+  function renderTree() {
+    var box = document.getElementById('practice-tree');
+    box.innerHTML = '';
+    TREE.forEach(function (subj) {
+      var subjNode = document.createElement('div');
+      subjNode.className = 'subject-node';
+      subjNode.setAttribute('data-open', subj.open ? 'true' : 'false');
+      var cn = 0; subj.chapters.forEach(function (c) { cn += c.pct >= THRESHOLD ? 1 : 0; });
+      subjNode.innerHTML =
+        '<div class="sn-head" role="button" aria-expanded="' + (subj.open ? 'true' : 'false') + '">' +
+          '<span class="sn-ic ' + subj.color + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + subj.icon + '</svg></span>' +
+          '<div class="sn-main"><div class="t">' + subj.name + '</div><div class="meta">' + subj.greenBabs + ' bab hijau · skor agregat</div></div>' +
+          '<div class="sn-prog"><div class="rh-prog-label"><span style="color:var(--muted)">' + cn + ' bab hijau</span><b style="color:' + (subj.pct >= THRESHOLD ? 'var(--green-700)' : 'var(--fg)') + '">' + subj.pct + '%</b></div><div class="bar"><span class="' + (subj.pct >= THRESHOLD ? 'green' : subj.pct > 0 ? 'orange' : '') + '" style="width:' + subj.pct + '%"></span></div></div>' +
+          '<span class="sn-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>' +
+        '</div>' +
+        '<div class="sn-body"></div>';
+      var head = subjNode.querySelector('.sn-head');
+      head.addEventListener('click', function () {
+        var open = subjNode.getAttribute('data-open') === 'true';
+        subjNode.setAttribute('data-open', String(!open));
+        head.setAttribute('aria-expanded', String(!open));
+      });
+      var body = subjNode.querySelector('.sn-body');
+      subj.chapters.forEach(function (ch) {
+        var chap = document.createElement('div');
+        chap.className = 'chapter-node';
+        chap.setAttribute('data-open', 'false');
+        chap.innerHTML =
+          '<div class="cn-head" role="button" aria-expanded="false">' +
+            '<span class="cn-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>' +
+            '<div class="cn-main"><div class="t">' + ch.t + '</div><div class="meta">' + pctLabel(ch.pct) + '</div></div>' +
+            '<div class="cn-prog"><div class="rh-prog-label"><span style="color:var(--muted)">Skor</span><b style="color:' + (ch.pct >= THRESHOLD ? 'var(--green-700)' : ch.pct > 0 ? 'var(--amber-700)' : 'var(--muted)') + '">' + ch.pct + '%</b></div><div class="bar"><span class="' + (ch.pct >= THRESHOLD ? 'green' : ch.pct > 0 ? 'orange' : '') + '" style="width:' + ch.pct + '%"></span></div></div>' +
+          '</div>' +
+          '<div class="cn-body"></div>';
+        var chead = chap.querySelector('.cn-head');
+        chead.addEventListener('click', function () {
+          var open = chap.getAttribute('data-open') === 'true';
+          chap.setAttribute('data-open', String(!open));
+          chead.setAttribute('aria-expanded', String(!open));
+        });
+        var cbody = chap.querySelector('.cn-body');
+        ch.topics.forEach(function (tp) {
+          var row = document.createElement('div');
+          row.className = 'topic-row';
+          row.innerHTML =
+            '<span class="topic-dot ' + statusClass(tp.pct) + '"></span>' +
+            '<span class="topic-name">' + tp.t + '</span>' +
+            '<span class="topic-r ' + (tp.pct >= THRESHOLD ? 'tr-good' : tp.pct > 0 ? 'tr-mid' : 'tr-zero') + '">' + tp.pct + '% ' + pctLabel(tp.pct) + '</span>' +
+            '<button class="btn btn-secondary btn-sm" data-start>Mulai</button>';
+          row.querySelector('[data-start]').addEventListener('click', function () {
+            startRun(subj.name + ' · ' + ch.t + ' · ' + tp.t);
+          });
+          cbody.appendChild(row);
+        });
+        body.appendChild(chap);
+      });
+      box.appendChild(subjNode);
+    });
+  }
+
+  /* ---------- Riwayat ---------- */
+  function renderHistory() {
+    var box = document.getElementById('riwayat');
+    var items = [
+      { scope: '<span class="m">Matematika · Bab 1 ·</span> Topik Aljabar', score: 90, time: '00:04:32' },
+      { scope: '<span class="m">Matematika · Bab 2 ·</span> Rumus ABC', score: 75, time: '00:03:10' },
+      { scope: '<span class="m">Matematika · Bab 1 ·</span> Faktorisasi', score: 60, time: '00:05:41' }
+    ];
+    box.innerHTML = '';
+    items.forEach(function (it) {
+      var el = document.createElement('div');
+      el.className = 'card card-hover h-item';
+      el.setAttribute('data-od-id', 'riwayat-' + it.time.replace(/:/g, ''));
+      var good = it.score >= THRESHOLD;
+      el.innerHTML =
+        '<div class="h-scope">' + it.scope + '</div>' +
+        '<div class="h-meta"><span class="h-score" style="color:' + (good ? 'var(--green-700)' : 'var(--amber-700)') + '">' + it.score + '%</span><span class="h-time">' + it.time + '</span></div>' +
+        '<button class="btn btn-secondary btn-sm">Hasil</button>';
+      el.addEventListener('click', function () { openReview('Matematika · Bab 1 · Topik Aljabar', it.score); });
+      box.appendChild(el);
+    });
+  }
+
+  /* ---------- Runner ---------- */
+  function startRun(scope) {
+    state.scope = scope;
+    state.idx = 0;
+    state.answers = {};
+    state.doubts = {};
+    document.getElementById('bc-runner').textContent = scope;
+    document.getElementById('rh-scope').textContent = scope;
+    renderQuestion();
+    show('runner');
+  }
+
+  function renderQuestion() {
+    var q = QUESTIONS[state.idx];
+    var el = document.getElementById('question-card');
+    document.getElementById('rh-ques').textContent = 'Soal ' + (state.idx + 1) + ' · dari ' + QUESTIONS.length;
+    document.getElementById('rh-prog-txt').textContent = (state.idx + 1) + '/' + QUESTIONS.length;
+    document.getElementById('rh-prog-bar').style.width = ((state.idx + 1) / QUESTIONS.length * 100) + '%';
+    document.getElementById('prev-q').disabled = state.idx === 0;
+    var sel = state.answers[state.idx];
+    var doubt = !!state.doubts[state.idx];
+    var op = Object.keys(state.doubts).length;
+    document.getElementById('rh-flag-count').hidden = op === 0;
+    document.getElementById('rh-flag-n').textContent = op;
+
+    el.innerHTML =
+      '<div class="q-top">' +
+        '<span class="q-count">Soal <b>' + (state.idx + 1) + '</b> dari ' + QUESTIONS.length + ' · Pilihan Ganda</span>' +
+        '<button class="flag-btn' + (doubt ? ' on' : '') + '" id="flag-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v18M6 4l12 4-12 4"/></svg>' + (doubt ? 'Batal ragu-ragu' : 'Tandai ragu-ragu') + '</button>' +
+      '</div>' +
+      '<div class="q-content">' + q.q + '</div>' +
+      '<div class="options">' + q.opts.map(function (o, i) {
+        return '<div class="opt' + (sel === i ? ' selected' : '') + '" data-opt="' + i + '"><span class="key">' + 'ABCD'[i] + '</span><span class="txt">' + o + '</span></div>';
+      }).join('') + '</div>';
+
+    el.querySelectorAll('.opt').forEach(function (o) {
+      o.addEventListener('click', function () {
+        state.answers[state.idx] = parseInt(o.getAttribute('data-opt'), 10);
+        renderQuestion();
+      });
+    });
+    document.getElementById('flag-toggle').addEventListener('click', function () {
+      if (state.doubts[state.idx]) delete state.doubts[state.idx];
+      else state.doubts[state.idx] = true;
+      renderQuestion();
+    });
+    renderPalette();
+  }
+
+  function renderPalette() {
+    var grid = document.getElementById('palette-grid');
+    grid.innerHTML = '';
+    QUESTIONS.forEach(function (_, i) {
+      var b = document.createElement('button');
+      var cls = '';
+      if (state.doubts[i]) cls = ' doubt';
+      else if (state.answers[i] !== undefined) cls = ' answered';
+      if (i === state.idx) cls += ' current';
+      b.className = cls.trim();
+      b.textContent = i + 1;
+      b.addEventListener('click', function () { state.idx = i; renderQuestion(); });
+      grid.appendChild(b);
+    });
+  }
+
+  /* ---------- Dialog keluar + selesai ---------- */
+  var exitD = document.getElementById('exit-dialog');
+  var exitBk = document.getElementById('exit-backdrop');
+  var finishD = document.getElementById('finish-dialog');
+  var finishBk = document.getElementById('finish-backdrop');
+  function openDialog(dlg, bk) { dlg.classList.add('open'); bk.classList.add('open'); var f = dlg.querySelector('button:not([id$="-confirm"]:first-child)') ; if (f) f.focus(); }
+  function closeDialog(dlg, bk) { dlg.classList.remove('open'); bk.classList.remove('open'); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (exitD.classList.contains('open')) closeDialog(exitD, exitBk);
+      if (finishD.classList.contains('open')) closeDialog(finishD, finishBk);
+    }
+  });
+  exitBk.addEventListener('click', function () { closeDialog(exitD, exitBk); });
+  document.getElementById('exit-cancel').addEventListener('click', function () { closeDialog(exitD, exitBk); });
+  document.getElementById('exit-confirm').addEventListener('click', function () { closeDialog(exitD, exitBk); show('catalog'); });
+  finishBk.addEventListener('click', function () { closeDialog(finishD, finishBk); });
+  document.getElementById('finish-cancel').addEventListener('click', function () { closeDialog(finishD, finishBk); });
+  document.getElementById('finish-confirm').addEventListener('click', function () {
+    closeDialog(finishD, finishBk);
+    var total = QUESTIONS.length;
+    var correct = 0, wrong = 0, unanswered = 0;
+    for (var i = 0; i < total; i++) {
+      if (state.answers[i] === undefined) unanswered++;
+      else if (state.answers[i] === QUESTIONS[i].correct) correct++;
+      else wrong++;
+    }
+    openResult(state.scope, { total: total, correct: correct, wrong: wrong, unanswered: unanswered });
+  });
+
+  /* Sidebar/nav guard: keluar tengah jalan bila ada jawaban */
+  Object.keys(views).forEach(function (k) {});
+
+  document.getElementById('next-q').addEventListener('click', function () {
+    if (state.idx < QUESTIONS.length - 1) { state.idx++; renderQuestion(); }
+  });
+  document.getElementById('prev-q').addEventListener('click', function () {
+    if (state.idx > 0) { state.idx--; renderQuestion(); }
+  });
+  document.getElementById('finish-q').addEventListener('click', function () { openDialog(finishD, finishBk); });
+
+  var palette = document.getElementById('palette');
+  var paletteBk = document.getElementById('palette-backdrop');
+  document.getElementById('open-palette').addEventListener('click', function () {
+    renderPalette(); paletteBk.classList.add('open'); palette.classList.add('open');
+  });
+  document.getElementById('palette-close').addEventListener('click', function () { paletteBk.classList.remove('open'); palette.classList.remove('open'); });
+  paletteBk.addEventListener('click', function () { paletteBk.classList.remove('open'); palette.classList.remove('open'); });
+
+  /* ---------- Result ---------- */
+  function openResult(scope, r) {
+    var acc = Math.round(r.correct / r.total * 100);
+    document.getElementById('r-title').textContent = scope;
+    document.getElementById('r-score').textContent = acc + '%';
+    var passed = acc >= THRESHOLD;
+    document.getElementById('r-status-tag').textContent = passed ? 'dikuasai' : 'belum hijau';
+    document.getElementById('r-scope-note').textContent = passed ? 'Topik dikuasai. Lanjutkan ke topik lain atau ulangi untuk memperbarui akurasi.' : 'Target dikuasai ≥ ' + THRESHOLD + '% — kerjakan ulang untuk menuntaskan topik.';
+    document.getElementById('r-benar').textContent = r.correct;
+    document.getElementById('r-salah').textContent = r.wrong;
+    document.getElementById('r-kosong').textContent = r.unanswered;
+    document.getElementById('r-waktu').textContent = '00:04:32';
+    show('result');
+  }
+  document.getElementById('r-review').addEventListener('click', function () { openReview(state.scope, 80); });
+  document.getElementById('r-ulangi').addEventListener('click', function () { startRun(state.scope); });
+  document.getElementById('r-kembali').addEventListener('click', function () { show('catalog'); });
+
+  /* ---------- Review ---------- */
+  function openReview(scope, score) {
+    document.getElementById('rv-title').textContent = scope;
+    document.getElementById('rv-meta').textContent = 'Skor ' + score + '% · Waktu 00:04:32';
+    var list = document.getElementById('review-list');
+    list.innerHTML = '';
+    QUESTIONS.forEach(function (q, i) {
+      var sel = SELECTED_READ[i];
+      var isCorrect = sel === q.correct;
+      var card = document.createElement('div');
+      card.className = 'rev-card';
+      card.setAttribute('data-od-id', 'review-soal-' + (i + 1));
+      card.innerHTML =
+        '<div class="rev-top"><span class="rn">Soal ' + (i + 1) + ' · Pilihan Ganda</span><span class="pill ' + (isCorrect ? 'green' : 'red') + '">' + (isCorrect ? 'Benar' : 'Salah') + '</span></div>' +
+        '<div class="rev-q">' + q.q + '</div>' +
+        '<div class="rev-opts">' + q.opts.map(function (o, oi) {
+          var cls = oi === q.correct ? ' correct' : (oi === sel ? ' wrong' : '');
+          var tag = oi === q.correct ? '<span class="tag">BENAR</span>' : (oi === sel ? '<span class="tag">JAWABANMU</span>' : '');
+          return '<div class="rev-opt' + cls + '"><span class="rk">' + 'ABCD'[oi] + '</span><span>' + o + '</span>' + tag + '</div>';
+        }).join('') + '</div>' +
+        '<div class="rev-exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg><span><b>PEMBAHASAN.</b> ' + q.exp + '</span></div>';
+      list.appendChild(card);
+    });
+    show('review');
+  }
+
+  /* ---------- Nav ---------- */
+  document.querySelectorAll('[data-nav-catalog]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var hasAny = state.view === 'runner' && Object.keys(state.answers).length > 0;
+      if (hasAny) openDialog(exitD, exitBk);
+      else show('catalog');
+    });
+  });
+
+  renderTree();
+  renderHistory();
+  show('catalog');
+})();
+</script>
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+</body>
+</html>

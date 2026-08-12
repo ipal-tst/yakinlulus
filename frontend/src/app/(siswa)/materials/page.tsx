@@ -4,95 +4,134 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/auth.store";
 import { academicService } from "@/services/academic.service";
-import { Material } from "@/types";
 import { GradeBadge } from "@/components/siswa/GradeBadge";
-import { BookOpen, Search, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { LearnSubject } from "@/types";
+import { cn } from "@/lib/utils";
+import { BookOpen, Lightbulb, PlayCircle, Headphones, Lock, ArrowRight } from "lucide-react";
 
-interface SubjectSummary {
-    name: string;
-    total: number;
-    completed: number;
-    iconColor: string;
+interface ExtraBlock {
+    kind: string;
+    title: string;
+    media_url?: string;
+    duration_seconds?: number;
+    description?: string;
 }
 
-const DEFAULT_SUBJECT_SUMMARIES: SubjectSummary[] = [
-    { name: "Penalaran Matematika", total: 12, completed: 8, iconColor: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
-    { name: "Literasi Bahasa Indonesia", total: 10, completed: 6, iconColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
-    { name: "Penalaran Umum", total: 15, completed: 11, iconColor: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
-    { name: "Pengetahuan Kuantitatif", total: 14, completed: 5, iconColor: "text-purple-500 bg-purple-500/10 border-purple-500/20" },
+const DEFAULT_SUBJECTS: LearnSubject[] = [
+    {
+        subject_id: "mtk",
+        subject_name: "Matematika",
+        icon: "calc",
+        icon_color: "#2563eb",
+        total_children: 8,
+        completed_children: 8,
+        progress_pct: 100,
+        is_mastered: true,
+    },
+    {
+        subject_id: "bind",
+        subject_name: "Bahasa Indonesia",
+        icon: "book",
+        icon_color: "#ec4899",
+        total_children: 6,
+        completed_children: 2,
+        progress_pct: 40,
+        is_mastered: false,
+    },
+    {
+        subject_id: "fis",
+        subject_name: "Fisika",
+        icon: "atom",
+        icon_color: "#f97316",
+        total_children: 5,
+        completed_children: 0,
+        progress_pct: 10,
+        is_mastered: false,
+    },
+    {
+        subject_id: "kim",
+        subject_name: "Kimia",
+        icon: "flask",
+        icon_color: "#8b5cf6",
+        total_children: 4,
+        completed_children: 0,
+        progress_pct: 0,
+        is_mastered: false,
+    },
 ];
+
+const DEFAULT_EXTRAS: ExtraBlock[] = [
+    {
+        kind: "TIPS",
+        title: "Tips & Trik UTBK",
+        description: "Strategi menjawab cepat · 12 menit",
+    },
+    {
+        kind: "VIDEO",
+        title: "Video Rangkuman",
+        description: "Materi inti tiap mapel · 5–8 menit",
+    },
+    {
+        kind: "AUDIO",
+        title: "Audio Belajar",
+        description: "Podcast ringkas saat perjalanan",
+    },
+];
+
+function SubjectIcon({ name, color }: { name: string; color: string }) {
+    const icons: Record<string, React.ReactNode> = {
+        calc: <BookOpen className="h-5 w-5" />,
+        book: <BookOpen className="h-5 w-5" />,
+        atom: <BookOpen className="h-5 w-5" />,
+        flask: <BookOpen className="h-5 w-5" />,
+    };
+    return (
+        <span
+            className="h-11 w-11 rounded-xl flex items-center justify-center text-white flex-none"
+            style={{ background: color }}
+        >
+            {icons[name] || <BookOpen className="h-5 w-5" />}
+        </span>
+    );
+}
+
+function statusBadge(sub: LearnSubject, tgt: number) {
+    const pct = sub.progress_pct;
+    if (sub.is_mastered || pct >= 100)
+        return { label: "Dikuasai", cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" };
+    if (pct > 0)
+        return { label: "Berjalan", cls: "bg-amber-500/10 text-amber-600 border-amber-500/20" };
+    return { label: "Belum mulai", cls: "bg-muted text-muted-foreground border-border" };
+}
 
 export default function MaterialsPage() {
     const { user } = useAuthStore();
-    const [materials, setMaterials] = useState<Material[]>([]);
+    const [level, setLevel] = useState("SMA");
+    const [subjects, setSubjects] = useState<LearnSubject[]>([]);
+    const [extras, setExtras] = useState<ExtraBlock[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState("ALL");
-    const [selectedSubject, setSelectedSubject] = useState("ALL");
 
     useEffect(() => {
         async function load() {
+            setLoading(true);
             try {
-                const res = await academicService.getMaterials();
-                if (res && Array.isArray(res) && res.length > 0) {
-                    setMaterials(res);
+                const res = await academicService.getLearnCatalog();
+                if (res && Array.isArray(res.subjects) && res.subjects.length > 0) {
+                    setSubjects(res.subjects);
+                    setExtras(res.extras || []);
                 } else {
-                    throw new Error("No materials returned from API");
+                    setSubjects(DEFAULT_SUBJECTS);
+                    setExtras(DEFAULT_EXTRAS);
                 }
             } catch {
-                setMaterials([
-                    {
-                        id: "m-1",
-                        title: "Konsep Dasar Penalaran Matematika UTBK",
-                        subject_name: "Penalaran Matematika",
-                        category: "TEORI",
-                        content_format: "TEXT",
-                        estimated_duration: 15,
-                        description: "Penalaran matematika menguji kemampuan logika kuantitatif dan analisis pola data.",
-                        body: "Penalaran matematika menguji kemampuan logika kuantitatif...",
-                        is_completed: true,
-                    },
-                    {
-                        id: "m-2",
-                        title: "Strategi Memahami Teks Bahasa Indonesia SNBT",
-                        subject_name: "Literasi Bahasa Indonesia",
-                        category: "STRATEGI",
-                        content_format: "MARKDOWN",
-                        estimated_duration: 20,
-                        description: "Trik cepat menganalisis ide pokok wacana dan kesimpulan paragraf.",
-                        body: "Ide pokok paragraf merupakan inti dari sebuah wacana...",
-                        is_completed: false,
-                    },
-                    {
-                        id: "m-3",
-                        title: "Trik Cepat Soal Penalaran Umum (Kuantitatif)",
-                        subject_name: "Penalaran Umum",
-                        category: "TRIK_CEPAT",
-                        content_format: "TEXT",
-                        estimated_duration: 10,
-                        description: "Pola deret angka, kecukupan data, dan logika penarikan kesimpulan.",
-                        body: "Pola deret angka dan hubungan antar kuantitas...",
-                        is_completed: false,
-                    },
-                    {
-                        id: "m-4",
-                        title: "Rangkuman Rumus Cepat Pengetahuan Kuantitatif",
-                        subject_name: "Pengetahuan Kuantitatif",
-                        category: "RANGKUMAN",
-                        content_format: "MARKDOWN",
-                        estimated_duration: 25,
-                        description: "Rangkuman lengkap ALJABAR, GEOMETRI, dan STATISTIKA UTBK 2026.",
-                        body: "Matriks dasar, trigonometri sederhana, dan kombinatorika...",
-                        is_completed: true,
-                    },
-                ]);
+                setSubjects(DEFAULT_SUBJECTS);
+                setExtras(DEFAULT_EXTRAS);
             } finally {
                 setLoading(false);
             }
@@ -100,156 +139,157 @@ export default function MaterialsPage() {
         load();
     }, []);
 
-    const filtered = materials.filter((m) => {
-        const subName = m.subject_name || "Materi Umum";
-        const catName = m.category || m.content_format || "TEORI";
-        const bodyContent = m.body || m.content || "";
-        const descContent = m.description || "";
-
-        const matchSearch =
-            m.title.toLowerCase().includes(search.toLowerCase()) ||
-            subName.toLowerCase().includes(search.toLowerCase()) ||
-            descContent.toLowerCase().includes(search.toLowerCase()) ||
-            bodyContent.toLowerCase().includes(search.toLowerCase());
-
-        const matchSubject = selectedSubject === "ALL" || subName === selectedSubject;
-        const matchCategory = selectedCategory === "ALL" || catName === selectedCategory;
-
-        return matchSearch && matchSubject && matchCategory;
-    });
+    const levelTabs = ["SD", "SMP", "SMA"];
 
     return (
         <AppShell>
-            <div className="space-y-8">
-                {/* Header & Grade Level Badge */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-8 max-w-7xl mx-auto">
+                {/* HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <h1 className="font-heading text-2xl font-bold tracking-tight">Modul Belajar & Teori UTBK</h1>
-                            <GradeBadge educationLevel={user?.education_level} grade={user?.grade} />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            Kumpulan konsep dasar, rangkuman rumus, dan trik cepat per mata pelajaran.
+                        <h1 className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">
+                            Halo, {user?.full_name?.split(" ")[0] || "Raka"}!
+                            <span className="text-foreground/80"> Ingin belajar apa hari ini?</span>
+                        </h1>
+                        <p className="text-sm text-muted-foreground mt-1.5">
+                            Materi ditampilkan sesuai jenjangmu. Kuasai soal benar per bab untuk menuntaskan mapel.
                         </p>
                     </div>
+                    <div className="flex items-center gap-2">
+                        <GradeBadge educationLevel={user?.education_level} grade={user?.grade} />
+                    </div>
                 </div>
 
-                {/* Subject Summary Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {DEFAULT_SUBJECT_SUMMARIES.map((sub) => {
-                        const pct = Math.round((sub.completed / sub.total) * 100);
-                        const isSelected = selectedSubject === sub.name;
-
+                {/* TABS JENJANG */}
+                <div className="inline-flex rounded-xl border border-border bg-card p-1 gap-1">
+                    {levelTabs.map((lv) => {
+                        const active = lv === level;
+                        const locked = lv !== level;
                         return (
-                            <Card
-                                key={sub.name}
-                                onClick={() => setSelectedSubject(isSelected ? "ALL" : sub.name)}
-                                className={`cursor-pointer transition-all hover:border-primary border-2 ${isSelected ? "border-primary bg-primary/5 shadow-xs" : "border-border/60"}`}
+                            <button
+                                key={lv}
+                                disabled={locked}
+                                onClick={() => setLevel(lv)}
+                                className={cn(
+                                    "px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors",
+                                    active && "bg-primary text-primary-foreground",
+                                    !active && locked && "text-muted-foreground/60 cursor-not-allowed flex items-center gap-1.5",
+                                    !active && !locked && "text-muted-foreground hover:bg-muted"
+                                )}
                             >
-                                <CardHeader className="p-4 pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <span className={`p-2 rounded-xl border font-bold ${sub.iconColor}`}>
-                                            <BookOpen className="h-4 w-4" />
-                                        </span>
-                                        <Badge variant="outline" className="text-[10px]">
-                                            {sub.completed}/{sub.total} Selesai
-                                        </Badge>
-                                    </div>
-                                    <CardTitle className="text-sm font-bold mt-2 line-clamp-1">{sub.name}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 pt-1 space-y-2">
-                                    <Progress value={pct} className="h-2" />
-                                    <div className="flex justify-between text-[11px] text-muted-foreground font-medium">
-                                        <span>Progres Belajar</span>
-                                        <span className="text-primary font-semibold">{pct}%</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                {locked && <Lock className="h-3 w-3" />}
+                                {lv}
+                            </button>
                         );
                     })}
                 </div>
 
-                {/* Filter and Search Bar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
-                    {/* Category Filter Tabs */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                        {[
-                            { key: "ALL", label: "Semua Kategori" },
-                            { key: "TEORI", label: "Teori Dasar" },
-                            { key: "STRATEGI", label: "Strategi Soal" },
-                            { key: "TRIK_CEPAT", label: "Trik Cepat" },
-                            { key: "RANGKUMAN", label: "Rangkuman Bab" },
-                        ].map((cat) => (
-                            <Button
-                                key={cat.key}
-                                variant={selectedCategory === cat.key ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setSelectedCategory(cat.key)}
-                                className="rounded-xl text-xs font-medium whitespace-nowrap"
-                            >
-                                {cat.label}
-                            </Button>
-                        ))}
+                {/* DAFTAR MAPEL */}
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-bold text-lg">Mata Pelajaran</h2>
                     </div>
 
-                    {/* Search Input */}
-                    <div className="relative w-full sm:w-72">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari materi atau topik..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 h-9 text-xs rounded-xl"
-                        />
+                    {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <Card key={i} className="p-5">
+                                    <Skeleton className="h-11 w-11 rounded-xl" />
+                                    <Skeleton className="h-4 w-24 mt-4" />
+                                    <Skeleton className="h-2 w-full mt-4" />
+                                    <Skeleton className="h-3 w-16 mt-3" />
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {subjects.map((sub) => {
+                                const st = statusBadge(sub, 50);
+                                return (
+                                    <Link href={`/materials/${sub.subject_id}`} key={sub.subject_id}>
+                                        <Card className="p-5 hover:border-primary/50 hover:shadow-md transition-all h-full cursor-pointer">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <SubjectIcon name={sub.icon} color={sub.icon_color} />
+                                                <Badge variant="outline" className={cn("text-[10px] font-semibold", st.cls)}>
+                                                    {st.label}
+                                                </Badge>
+                                            </div>
+                                            <h3 className="font-bold text-base text-foreground">{sub.subject_name}</h3>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {sub.total_children} bab · peminatan &amp; wajib
+                                            </p>
+                                            <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-4">
+                                                <div
+                                                    className="h-full rounded-full"
+                                                    style={{
+                                                        width: `${sub.progress_pct}%`,
+                                                        background: sub.is_mastered || sub.progress_pct >= 100 ? "#16a34a" : sub.progress_pct > 0 ? "#f97316" : "#94a3b8",
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2">
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    {sub.completed_children} dari {sub.total_children} bab hijau
+                                                </span>
+                                                <span
+                                                    className="text-xs font-bold font-mono"
+                                                    style={{
+                                                        color: sub.is_mastered
+                                                            ? "#16a34a"
+                                                            : sub.progress_pct > 0
+                                                                ? "#f97316"
+                                                                : "#94a3b8",
+                                                    }}
+                                                >
+                                                    {sub.progress_pct}%
+                                                </span>
+                                            </div>
+                                        </Card>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+
+                {/* NON-MAPEL */}
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-bold text-lg">Tips &amp; Materi Bonus</h2>
                     </div>
-                </div>
-
-                {/* Material Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filtered.map((m) => {
-                        const duration = m.estimated_duration || m.reading_time_minutes || 15;
-                        const cardText = m.description || m.body || m.content || "";
-
-                        return (
-                            <Card key={m.id} className="flex flex-col justify-between hover:border-primary transition-all group">
-                                <CardHeader className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                                            {m.subject_name || "General"}
-                                        </Badge>
-                                        {m.is_completed ? (
-                                            <Badge variant="success" className="gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                                                <CheckCircle2 className="h-3 w-3" /> Selesai
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="outline" className="text-[10px] text-amber-600 dark:text-amber-400 border-amber-500/20">
-                                                Belum Dibaca
-                                            </Badge>
-                                        )}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {(extras.length > 0 ? extras : DEFAULT_EXTRAS).map((ex, i) => {
+                            const meta: Record<string, { icon: React.ReactNode; cls: string }> = {
+                                TIPS: {
+                                    icon: <Lightbulb className="h-5 w-5" />,
+                                    cls: "bg-primary/10 text-primary",
+                                },
+                                VIDEO: {
+                                    icon: <PlayCircle className="h-5 w-5" />,
+                                    cls: "bg-orange-500/10 text-orange-600",
+                                },
+                                AUDIO: {
+                                    icon: <Headphones className="h-5 w-5" />,
+                                    cls: "bg-emerald-500/10 text-emerald-600",
+                                },
+                            };
+                            const m = meta[ex.kind] || meta.TIPS;
+                            return (
+                                <Card key={i} className="p-4 flex items-center gap-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+                                    <span className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-none", m.cls)}>
+                                        {m.icon}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h4 className="font-bold text-sm text-foreground truncate">{ex.title}</h4>
+                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                            {ex.description}
+                                        </p>
                                     </div>
-                                    <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                                        {m.title}
-                                    </CardTitle>
-                                    <CardDescription className="line-clamp-2 text-xs">
-                                        {cardText}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="pt-0 space-y-4">
-                                    <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1.5 font-medium">
-                                            <Clock className="h-3.5 w-3.5 text-primary" /> {duration} menit baca
-                                        </span>
-                                        <Button asChild size="sm" variant="default" className="rounded-xl text-xs gap-1 font-medium shadow-xs">
-                                            <Link href={`/materials/${m.id}`}>
-                                                Baca Materi <ArrowRight className="h-3.5 w-3.5" />
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </section>
             </div>
         </AppShell>
     );

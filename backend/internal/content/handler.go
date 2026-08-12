@@ -2,6 +2,7 @@ package content
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -65,6 +66,22 @@ func (h *Handler) GetContent(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(400).JSON(shared.Error(shared.ErrValidation, "Invalid content ID"))
+	}
+
+	role, _ := c.Locals("role").(string)
+	if role == "SISWA" || role == "SUPER_SISWA" {
+		userIDStr, _ := c.Locals("user_id").(string)
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			return c.Status(http.StatusUnauthorized).JSON(shared.Error(shared.ErrUnauthorized, "Unauthorized"))
+		}
+		accessible, err := h.repo.IsContentAccessible(c.Context(), id, userID)
+		if err != nil {
+			return c.Status(500).JSON(shared.Error(shared.ErrInternal, "Failed to check access"))
+		}
+		if !accessible {
+			return c.Status(http.StatusForbidden).JSON(shared.Error(shared.ErrForbidden, "Content not accessible for your grade"))
+		}
 	}
 
 	content, err := h.repo.GetContent(c.Context(), id)

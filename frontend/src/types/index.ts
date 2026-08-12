@@ -358,12 +358,79 @@ export interface TargetSchool {
     chance_percentage?: number;
 }
 
-// Notification
-export interface NotificationItem {
-    id: string;
+// Materials / Learn
+export interface LearnSubject {
+    subject_id: string;
+    subject_name: string;
+    icon: string;
+    icon_color: string;
+    total_children: number;
+    completed_children: number;
+    progress_pct: number;
+    is_mastered: boolean;
+    grade_id?: string;
+    education_level_id?: string;
+}
+
+export interface LearnChapter {
+    chapter_id: string;
+    subject_id: string;
     title: string;
-    message: string;
-    type: "INFO" | "WARNING" | "SUCCESS" | "ERROR";
-    is_read: boolean;
-    created_at: string;
+    order_index: number;
+    progress_pct: number;
+    correct_count: number;
+    target_correct: number;
+    status: "green" | "amber" | "red" | "blue";
+    quiz_exam_id?: string;
+    description?: string;
+}
+
+export interface LearnTopic {
+    topic_id: string;
+    chapter_id: string;
+    name: string;
+    order_index: number;
+    competencies: LearnCompetency[];
+}
+
+export interface LearnCompetency {
+    competency_id: string;
+    code: string;
+    title: string;
+    content_blocks: ContentBlock[];
+}
+
+export interface ContentBlock {
+    block_type: string;
+    block_id: string;
+    title: string;
+    content: string;
+    media_url?: string;
+    duration_seconds?: number;
+    image_url?: string;
+    video_url?: string;
+    formula?: string;
+    table_data?: Record<string, any>;
+    chart_data?: Record<string, any>;
+}
+
+export interface LearningProgress {
+    material_id: string;
+    progress: number;
+    completed: boolean;
+    last_position?: number;
+}
+
+export interface ProgressBadge {
+    pct: number;
+    status: "green" | "amber" | "red" | "grey";
+    label: string;
+}
+
+export interface MaterialProgressState {
+    subjectId: string;
+    chapterId: string;
+    correctCount: number;
+    targetCorrect: number;
+    progressPct: number;
 }

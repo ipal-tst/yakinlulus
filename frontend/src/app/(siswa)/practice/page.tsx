@@ -1,385 +1,591 @@
 // frontend/src/app/(siswa)/practice/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import { useAuthStore } from "@/stores/auth.store";
+    Accordion,
+    AccordionItem,
+    AccordionTrigger,
+    AccordionContent,
+} from "@/components/ui/accordion";
+import { EmptyState } from "@/components/siswa/EmptyState";
+import { SectionHeader } from "@/components/siswa/SectionHeader";
 import { GradeBadge } from "@/components/siswa/GradeBadge";
-import { academicService } from "@/services/academic.service";
-import { Exam, Material } from "@/types";
+import { useAuthStore } from "@/stores/auth.store";
 import {
-    PenTool,
-    Target,
-    Flame,
-    Award,
+    academicService,
+    PracticeStartPayload,
+} from "@/services/academic.service";
+import {
+    PracticeCatalog,
+    PracticeSubjectNode,
+    PracticeChapterNode,
+    PracticeHistoryItem,
+    ProgressStatus,
+    formatDuration,
+} from "@/types/siswa";
+import { cn } from "@/lib/utils";
+import {
     BookOpen,
-    Search,
-    Clock,
-    ArrowRight,
     CheckCircle2,
-    Zap,
-    HelpCircle,
+    Clock,
+    History,
     Play,
-    Sparkles,
-    Inbox,
+    Target,
+    PlusCircle,
+    ArrowRight,
 } from "lucide-react";
 
-interface PracticeItem {
-    id: string;
-    title: string;
-    subject_name: string;
-    type: "SUBJECT" | "TOPIC" | "ADMIN_DRILL";
-    difficulty: "EASY" | "MEDIUM" | "HARD" | "HOTS";
-    total_questions: number;
-    estimated_minutes: number;
-    is_hot?: boolean;
-    author?: string;
-    description?: string;
+const SUBJECT_ICONS: Record<string, string> = {
+    calc: "📘",
+    book: "📗",
+    atom: "🧪",
+    flask: "✨",
+    history: "📜",
+    globe: "🌏",
+    pencil: "✏️",
+};
+
+function subjectEmoji(icon: string | undefined): string {
+    if (!icon) return "📘";
+    return SUBJECT_ICONS[icon.toLowerCase()] ?? "📘";
+}
+
+function barClass(status: ProgressStatus): string {
+    if (status === "GREEN") return "bg-emerald-500";
+    if (status === "AMBER") return "bg-amber-500";
+    return "bg-muted-foreground/50";
+}
+
+function StatusBadge({ status }: { status: ProgressStatus }) {
+    if (status === "GREEN") {
+        return (
+            <Badge
+                variant="outline"
+                className="gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25 shrink-0"
+            >
+                <CheckCircle2 className="h-3.5 w-3.5" /> HIJAU
+            </Badge>
+        );
+    }
+    if (status === "AMBER") {
+        return (
+            <Badge
+                variant="outline"
+                className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25 shrink-0"
+            >
+                <Clock className="h-3.5 w-3.5" /> BELUM
+            </Badge>
+        );
+    }
+    return (
+        <Badge variant="outline" className="text-muted-foreground shrink-0">
+            BELUM
+        </Badge>
+    );
+}
+
+function historyTitle(item: PracticeHistoryItem): string {
+    const s = item.scope;
+    const parts = [s.subject_name, s.chapter_title, s.topic_title].filter(
+        (x): x is string => Boolean(x)
+    );
+    return parts.join(" · ") || "Latihan";
+}
+
+function CatalogSkeleton() {
+    return (
+        <div className="space-y-8">
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-96 max-w-full" />
+            </div>
+            <Card className="p-0">
+                <div className="divide-y divide-border">
+                    {[0, 1, 2].map((i) => (
+                        <div key={i} className="p-5 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-11 w-11 rounded-xl" />
+                                <div className="flex-1 space-y-2">
+                                    <Skeleton className="h-4 w-40" />
+                                    <Skeleton className="h-2.5 w-full" />
+                                </div>
+                                <Skeleton className="h-5 w-20 rounded-full" />
+                            </div>
+                            <div className="ml-14 space-y-2">
+                                <Skeleton className="h-4 w-52" />
+                                <Skeleton className="h-4 w-44" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+            <div className="space-y-3">
+                <Skeleton className="h-6 w-40" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[0, 1].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default function PracticePage() {
     const router = useRouter();
     const { user } = useAuthStore();
-    const [activeTab, setActiveTab] = useState<"SUBJECT" | "TOPIC" | "ADMIN_DRILL">("SUBJECT");
-    const [search, setSearch] = useState("");
+    const [catalog, setCatalog] = useState<PracticeCatalog | null>(null);
+    const [historyItems, setHistoryItems] = useState<PracticeHistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [practiceItems, setPracticeItems] = useState<PracticeItem[]>([]);
-    const [selectedPractice, setSelectedPractice] = useState<PracticeItem | null>(null);
-    const [selectedMode, setSelectedMode] = useState<"SANTAI" | "SIMULASI">("SANTAI");
+    const [error, setError] = useState<string | null>(null);
+    const [startingKey, setStartingKey] = useState<string | null>(null);
+    const [startError, setStartError] = useState<string | null>(null);
+    const [openSubjects, setOpenSubjects] = useState<string[]>([]);
+    const [openChapters, setOpenChapters] = useState<string[]>([]);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
-        async function loadData() {
+        let cancelled = false;
+        async function load() {
             setLoading(true);
+            setError(null);
             try {
-                // Fetch real data from backend API
-                const [examsRes, materialsRes] = await Promise.allSettled([
-                    academicService.getExams(),
-                    academicService.getMaterials(),
+                const [cat, history] = await Promise.all([
+                    academicService.getPracticeCatalog(),
+                    academicService.getPracticeHistory({ page: 1, limit: 5 }),
                 ]);
-
-                const items: PracticeItem[] = [];
-
-                if (examsRes.status === "fulfilled" && Array.isArray(examsRes.value)) {
-                    examsRes.value.forEach((exam: Exam) => {
-                        const isDrill = exam.category === "UJIAN_BAB" || exam.category === "UJIAN_HARIAN";
-                        items.push({
-                            id: exam.id,
-                            title: exam.title,
-                            subject_name: exam.category ? exam.category.replace(/_/g, " ") : "Paket Latihan",
-                            type: isDrill ? "ADMIN_DRILL" : "SUBJECT",
-                            difficulty: exam.total_questions > 20 ? "HOTS" : "MEDIUM",
-                            total_questions: exam.total_questions || 10,
-                            estimated_minutes: exam.duration_minutes || 15,
-                            description: exam.description || "Latihan soal terstandar sesuai kurikulum.",
-                            author: "Tim Akademik Admin",
-                        });
-                    });
-                }
-
-                if (materialsRes.status === "fulfilled" && Array.isArray(materialsRes.value)) {
-                    materialsRes.value.forEach((mat: Material) => {
-                        items.push({
-                            id: mat.id,
-                            title: `Latihan: ${mat.title}`,
-                            subject_name: mat.subject_name || "Materi Pelajaran",
-                            type: "TOPIC",
-                            difficulty: "MEDIUM",
-                            total_questions: 10,
-                            estimated_minutes: mat.estimated_duration || mat.reading_time_minutes || 15,
-                            description: mat.description || mat.body || "Latihan soal per materi untuk pemantapan konsep.",
-                        });
-                    });
-                }
-
-                setPracticeItems(items);
+                if (cancelled) return;
+                setCatalog(cat);
+                const items = Array.isArray(history)
+                    ? history
+                    : (history?.items ?? []);
+                setHistoryItems(items.filter((it) => it && it.session_id));
             } catch {
-                // If API fails or yields 0 items, set empty array to match DB exactly
-                setPracticeItems([]);
+                if (!cancelled) setError("Gagal memuat daftar latihan.");
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [reloadKey]);
 
-        loadData();
-    }, []);
+    const handleStart = useCallback(
+        async (key: string, payload: PracticeStartPayload) => {
+            if (startingKey) return;
+            setStartError(null);
+            setStartingKey(key);
+            try {
+                const res = await academicService.startPractice(payload);
+                router.push(`/practice/${res.session_id}`);
+            } catch {
+                setStartError("Gagal memulai latihan. Silakan coba lagi.");
+                setStartingKey(null);
+            }
+        },
+        [router, startingKey]
+    );
 
-    const filteredItems = practiceItems.filter((item) => {
-        const matchType = item.type === activeTab;
-        const matchSearch =
-            item.title.toLowerCase().includes(search.toLowerCase()) ||
-            item.subject_name.toLowerCase().includes(search.toLowerCase()) ||
-            (item.description && item.description.toLowerCase().includes(search.toLowerCase()));
-        return matchType && matchSearch;
-    });
-
-    const handleStartPractice = () => {
-        if (!selectedPractice) return;
-        router.push(`/exams?id=${selectedPractice.id}`);
-        setSelectedPractice(null);
-    };
+    const threshold = catalog?.config?.threshold ?? 85;
+    const subjects = catalog?.subjects ?? [];
 
     return (
         <AppShell>
             <div className="space-y-8">
-                {/* Header & Student Context */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <h1 className="font-heading text-2xl font-bold tracking-tight">Pusat Latihan Soal & Drill</h1>
-                            <GradeBadge educationLevel={user?.education_level} grade={user?.grade} />
+                            <h1 className="font-heading text-2xl font-bold tracking-tight">
+                                Halo {user?.full_name || "Siswa"}!
+                            </h1>
+                            <GradeBadge
+                                educationLevel={user?.education_level}
+                                grade={user?.grade}
+                            />
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Asah kemampuan dengan latihan soal per mapel, per materi, dan paket drill khusus buatan Admin.
+                            Latihan mengikuti kurikulummu — hijau = akurasi ≥{" "}
+                            {threshold}% benar di seluruh attempt.
                         </p>
                     </div>
+                    <Badge
+                        variant="outline"
+                        className="gap-1.5 px-3 py-1.5 rounded-full text-xs bg-primary/10 border-primary/20 text-primary self-start lg:self-center"
+                    >
+                        <Target className="h-3.5 w-3.5" /> threshold penguasaan: ≥
+                        {threshold}%
+                    </Badge>
                 </div>
 
-                {/* Summary Overview Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="p-4 flex items-center gap-3 border-border/70">
-                        <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500 font-bold border border-blue-500/20">
-                            <PenTool className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium">Soal Dikerjakan</p>
-                            <h4 className="text-lg font-bold">0 Soal</h4>
-                        </div>
-                    </Card>
-
-                    <Card className="p-4 flex items-center gap-3 border-border/70">
-                        <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/20">
-                            <Target className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium">Akurasi Jawaban</p>
-                            <h4 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">0%</h4>
-                        </div>
-                    </Card>
-
-                    <Card className="p-4 flex items-center gap-3 border-border/70">
-                        <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 font-bold border border-amber-500/20">
-                            <Flame className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium">Drill Streak</p>
-                            <h4 className="text-lg font-bold text-amber-600 dark:text-amber-400">0 Hari</h4>
-                        </div>
-                    </Card>
-
-                    <Card className="p-4 flex items-center gap-3 border-border/70">
-                        <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-500 font-bold border border-purple-500/20">
-                            <Award className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium">Total Skor Latihan</p>
-                            <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">0 Pts</h4>
-                        </div>
-                    </Card>
-                </div>
-
-                {/* Filter Bar: Category Tabs & Search */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
-                    {/* Category Tabs */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                        <Button
-                            variant={activeTab === "SUBJECT" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setActiveTab("SUBJECT")}
-                            className="rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap"
-                        >
-                            <BookOpen className="h-3.5 w-3.5" /> Latihan Per Mapel
-                        </Button>
-                        <Button
-                            variant={activeTab === "TOPIC" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setActiveTab("TOPIC")}
-                            className="rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap"
-                        >
-                            <Zap className="h-3.5 w-3.5" /> Latihan Per Materi/Bab
-                        </Button>
-                        <Button
-                            variant={activeTab === "ADMIN_DRILL" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setActiveTab("ADMIN_DRILL")}
-                            className="rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap"
-                        >
-                            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Drill Spesial Admin
-                        </Button>
-                    </div>
-
-                    {/* Search Input */}
-                    <div className="relative w-full sm:w-72">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari modul latihan..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 h-9 text-xs rounded-xl"
-                        />
-                    </div>
-                </div>
-
-                {/* Practice Items Cards Grid / Empty State */}
                 {loading ? (
-                    <div className="py-12 text-center text-sm text-muted-foreground">
-                        Memuat data latihan dari database...
-                    </div>
-                ) : filteredItems.length === 0 ? (
-                    <Card className="p-12 text-center space-y-4 border-dashed border-2 border-border/80">
-                        <div className="mx-auto w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
-                            <Inbox className="h-6 w-6" />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="font-bold text-base">Belum Ada Soal Latihan</h3>
-                            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                                Tidak ada modul latihan yang tersedia di database untuk kategori ini saat ini. Silakan cek kembali nanti atau pilih tab lain.
-                            </p>
-                        </div>
-                    </Card>
+                    <CatalogSkeleton />
+                ) : error ? (
+                    <EmptyState
+                        icon={BookOpen}
+                        title="Gagal Memuat Latihan"
+                        description={error}
+                        actionLabel="Muat Ulang"
+                        onAction={() => setReloadKey((k) => k + 1)}
+                    />
+                ) : subjects.length === 0 ? (
+                    <EmptyState
+                        icon={BookOpen}
+                        title="Belum Ada Latihan"
+                        description="Latihan soal akan muncul di sini setelah tersedia untuk jenjangmu."
+                        actionLabel="Muat Ulang"
+                        onAction={() => setReloadKey((k) => k + 1)}
+                    />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredItems.map((item) => (
-                            <Card key={item.id} className="flex flex-col justify-between hover:border-primary transition-all group border-border/80">
-                                <CardHeader className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                                            {item.subject_name}
-                                        </Badge>
-                                        <Badge
-                                            variant="outline"
-                                            className={`text-[10px] font-bold ${item.difficulty === "HOTS"
-                                                    ? "text-purple-600 border-purple-500/30"
-                                                    : item.difficulty === "HARD"
-                                                        ? "text-red-500 border-red-500/30"
-                                                        : item.difficulty === "MEDIUM"
-                                                            ? "text-amber-600 border-amber-500/30"
-                                                            : "text-emerald-600 border-emerald-500/30"
-                                                }`}
-                                        >
-                                            {item.difficulty}
-                                        </Badge>
-                                    </div>
+                    <>
+                        <div>
+                            <SectionHeader
+                                icon={BookOpen}
+                                title="Daftar Latihan"
+                                subtitle="Pilih mapel → bab → topik. Hijau = sudah dikuasai (≥ threshold)."
+                            />
 
-                                    <CardTitle className="text-base font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                                        {item.title}
-                                    </CardTitle>
+                            {startError && (
+                                <p className="mt-3 text-xs text-red-600 bg-red-500/10 border border-red-500/25 rounded-xl px-3 py-2">
+                                    {startError}
+                                </p>
+                            )}
 
-                                    {item.description && (
-                                        <CardDescription className="line-clamp-2 text-xs">
-                                            {item.description}
-                                        </CardDescription>
-                                    )}
-
-                                    {item.author && (
-                                        <div className="text-[11px] text-muted-foreground flex items-center gap-1 pt-1 font-medium">
-                                            <span>Dibuat oleh:</span>
-                                            <span className="text-foreground font-semibold">{item.author}</span>
-                                        </div>
-                                    )}
-                                </CardHeader>
-
-                                <CardContent className="pt-0 space-y-4">
-                                    <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1 font-medium">
-                                            <HelpCircle className="h-3.5 w-3.5 text-primary" /> {item.total_questions} Soal
-                                        </span>
-                                        <span className="flex items-center gap-1 font-medium">
-                                            <Clock className="h-3.5 w-3.5 text-primary" /> {item.estimated_minutes} Menit
-                                        </span>
-                                    </div>
-
-                                    <Button
-                                        onClick={() => setSelectedPractice(item)}
-                                        className="w-full rounded-xl text-xs gap-1.5 font-semibold shadow-xs"
-                                    >
-                                        <Play className="h-3.5 w-3.5 fill-current" /> Mulai Latihan
-                                    </Button>
-                                </CardContent>
+                            <Card className="mt-4 p-0 overflow-hidden">
+                                <Accordion
+                                    multiple
+                                    value={openSubjects}
+                                    onValueChange={(value) =>
+                                        setOpenSubjects([...(value as string[])])
+                                    }
+                                >
+                                    {subjects.map((subject) => (
+                                        <SubjectAccordion
+                                            key={subject.subject_id}
+                                            subject={subject}
+                                            openChapters={openChapters}
+                                            onChaptersChange={setOpenChapters}
+                                            startingKey={startingKey}
+                                            onStart={handleStart}
+                                        />
+                                    ))}
+                                </Accordion>
                             </Card>
-                        ))}
-                    </div>
+                        </div>
+
+                        <div>
+                            <SectionHeader
+                                icon={History}
+                                title="Riwayat Latihan"
+                                subtitle="Latihan terakhir yang kamu kerjakan."
+                            />
+                            <div className="mt-4">
+                                {historyItems.length === 0 ? (
+                                    <EmptyState
+                                        compact
+                                        icon={History}
+                                        title="Belum ada riwayat latihan"
+                                        description="Mulai latihan pertamamu dari daftar di atas."
+                                    />
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {historyItems.map((item) => {
+                                            const green =
+                                                item.accuracy_pct >= 85;
+                                            return (
+                                                <Link
+                                                    key={item.session_id}
+                                                    href={`/practice/${item.session_id}/review`}
+                                                >
+                                                    <Card className="p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-all group">
+                                                        <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+                                                            <History className="h-5 w-5" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 space-y-1">
+                                                            <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                                                                {historyTitle(item)}
+                                                            </p>
+                                                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                                <span
+                                                                    className={cn(
+                                                                        "font-semibold",
+                                                                        green
+                                                                            ? "text-emerald-600 dark:text-emerald-400"
+                                                                            : "text-amber-600 dark:text-amber-400"
+                                                                    )}
+                                                                >
+                                                                    {item.correct}/{item.total} benar
+                                                                </span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Clock className="h-3.5 w-3.5" />
+                                                                    {formatDuration(
+                                                                        item.duration_seconds
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <Button
+                                                            asChild
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="rounded-xl gap-1.5 shrink-0"
+                                                        >
+                                                            <span>
+                                                                Pembahasan{" "}
+                                                                <ArrowRight className="h-3.5 w-3.5" />
+                                                            </span>
+                                                        </Button>
+                                                    </Card>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
+        </AppShell>
+    );
+}
 
-            {/* Modal Dialog Confirmation Launcher */}
-            <Dialog open={!!selectedPractice} onOpenChange={() => setSelectedPractice(null)}>
-                <DialogContent className="sm:max-w-md rounded-2xl">
-                    <DialogHeader>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="secondary" className="text-[10px]">
-                                {selectedPractice?.subject_name}
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px]">
-                                {selectedPractice?.difficulty}
-                            </Badge>
+function ChapterTopics({
+    chapter,
+    subject,
+    startingKey,
+    onStart,
+}: {
+    chapter: PracticeChapterNode;
+    subject: PracticeSubjectNode;
+    startingKey: string | null;
+    onStart: (key: string, payload: PracticeStartPayload) => void;
+}) {
+    const hasQuestions = chapter.topics.some((t) => t.question_count > 0);
+    const chapterKey = `chapter-${chapter.chapter_id}`;
+    const isChapterStarting = startingKey === chapterKey;
+
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center justify-between gap-3 py-2.5 px-1">
+                <p className="text-xs text-muted-foreground font-medium">
+                    Kerjakan semua soal level bab sekaligus.
+                </p>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl text-xs shrink-0"
+                    disabled={!hasQuestions || isChapterStarting}
+                    onClick={() =>
+                        hasQuestions &&
+                        onStart(chapterKey, {
+                            level: "CHAPTER",
+                            subject_id: subject.subject_id,
+                            chapter_id: chapter.chapter_id,
+                        })
+                    }
+                >
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    {isChapterStarting ? "Memulai..." : "Mulai Bab"}
+                </Button>
+            </div>
+
+            {chapter.topics.map((topic) => {
+                const canStart = topic.question_count > 0;
+                const key = `topic-${topic.topic_id}`;
+                const isStarting = startingKey === key;
+                return (
+                    <div
+                        key={topic.topic_id}
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 py-3 px-1 border-t border-border/60"
+                    >
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <span
+                                className={cn(
+                                    "h-2 w-2 rounded-full shrink-0",
+                                    topic.status === "GREEN"
+                                        ? "bg-emerald-500"
+                                        : topic.status === "AMBER"
+                                          ? "bg-amber-500"
+                                          : "bg-muted-foreground/40"
+                                )}
+                            />
+                            <span className="text-sm font-medium text-foreground truncate">
+                                {topic.title}
+                            </span>
                         </div>
-                        <DialogTitle className="text-lg font-bold">{selectedPractice?.title}</DialogTitle>
-                        <DialogDescription className="text-xs">
-                            {selectedPractice?.description}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-2">
-                        <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-muted/50 text-xs">
-                            <div>
-                                <span className="text-muted-foreground">Jumlah Soal:</span>
-                                <p className="font-bold text-sm text-foreground">{selectedPractice?.total_questions} Soal</p>
+                        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                            <span className="text-xs text-muted-foreground w-10 text-right">
+                                {topic.question_count} soal
+                            </span>
+                            <div className="w-24">
+                                <Progress
+                                    value={Math.round(topic.progress_pct)}
+                                    className="h-2"
+                                    indicatorClassName={barClass(topic.status)}
+                                />
                             </div>
-                            <div>
-                                <span className="text-muted-foreground">Estimasi Waktu:</span>
-                                <p className="font-bold text-sm text-foreground">{selectedPractice?.estimated_minutes} Menit</p>
-                            </div>
-                        </div>
-
-                        {/* Mode Pengerjaan Option */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-foreground">Pilih Mode Pengerjaan:</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div
-                                    onClick={() => setSelectedMode("SANTAI")}
-                                    className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedMode === "SANTAI" ? "border-primary bg-primary/5 font-bold" : "border-border/60"
-                                        }`}
-                                >
-                                    <p className="text-xs font-semibold">Mode Santai</p>
-                                    <p className="text-[10px] text-muted-foreground font-normal">Pembahasan langsung setelah menjawab.</p>
-                                </div>
-
-                                <div
-                                    onClick={() => setSelectedMode("SIMULASI")}
-                                    className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedMode === "SIMULASI" ? "border-primary bg-primary/5 font-bold" : "border-border/60"
-                                        }`}
-                                >
-                                    <p className="text-xs font-semibold">Mode Simulasi Ujian</p>
-                                    <p className="text-[10px] text-muted-foreground font-normal">Timer berjalan, nilai di akhir.</p>
-                                </div>
-                            </div>
+                            <span className="text-xs font-semibold text-muted-foreground w-9 text-right">
+                                {Math.round(topic.progress_pct)}%
+                            </span>
+                            <StatusBadge status={topic.status} />
+                            <Button
+                                size="sm"
+                                className="rounded-xl text-xs shrink-0"
+                                disabled={!canStart || isStarting}
+                                onClick={() =>
+                                    canStart &&
+                                    onStart(key, {
+                                        level: "TOPIC",
+                                        subject_id: subject.subject_id,
+                                        chapter_id: chapter.chapter_id,
+                                        topic_id: topic.topic_id,
+                                    })
+                                }
+                            >
+                                <Play className="h-3.5 w-3.5 fill-current" />
+                                {isStarting ? "Memulai..." : "Mulai"}
+                            </Button>
                         </div>
                     </div>
+                );
+            })}
 
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedPractice(null)} className="rounded-xl text-xs">
-                            Batal
-                        </Button>
-                        <Button size="sm" onClick={handleStartPractice} className="rounded-xl text-xs font-semibold gap-1.5">
-                            <Play className="h-3.5 w-3.5 fill-current" /> Mulai Pengerjaan
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </AppShell>
+            {chapter.topics.length === 0 && (
+                <p className="text-xs text-muted-foreground py-3 px-1">
+                    Belum ada topik untuk bab ini.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function SubjectAccordion({
+    subject,
+    openChapters,
+    onChaptersChange,
+    startingKey,
+    onStart,
+}: {
+    subject: PracticeSubjectNode;
+    openChapters: string[];
+    onChaptersChange: (value: string[]) => void;
+    startingKey: string | null;
+    onStart: (key: string, payload: PracticeStartPayload) => void;
+}) {
+    const greenChapters = subject.chapters.filter(
+        (c) => c.status === "GREEN"
+    ).length;
+    const chaptersTotal = subject.chapters.length;
+
+    return (
+        <AccordionItem
+            value={subject.subject_id}
+            className="border-b border-border last:border-0"
+        >
+            <AccordionTrigger className="px-5 py-4 hover:no-underline gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <span
+                        className="h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0"
+                        style={{ background: subject.color || "#2563eb" }}
+                    >
+                        {subjectEmoji(subject.icon)}
+                    </span>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-heading font-bold text-sm text-foreground">
+                                {subject.subject_name}
+                            </span>
+                            {chaptersTotal > 0 && (
+                                <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-semibold bg-muted/60"
+                                >
+                                    {greenChapters}/{chaptersTotal} bab hijau
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Progress
+                                value={Math.round(subject.progress_pct)}
+                                className="h-2 flex-1"
+                                indicatorClassName={barClass(subject.status)}
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                                {Math.round(subject.progress_pct)}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-4">
+                <Accordion
+                    multiple
+                    value={openChapters}
+                    onValueChange={(value) =>
+                        onChaptersChange([...(value as string[])])
+                    }
+                >
+                    {subject.chapters.map((chapter) => (
+                        <AccordionItem
+                            key={chapter.chapter_id}
+                            value={chapter.chapter_id}
+                            className="border-b border-border/60 last:border-0"
+                        >
+                            <AccordionTrigger className="py-3 px-0 hover:no-underline gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                        <span className="text-sm font-semibold text-foreground truncate block">
+                                            {chapter.title}
+                                        </span>
+                                        <div className="flex items-center gap-2.5">
+                                            <Progress
+                                                value={Math.round(
+                                                    chapter.progress_pct
+                                                )}
+                                                className="h-1.5 w-28"
+                                                indicatorClassName={barClass(
+                                                    chapter.status
+                                                )}
+                                            />
+                                            <span className="text-[11px] font-semibold text-muted-foreground">
+                                                {Math.round(
+                                                    chapter.progress_pct
+                                                )}
+                                                %
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <StatusBadge status={chapter.status} />
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-3">
+                                <ChapterTopics
+                                    chapter={chapter}
+                                    subject={subject}
+                                    startingKey={startingKey}
+                                    onStart={onStart}
+                                />
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+                {chaptersTotal === 0 && (
+                    <p className="text-xs text-muted-foreground py-2">
+                        Belum ada bab untuk mapel ini.
+                    </p>
+                )}
+            </AccordionContent>
+        </AccordionItem>
     );
 }

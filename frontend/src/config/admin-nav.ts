@@ -1,19 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard,
   ShieldCheck,
-  Settings,
   Activity,
   Globe,
   GraduationCap,
   Building2,
   Target,
   BookOpen,
-  HelpCircle,
   FolderKanban,
   FileCheck,
   Users,
-  Bell,
   BrainCircuit,
   CreditCard,
   Wallet,
@@ -21,6 +17,7 @@ import {
   TrendingUp,
   BarChart3,
   ScrollText,
+  Upload,
 } from "lucide-react";
 import type { UserRole } from "@/types";
 
@@ -67,9 +64,10 @@ const MASTER: AdminNavGroup = {
   roles: ["SUPER_ADMIN", "STAFF"],
   items: [
     { title: "Akademik (Level/Grade)", href: "/admin/academic", icon: GraduationCap, roles: ["SUPER_ADMIN", "STAFF"] },
+    { title: "Import Akademik", href: "/admin/academic/import", icon: Upload, roles: ["SUPER_ADMIN", "STAFF"] },
     { title: "Kelola Sekolah", href: "/admin/schools", icon: Building2, roles: ["SUPER_ADMIN"] },
     { title: "Kelola Sekolah", href: "/staff/schools", icon: Building2, roles: ["STAFF"] },
-    { title: "Target Sekolah", href: "/staff/target-schools", icon: Target, roles: ["SUPER_ADMIN", "STAFF"] },
+    { title: "Target Sekolah", href: "/admin/schools?tab=targets", icon: Target, roles: ["SUPER_ADMIN", "STAFF"] },
   ],
 };
 
@@ -87,15 +85,16 @@ const KONTEN: AdminNavGroup = {
 };
 
 const PENGGUNA: AdminNavGroup = {
-  title: "Pengguna & Komunikasi",
-  icon: Users,
-  collapsible: true,
-  roles: ["SUPER_ADMIN", "STAFF"],
-  items: [
-    { title: "Kelola Pengguna", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN", "STAFF"] },
-    { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Users, roles: ["SUPER_ADMIN", "STAFF"] },
-    { title: "AI & Asisten", href: "/staff/ai", icon: BrainCircuit, roles: ["SUPER_ADMIN", "STAFF"] },
-  ],
+    title: "Pengguna & Komunikasi",
+    icon: Users,
+    collapsible: true,
+    roles: ["SUPER_ADMIN", "STAFF"],
+    items: [
+        { title: "Kelola Pengguna", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN", "STAFF"] },
+        { title: "Role & Permission", href: "/admin/users?tab=roles", icon: ShieldCheck, roles: ["SUPER_ADMIN"] },
+        { title: "Broadcast Notifikasi", href: "/staff/notifications", icon: Users, roles: ["SUPER_ADMIN", "STAFF"] },
+        { title: "AI & Asisten", href: "/staff/ai", icon: BrainCircuit, roles: ["SUPER_ADMIN", "STAFF"] },
+    ],
 };
 
 const FINANCE: AdminNavGroup = {

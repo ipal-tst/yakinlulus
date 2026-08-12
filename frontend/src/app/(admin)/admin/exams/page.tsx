@@ -77,6 +77,9 @@ export default function AdminExamsPage() {
             queryClient.invalidateQueries({ queryKey: ["admin-exams-list"] });
             setSelectedIds((prev) => prev.filter((i) => i !== deletedId));
         },
+        onError: (err) => {
+            alert(err instanceof Error ? err.message : "Gagal menghapus ujian.");
+        },
     });
 
     // Toggle Status Mutation (Draft <-> Published)
@@ -141,14 +144,34 @@ export default function AdminExamsPage() {
         if (selectedIds.length === 0) return;
         if (!confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} paket ujian terpilih?`)) return;
 
-        try {
-            for (const id of selectedIds) {
+        const failed: { title: string; reason: string }[] = [];
+        let succeeded = 0;
+
+        for (const id of selectedIds) {
+            try {
                 await academicService.deleteExam(id);
+                succeeded++;
+            } catch (err) {
+                const exam = examList.find((e) => e.id === id);
+                failed.push({
+                    title: exam?.title || `EX-${id.slice(0, 6)}`,
+                    reason: err instanceof Error ? err.message : "Terjadi kesalahan",
+                });
             }
-            setSelectedIds([]);
-            refetch();
-        } catch {
-            alert("Gagal menghapus beberapa ujian.");
+        }
+
+        setSelectedIds([]);
+        refetch();
+
+        if (failed.length === 0) {
+            alert(`${succeeded} ujian berhasil dihapus.`);
+        } else {
+            const reasons = [...new Set(failed.map((f) => f.reason))];
+            alert(
+                `${succeeded} ujian berhasil dihapus.\n` +
+                `${failed.length} ujian gagal dihapus:\n` +
+                reasons.map((r) => `- ${r}`).join("\n")
+            );
         }
     };
 

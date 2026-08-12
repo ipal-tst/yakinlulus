@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Belajar — YakinLulus.id</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --fg-2: #475569;
+  --muted: #64748b;
+  --muted-bg: #f8fafc;
+  --border: #e2e8f0;
+  --border-soft: #edf3f8;
+  --blue: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+  --green: #22c55e;
+  --green-50: #f0fdf4;
+  --green-700: #15803d;
+  --orange: #f97316;
+  --orange-50: #fff7ed;
+  --orange-700: #c2410c;
+  --red: #ef4444;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 18px 46px rgba(15,23,42,.12);
+  --ring: 0 0 0 4px rgba(37,99,235,.22);
+  --sidebar-w: 264px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { font-family: var(--font-body); background: var(--muted-bg); color: var(--fg); font-size: 15px; line-height: 1.48; }
+a { color: var(--blue); text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; }
+h1,h2,h3,h4,.display { font-family: var(--font-display); line-height: 1.2; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+
+/* Dark mode */
+html[data-theme="dark"] {
+  --bg: #111827;
+  --fg: #f9fafb;
+  --fg-2: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-bg: #0b0f17;
+  --border: #1f2937;
+  --border-soft: #1e293b;
+  --blue: #3b82f6;
+  --blue-500: #60a5fa;
+  --blue-50: #172554;
+  --green: #4ade80;
+  --green-50: #14532d;
+  --green-700: #4ade80;
+  --orange: #fb923c;
+  --orange-50: #7c2d12;
+  --orange-700: #fdba74;
+  --red: #f87171;
+  --red-50: #450a0a;
+  --red-700: #f87171;
+  --amber-50: #451a03;
+  --amber-700: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 18px 46px rgba(0,0,0,.5);
+  --ring: 0 0 0 4px rgba(59,130,246,.35);
+}
+html[data-theme="dark"] body { background: #030712; }
+html[data-theme="dark"] .topbar { background: rgba(17,24,39,.85); }
+html[data-theme="dark"] .brand-mark { background: #2563eb; }
+html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .bar { background: #1e293b; }
+html[data-theme="dark"] .tabs { background: var(--bg); }
+html[data-theme="dark"] .topic-item[aria-selected="true"] { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .cp-badge { background: rgba(59,130,246,.15); }
+html[data-theme="dark"] .subj-icon, html[data-theme="dark"] .big-ic { filter: brightness(1.1); }
+
+.shell { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: var(--sidebar-w); background: var(--bg); border-right: 1px solid var(--border); position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; z-index: 40; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 20px; height: 20px; stroke: #fff; }
+.brand-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.brand-name em { font-style: normal; color: var(--orange); }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 4px 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--fg-2); font-weight: 500; font-size: 14px; margin-bottom: 2px; transition: background .15s, color .15s; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item:hover { background: var(--muted-bg); color: var(--fg); }
+.nav-item.active { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.nav-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+.side-footer { border-top: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.side-footer .avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--green); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; flex: none; }
+.side-footer .u-name { font-weight: 600; font-size: 14px; }
+.side-footer .u-role { font-size: 12px; color: var(--muted); }
+.side-footer .logout { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+.side-footer .logout svg { width: 18px; height: 18px; }
+.side-footer .logout:hover { color: var(--red); }
+
+.main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 30; height: 64px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; color: var(--muted); font-size: 13px; }
+.search svg { width: 16px; height: 16px; }
+.search kbd { font-family: var(--font-mono); font-size: 11px; margin-left: auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg); color: var(--muted); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: var(--radius-md); border: 1px solid transparent; color: var(--fg-2); display: grid; place-items: center; position: relative; transition: background .15s; }
+.icon-btn:hover { background: var(--muted-bg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+.hamburger { display: none; }
+
+.content { padding: 24px 28px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.breadcrumb a:hover, .breadcrumb .nav-btn:hover { color: var(--blue); text-decoration: underline; }
+.breadcrumb .nav-btn { background: none; border: 0; padding: 0; cursor: pointer; font-size: inherit; color: var(--blue); font-weight: 500; }
+.breadcrumb .nav-btn:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+.breadcrumb span { color: var(--fg-2); font-weight: 600; }
+.breadcrumb .sep { color: var(--border); }
+.header { margin-bottom: 20px; }
+.header h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill, 999px); }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.blue { background: var(--blue-50); color: var(--blue); }
+.pill.green { background: var(--green-50); color: var(--green-700); }
+.pill.orange { background: var(--orange-50); color: var(--orange-700); }
+.pill.amber { background: var(--amber-50); color: var(--amber-700); }
+.pill.red { background: var(--red-50); color: var(--red-700); }
+.pill.gray { background: var(--muted-bg); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; border-radius: var(--radius-md); padding: 11px 18px; border: 1px solid transparent; transition: background .15s, box-shadow .15s, transform .12s; }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-500); box-shadow: var(--shadow-md); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-secondary { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--muted-bg); }
+.btn-ghost { color: var(--blue); }
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-sm { padding: 8px 12px; font-size: 13px; border-radius: var(--radius-sm); }
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-hover { transition: box-shadow .18s, transform .18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-pad { padding: 20px; }
+.section { margin-top: 28px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title { font-size: 17px; font-weight: 700; }
+.section-link { font-size: 13px; font-weight: 600; }
+.section-link:hover { text-decoration: underline; }
+
+/* Tabs jenjang */
+.tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
+.tabs button { padding: 9px 18px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; color: var(--fg-2); transition: background .15s, color .15s; }
+.tabs button:hover:not([aria-disabled]) { background: var(--muted-bg); }
+.tabs button[aria-selected="true"] { background: var(--blue); color: #fff; }
+.tabs button[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; opacity: .7; }
+.tab-lock { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Subject cards */
+.subj-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.subj-card { padding: 20px; display: flex; flex-direction: column; gap: 12px; cursor: pointer; }
+.subj-card .s-head { display: flex; align-items: center; justify-content: space-between; }
+.subj-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+.subj-icon svg { width: 22px; height: 22px; }
+.si-blue { background: var(--blue); } .si-sky { background: #0ea5e9; } .si-orange { background: var(--orange); } .si-violet { background: #8b5cf6; } .si-pink { background: #ec4899; } .si-green { background: #16a34a; }
+.subj-card h3 { font-size: 16px; font-weight: 700; }
+.subj-card .s-extra { font-size: 12.5px; color: var(--muted); }
+.bar { height: 6px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.bar > span.green { background: var(--green); }
+.bar > span.orange { background: var(--orange); }
+.bar > span.red { background: var(--red); }
+.sq-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+.sq-foot b { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* Non-mapel */
+.extra-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.extra-card { padding: 18px; display: flex; gap: 14px; align-items: center; cursor: pointer; }
+.extra-ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex: none; }
+.extra-ic svg { width: 20px; height: 20px; }
+.extra-ic.tips { background: var(--blue-50); color: var(--blue); }
+.extra-ic.video { background: var(--orange-50); color: var(--orange-700); }
+.extra-ic.audio { background: var(--green-50); color: var(--green-700); }
+.extra-card h4 { font-size: 14.5px; font-weight: 700; }
+.extra-card p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* Chapters view */
+.ch-head { display: flex; align-items: center; gap: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+.ch-head .big-ic { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; color: #fff; flex: none; }
+.ch-head .big-ic svg { width: 28px; height: 28px; }
+.ch-meta { flex: 1; min-width: 0; }
+.ch-meta h1 { font-size: 20px; font-weight: 800; }
+.ch-meta .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.ch-prog { text-align: right; }
+.ch-prog .pct { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
+.chapter-acc { display: flex; flex-direction: column; gap: 10px; }
+.chapter { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.chapter-top { padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; }
+.chapter-top:hover { background: var(--muted-bg); }
+.chapter-num { width: 34px; height: 34px; border-radius: 10px; background: var(--muted-bg); color: var(--fg-2); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; flex: none; }
+.chapter.green .chapter-num { background: var(--green-50); color: var(--green-700); }
+.chapter.red .chapter-num { background: var(--red-50); color: var(--red-700); }
+.chapter-main { flex: 1; min-width: 0; }
+.chapter-main .t { font-weight: 700; font-size: 14.5px; }
+.chapter-main .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.chapter-prog { width: 120px; }
+.chapter-chev { color: var(--muted); display: grid; place-items: center; }
+.chapter-chev svg { width: 18px; height: 18px; transition: transform .18s; }
+.chapter[data-open="true"] .chapter-chev svg { transform: rotate(180deg); }
+.chapter-body { display: none; padding: 0 16px 16px; }
+.chapter[data-open="true"] .chapter-body { display: block; }
+.cb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cb-stat { background: var(--muted-bg); border-radius: var(--radius-md); padding: 12px 14px; }
+.cb-stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .0625em; color: var(--muted); }
+.cb-stat .v { font-weight: 700; font-size: 14px; margin-top: 2px; }
+.cb-cta { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Detail view */
+.detail-layout { display: grid; grid-template-columns: 250px 1fr; gap: 20px; align-items: start; }
+.topic-sidebar { position: sticky; top: 84px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px; }
+.topic-sidebar h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .0625em; color: var(--muted); padding: 6px 10px 8px; }
+.topic-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); font-size: 13.5px; color: var(--fg-2); cursor: pointer; width: 100%; text-align: left; }
+.topic-item:hover { background: var(--muted-bg); }
+.topic-item[aria-selected="true"] { background: var(--blue-50); color: var(--blue); font-weight: 600; }
+.topic-item .tick { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; flex: none; color: transparent; }
+.topic-item .tick svg { width: 11px; height: 11px; }
+.topic-item[data-done="true"] .tick { background: var(--green); border-color: var(--green); color: #fff; }
+.topic-item[aria-selected="true"] .tick.doing { border-color: var(--blue); border-style: dashed; }
+.article { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; }
+.cp-badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-50); padding: 3px 10px; border-radius: 6px; }
+.article h1 { font-size: 22px; font-weight: 800; margin: 12px 0 16px; letter-spacing: -.01em; }
+.block-p { font-size: 15px; color: var(--fg-2); margin-bottom: 16px; }
+.block-formula { background: var(--muted-bg); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: var(--radius-md); padding: 16px 20px; margin: 16px 0; font-family: var(--font-mono); font-size: 15px; color: var(--fg); overflow-x: auto; }
+.block-callout { display: flex; gap: 12px; background: var(--orange-50); border-radius: var(--radius-md); padding: 14px 16px; margin: 16px 0; font-size: 14px; color: var(--orange-700); }
+.block-callout svg { width: 18px; height: 18px; flex: none; }
+.block-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 16px 0; }
+.block-table th { background: var(--muted-bg); text-align: left; padding: 9px 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .0625em; color: var(--muted); border: 1px solid var(--border); }
+.block-table td { padding: 10px 12px; border: 1px solid var(--border); }
+.block-graph { margin: 16px 0; background: var(--muted-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; }
+.graph-cap { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; }
+.fx-line { position: relative; height: 140px; background: var(--bg); border-radius: var(--radius-sm); }
+.fx-line .grid-h { position: absolute; left: 0; right: 0; height: 1px; background: var(--border-soft); }
+.fx-line .axis { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--border); transform: translateY(-1px); }
+.fx-line .axis-y { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: var(--border); }
+.fx-line svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.article-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-soft, #edf3f8); }
+.article-nav .prevnext { font-size: 12.5px; color: var(--muted); display: block; }
+.exam-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: var(--blue); color: #fff; border-radius: var(--radius-lg); padding: 18px 22px; margin-top: 16px; }
+.exam-cta h3 { font-size: 15px; font-weight: 800; }
+.exam-cta p { font-size: 13px; opacity: .9; margin-top: 2px; }
+.exam-cta .btn-primary { background: #fff; color: var(--blue); }
+.exam-cta .btn-primary:hover { background: var(--blue-50); }
+
+.foot { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+
+/* Empty */
+.empty { text-align: center; padding: 48px 20px; }
+.empty svg { width: 56px; height: 56px; color: var(--border); }
+.empty h3 { font-family: var(--font-display); font-weight: 800; font-size: 17px; margin: 12px 0 6px; }
+.empty p { color: var(--muted); font-size: 13.5px; margin-bottom: 16px; }
+
+@media (max-width: 1100px) { .subj-grid { grid-template-columns: repeat(3, 1fr); } .detail-layout { grid-template-columns: 1fr; } .topic-sidebar { position: static; display: flex; flex-wrap: wrap; gap: 6px; } .topic-sidebar h3 { width: 100%; } .topic-item { width: auto; } }
+@media (max-width: 920px) {
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+  .hamburger { display: grid; }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 16px; }
+  .content { padding: 16px; }
+  .ch-head { flex-wrap: wrap; }
+  .ch-prog { text-align: left; }
+}
+@media (max-width: 700px) { .subj-grid, .extra-grid, .cb-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) {
+  .subj-grid, .extra-grid, .cb-grid { grid-template-columns: 1fr; }
+  .search { display: none; }
+  .chapter-top { flex-wrap: wrap; }
+  .chapter-prog { width: 100%; }
+  .exam-cta { flex-direction: column; align-items: stretch; text-align: left; }
+  .tabs { overflow-x: auto; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" data-od-id="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+      <span class="brand-name">Yakin<em>Lulus</em>.id</span>
+    </div>
+    <nav>
+      <div class="nav-group-label">Belajar</div>
+      <a class="nav-item" href="dashboard-siswa.html" data-od-id="nav-beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Beranda</a>
+      <a class="nav-item active" href="#" data-od-id="nav-belajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Belajar</a>
+      <a class="nav-item" href="latihan-siswa.html" data-od-id="nav-latihan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Latihan</a>
+      <a class="nav-item" href="ujian-siswa.html" data-od-id="nav-ujian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>Ujian</a>
+      <a class="nav-item" href="hasil-siswa.html" data-od-id="nav-hasil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>Hasil</a>
+      <a class="nav-item" href="peringkat-siswa.html" data-od-id="nav-peringkat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 8-5-3-5 3 1.5-8"/></svg>Peringkat</a>
+      <a class="nav-item" href="target-siswa.html" data-od-id="nav-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>Target</a>
+      <div class="nav-group-label">Akun</div>
+      <a class="nav-item" href="ai-tutor-siswa.html" data-od-id="nav-ai-tutor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9c-3 0-5.5-1.5-7-3.8"/><path d="M12 9c2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3"/><path d="M12 6.5v-2"/></svg>AI Tutor</a>
+      <a class="nav-item" href="membership-siswa.html" data-od-id="nav-membership"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Membership</a>
+      <a class="nav-item" href="konfigurasi-siswa.html" data-od-id="nav-konfigurasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Konfigurasi</a>
+    </nav>
+    <div class="side-footer">
+      <span class="avatar">RA</span>
+      <div>
+        <div class="u-name">Raka Aditya</div>
+        <div class="u-role">Kelas 12 · IPA</div>
+      </div>
+      <button class="logout" aria-label="Keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar" data-od-id="topbar">
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cari materi, bab, topik…<kbd>Ctrl K</kbd></label>
+      <div class="top-actions">
+        <button class="icon-btn" data-theme-btn aria-label="Mode gelap"><svg data-icon-moon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg><svg data-icon-sun viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"/></svg></button>
+        <button class="icon-btn" aria-label="Notifikasi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+        <a href="#" class="icon-btn" aria-label="Profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
+      </div>
+    </header>
+
+    <main class="content" data-od-id="belajar">
+      <!-- VIEW 1: Katalog mapel -->
+      <section data-od-id="view-catalog" id="view-catalog">
+        <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><span>Belajar</span></div>
+        <div class="header">
+          <h1>Halo, Raka! Ingin belajar apa hari ini</h1>
+          <p>Materi ditampilkan sesuai jenjangmu. Kuasai soal benar per bab untuk menuntaskan mapel.</p>
+          <div style="margin-top:14px" class="chip-wrap">
+            <span class="pill blue"><i></i>SMA · Kelas 12 UTBK</span>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Pilih jenjang" data-od-id="tabs-jenjang">
+          <button role="tab" aria-disabled="true" title="Berisi materi untuk jenjang lain"><span class="tab-lock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>SD</span></button>
+          <button role="tab" aria-disabled="true" title="Berisi materi untuk jenjang lain"><span class="tab-lock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>SMP</span></button>
+          <button role="tab" aria-selected="true" data-level="sma">SMA</button>
+        </div>
+
+        <div class="section" data-od-id="section-mapel">
+          <div class="section-head">
+            <h2 class="section-title">Mata Pelajaran</h2>
+            <a class="section-link" href="#">Urutkan: Populer</a>
+          </div>
+          <div class="subj-grid" data-od-id="grid-mapel" id="grid-mapel">
+            <div class="card card-pad subj-card card-hover" data-subject="mtk" data-od-id="subject-mtk">
+              <div class="s-head"><span class="subj-icon si-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><span class="pill green"><i></i>Dikuasai</span></div>
+              <h3>Matematika</h3>
+              <div class="s-extra">8 bab · peminatan & wajib</div>
+              <div class="bar"><span class="green" style="width:100%"></span></div>
+              <div class="sq-foot"><span>8 dari 8 bab hijau</span><b>100%</b></div>
+            </div>
+            <div class="card card-pad subj-card card-hover" data-subject="bind" data-od-id="subject-bind">
+              <div class="s-head"><span class="subj-icon si-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><span class="pill amber">Dikuasai sebagian</span></div>
+              <h3>Bahasa Indonesia</h3>
+              <div class="s-extra">6 bab · literasi</div>
+              <div class="bar"><span style="width:40%"></span></div>
+              <div class="sq-foot"><span>2 dari 6 bab hijau</span><b>40%</b></div>
+            </div>
+            <div class="card card-pad subj-card card-hover" data-subject="fis" data-od-id="subject-fis">
+              <div class="s-head"><span class="subj-icon si-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/></svg></span><span class="pill red">Perlu Peningkatan</span></div>
+              <h3>Fisika</h3>
+              <div class="s-extra">5 bab · peminatan</div>
+              <div class="bar"><span class="red" style="width:10%"></span></div>
+              <div class="sq-foot"><span>0 dari 5 bab hijau</span><b>10%</b></div>
+            </div>
+            <div class="card card-pad subj-card card-hover" data-subject="kim" data-od-id="subject-kim">
+              <div class="s-head"><span class="subj-icon si-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2"/><path d="M8.5 14h7"/></svg></span><span class="pill gray">Belum mulai</span></div>
+              <h3>Kimia</h3>
+              <div class="s-extra">4 bab · peminatan</div>
+              <div class="bar"><span style="width:0%"></span></div>
+              <div class="sq-foot"><span>0 dari 4 bab hijau</span><b>0%</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" data-od-id="section-extra">
+          <div class="section-head">
+            <h2 class="section-title">Tips & Materi Bonus</h2>
+          </div>
+          <div class="extra-grid" data-od-id="grid-extra">
+            <div class="card extra-card card-hover" data-od-id="extra-tips">
+              <span class="extra-ic tips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></span>
+              <div><h4>Tips & Trik UTBK</h4><p>Strategi menjawab cepat · 12 menit</p></div>
+            </div>
+            <div class="card extra-card card-hover" data-od-id="extra-video">
+              <span class="extra-ic video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M10 8.5l6 3.5-6 3.5v-7z"/></svg></span>
+              <div><h4>Video Rangkuman</h4><p>Materi inti tiap mapel · 5–8 menit</p></div>
+            </div>
+            <div class="card extra-card card-hover" data-od-id="extra-audio">
+              <span class="extra-ic audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span>
+              <div><h4>Audio Belajar</h4><p>Podcast ringkas saat perjalanan</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: Daftar Bab -->
+      <section data-od-id="view-chapters" id="view-chapters" hidden>
+        <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><button class="nav-btn" type="button" data-nav-catalog>Belajar</button><span class="sep">/</span><span id="bc-subject"></span></div>
+
+        <div class="ch-head">
+          <span class="big-ic si-blue" id="ch-subject-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+          <div class="ch-meta">
+            <h1 id="ch-subject-name">Matematika</h1>
+            <div class="sub" id="ch-subject-sub">Kelas 12 · UTBK · 8 bab</div>
+          </div>
+          <div class="ch-prog">
+            <div class="pct" id="ch-subject-pct">72%</div>
+            <div class="sub" id="ch-subject-count">X dari Y bab hijau</div>
+            <div class="bar" style="width:140px;margin-left:auto;margin-top:8px"><span id="ch-subject-bar" style="width:72%"></span></div>
+          </div>
+        </div>
+
+        <div class="chapter-acc" data-od-id="daftar-bab" id="daftar-bab"></div>
+      </section>
+
+      <!-- VIEW 3: Detail Bab -->
+      <section data-od-id="view-detail" id="view-detail" hidden>
+        <div class="breadcrumb"><a href="dashboard-siswa.html">Beranda</a><span class="sep">/</span><button class="nav-btn" type="button" data-nav-catalog>Belajar</button><span class="sep">/</span><a href="#" data-nav-chapters id="bc-chap-subject">Matematika</a><span class="sep">/</span><span id="bc-chapter"></span></div>
+
+        <div class="detail-layout">
+          <div class="topic-sidebar" data-od-id="topic-sidebar" id="topic-sidebar">
+            <h3>Topik dalam Bab</h3>
+            <div id="topic-list" role="tablist" aria-label="Daftar topik"></div>
+          </div>
+          <div class="article" data-od-id="article" id="article"></div>
+        </div>
+
+        <div class="exam-cta" data-od-id="cta-ujian-bab">
+          <div>
+            <h3>Sudah paham materi bab ini?</h3>
+            <p>Ukur pemahaman dengan ujian bab — 10 soal, tanpa timer.</p>
+          </div>
+          <button class="btn btn-primary" data-od-id="btn-kerjakan-ujian-bab">Kerjakan Ujian Bab 1</button>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>YakinLulus.id · Belajar, berlatih, lulus dengan percaya diri.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+  var hb = document.getElementById('hamburger');
+  if (hb && sb) {
+    hb.addEventListener('click', function () { sb.classList.toggle('open'); });
+    sb.addEventListener('click', function (e) {
+      if (e.target.closest('a.nav-item') && window.innerWidth <= 920) sb.classList.remove('open');
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var views = { catalog: document.getElementById('view-catalog'), chapters: document.getElementById('view-chapters'), detail: document.getElementById('view-detail') };
+
+  /* Data simulasi — kontrak GET /materials/:subjectId/chapters */
+  var DATA = {
+    mtk: {
+      name: 'Matematika', sub: 'Kelas 12 · UTBK · 8 bab', pct: 72, count: '5 dari 8 bab hijau',
+      icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      chapters: [
+        { t: 'Aljabar & Fungsi', n: 1, pct: 100, corr: 52, tgt: 50, st: 'green', done: 12 },
+        { t: 'Persamaan Kuadrat', n: 2, pct: 100, corr: 51, tgt: 50, st: 'green', done: 8 },
+        { t: 'Trigonometri', n: 3, pct: 100, corr: 56, tgt: 50, st: 'green', done: 10 },
+        { t: 'Limit & Turunan', n: 4, pct: 100, corr: 50, tgt: 50, st: 'green', done: 9 },
+        { t: 'Integral', n: 5, pct: 96, corr: 48, tgt: 50, st: '', done: 7 },
+        { t: 'Matriks & Vektor', n: 6, pct: 88, corr: 44, tgt: 50, st: '', done: 6 },
+        { t: 'Peluang & Statistika', n: 7, pct: 100, corr: 50, tgt: 50, st: 'green', done: 11 },
+        { t: 'Lingkaran & Irisan Kerucut', n: 8, pct: 12, corr: 6, tgt: 50, st: 'red', done: 1 }
+      ]
+    },
+    bind: {
+      name: 'Bahasa Indonesia', sub: 'Kelas 12 · UTBK · 6 bab', pct: 40, count: '2 dari 6 bab hijau',
+      icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      chapters: [
+        { t: 'Teks Editorial', n: 1, pct: 100, corr: 50, tgt: 50, st: 'green', done: 6 },
+        { t: 'Cerpen & Novel', n: 2, pct: 100, corr: 53, tgt: 50, st: 'green', done: 7 },
+        { t: 'Puisi', n: 3, pct: 32, corr: 16, tgt: 50, st: 'red', done: 2 },
+        { t: 'Kebahasaan', n: 4, pct: 48, corr: 24, tgt: 50, st: '', done: 3 },
+        { t: 'Perubahan Makna', n: 5, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Karya Ilmiah', n: 6, pct: 0, corr: 0, tgt: 50, st: '', done: 0 }
+      ]
+    },
+    fis: {
+      name: 'Fisika', sub: 'Kelas 12 · UTBK · 5 bab', pct: 10, count: '0 dari 5 bab hijau',
+      icon: '<circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/>',
+      chapters: [
+        { t: 'Listrik Statis', n: 1, pct: 30, corr: 15, tgt: 50, st: 'red', done: 2 },
+        { t: 'Medan Magnet', n: 2, pct: 8, corr: 4, tgt: 50, st: 'red', done: 1 },
+        { t: 'Gelombang', n: 3, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Optik', n: 4, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Fisika Modern', n: 5, pct: 0, corr: 0, tgt: 50, st: '', done: 0 }
+      ]
+    },
+    kim: {
+      name: 'Kimia', sub: 'Kelas 12 · UTBK · 4 bab', pct: 0, count: '0 dari 4 bab hijau',
+      icon: '<path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2"/><path d="M8.5 14h7"/>',
+      chapters: [
+        { t: 'Reaksi Redoks', n: 1, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Elektrokimia', n: 2, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Kimia Organik', n: 3, pct: 0, corr: 0, tgt: 50, st: '', done: 0 },
+        { t: 'Asam Basa', n: 4, pct: 0, corr: 0, tgt: 50, st: '', done: 0 }
+      ]
+    }
+  };
+
+  var TOPICS = {
+    mtk: [
+      { t: 'Pengertian Fungsi', code: '4.1', blocks: 'intro' },
+      { t: 'Komposisi Fungsi', code: '4.2', blocks: 'komposisi' },
+      { t: 'Invers Fungsi', code: '4.3', blocks: 'invers' },
+      { t: 'Video Animasi', code: 'VID', blocks: 'video' }
+    ],
+    bind: [
+      { t: 'Struktur Teks Editorial', code: '3.1', blocks: 'intro' },
+      { t: 'Kaedah Kebahasaan', code: '3.2', blocks: 'komposisi' }
+    ]
+  };
+
+  var BLOCKS = {
+    intro: {
+      title: 'Pengertian Fungsi',
+      cp: 'CP/KD 4.1 · Relasi & Fungsi',
+      html: '<p class="block-p">Fungsi adalah relasi khusus yang memetakan setiap anggota himpunan A (domain) tepat satu ke anggota himpunan B (kodomain). Notasi: <b>f : A → B</b> dengan <b>f(x)</b> menyatakan nilai fungsi untuk input <b>x</b>.</p>' +
+        '<div class="block-formula">f(x) = ax + b &nbsp;·&nbsp; grafiknya berupa garis lurus bila a ≠ 0</div>' +
+        '<div class="block-table-wrap" style="overflow-x:auto"><table class="block-table"><thead><tr><th>Sifat</th><th>Definisi</th><th>Contoh</th></tr></thead><tbody><tr><td>Injektif</td><td>Setiap output dipasangkan satu input</td><td>f(x) = 2x</td></tr><tr><td>Surjektif</td><td>Setiap output memiliki pasangan</td><td>f(x) = x², x ≥ 0</td></tr><tr><td>Bijektif</td><td>Injektif sekaligus surjektif</td><td>f(x) = x + 1</td></tr></tbody></table></div>' +
+        '<div class="block-callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg><span><b>Ingat:</b> fungsi kuadrat <b>f(x) = ax² + bx + c</b> membentuk parabola. Nilai diskriminan <b>D = b² − 4ac</b> menentukan banyak titik potong dengan sumbu-x.</span></div>',
+      graph: '<div class="block-graph"><div class="fx-line"><span class="grid-h" style="top:25%"></span><span class="grid-h" style="top:50%"></span><span class="grid-h" style="top:75%"></span><span class="axis axis-y"></span><span class="axis"></span><svg viewBox="0 0 300 140" preserveAspectRatio="none"><path d="M0 118 C60 100, 90 60, 150 30 S 250 8, 300 2" fill="none" stroke="#2563eb" stroke-width="2.5"/><path d="M0 118 C60 100, 90 60, 150 30 S 250 8, 300 2 L300 140 L0 140 Z" fill="#2563eb" opacity="0.12"/></svg></div><div class="graph-cap">Grafik fungsi naik — nilai f(x) bertambah seiring x bertambah</div></div>'
+    },
+    komposisi: {
+      title: 'Komposisi Fungsi',
+      cp: 'CP/KD 4.2 · Komposisi Fungsi',
+      html: '<p class="block-p">Komposisi fungsi <b>(f ∘ g)(x) = f(g(x))</b> berarti hasil <b>g(x)</b> menjadi input bagi <b>f</b>. Urutan penting: <b>f ∘ g ≠ g ∘ f</b> umumnya.</p>' +
+        '<div class="block-formula">(f ∘ g)(x) = f(g(x))</div>' +
+        '<p class="block-p"><b>Contoh:</b> f(x) = 3x dan g(x) = x + 2. Maka (f ∘ g)(x) = 3(x + 2) = 3x + 6.</p>' +
+        '<div class="block-callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg><span>Sifat asosiatif berlaku: <b>f ∘ (g ∘ h) = (f ∘ g) ∘ h</b>. Sifat ini menghemat pengerjaan soal panjang.</span></div>',
+      graph: '<div class="block-graph"><div class="fx-line"><span class="grid-h" style="top:25%"></span><span class="grid-h" style="top:50%"></span><span class="grid-h" style="top:75%"></span><span class="axis axis-y"></span><span class="axis"></span><svg viewBox="0 0 300 140" preserveAspectRatio="none"><path d="M0 20 C80 30, 140 70, 200 100 S 260 128, 300 134" fill="none" stroke="#f97316" stroke-width="2.5"/><path d="M0 20 C80 30, 140 70, 200 100 S 260 128, 300 134 L300 140 L0 140 Z" fill="#f97316" opacity="0.12"/></svg></div><div class="graph-cap">Laju perubahan (derivative) — turunan fungsi terhadap x</div></div>'
+    },
+    invers: {
+      title: 'Invers Fungsi',
+      cp: 'CP/KD 4.3 · Invers Fungsi',
+      html: '<p class="block-p">Fungsi invers <b>f⁻¹</b> membalikkan pemetaan: bila <b>y = f(x)</b>, maka <b>x = f⁻¹(y)</b>. Invers hanya ada untuk fungsi bijektif.</p>' +
+        '<div class="block-formula">f(x) = (2x + 1) / (x − 3) &nbsp;⟹&nbsp; f⁻¹(x) = (3x + 1) / (x − 2)</div>' +
+        '<p class="block-p"><b>Trik cepat:</b> tulis y = f(x), tukar x ↔ y, lalu selesaikan untuk y. Hasilnya adalah f⁻¹(x).</p>'
+    },
+    video: {
+      title: 'Video Animasi',
+      cp: 'VIDEO · Visualisasi Konsep',
+      html: '<div class="block-graph" style="padding:0;overflow:hidden"><div style="aspect-ratio:16/9;display:grid;place-items:center;background:var(--blue);color:#fff"><div style="text-align:center;padding:24px"><span style="display:inline-flex;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--blue);place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5l11 7-11 7V5z"/></svg></span><p style="margin-top:14px;font-weight:600;font-size:15px">Video: Konsep Fungsi & Komposisi</p><p style="font-size:12.5px;opacity:.85;margin-top:4px">5 menit · oleh tim kurikulum</p></div></div><div class="graph-cap">Video animasi tersedia — pratinjau di halaman produksi</div></div>',
+    }
+  };
+
+  /* Navigasi view */
+  function show(view) {
+    Object.keys(views).forEach(function (k) { views[k].hidden = k !== view; });
+    try { localStorage.setItem('yl-learn-view', view); } catch (e) {}
+  }
+
+  var current = { subject: null, chapter: null, topic: 0 };
+
+  /* Katalog → chapters */
+  document.querySelectorAll('.subj-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      var s = DATA[card.getAttribute('data-subject')];
+      if (!s) return;
+      current.subject = card.getAttribute('data-subject');
+      var ic = card.querySelector('.subj-icon');
+      document.getElementById('ch-subject-ic').className = 'big-ic ' + ic.className.replace('subj-icon', '').trim();
+      document.getElementById('ch-subject-ic').innerHTML = ic.innerHTML;
+      document.getElementById('ch-subject-name').textContent = s.name;
+      document.getElementById('ch-subject-sub').textContent = s.sub;
+      document.getElementById('ch-subject-pct').textContent = s.pct + '%';
+      document.getElementById('ch-subject-count').textContent = s.count;
+      document.getElementById('ch-subject-bar').style.width = s.pct + '%';
+      document.getElementById('bc-subject').textContent = s.name;
+      renderChapters(s);
+      show('chapters');
+    });
+  });
+
+  function renderChapters(s) {
+    var box = document.getElementById('daftar-bab');
+    box.innerHTML = '';
+    s.chapters.forEach(function (c) {
+      var el = document.createElement('div');
+      el.className = 'chapter' + (c.st ? ' ' + c.st : '');
+      el.setAttribute('data-open', 'false');
+      el.innerHTML =
+        '<div class="chapter-top" role="button" aria-expanded="false">' +
+          '<span class="chapter-num">' + c.n + '</span>' +
+          '<div class="chapter-main"><div class="t">Bab ' + c.n + ' · ' + c.t + '</div><div class="meta">' + colorLabel(c.st) + ' · benar ' + c.corr + '/' + c.tgt + '</div></div>' +
+          '<div class="chapter-prog"><div class="meter-lbl" style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--muted)">Progres</span><b>' + c.pct + '%</b></div><div class="bar"><span class="' + c.st + '" style="width:' + c.pct + '%"></span></div></div>' +
+          '<span class="chapter-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>' +
+        '</div>' +
+        '<div class="chapter-body">' +
+          '<div class="cb-grid">' +
+            '<div class="cb-stat"><div class="k">Topik dikuasai</div><div class="v">' + c.done + ' topik</div></div>' +
+            '<div class="cb-stat"><div class="k">Target bab</div><div class="v">' + c.corr + '/' + c.tgt + ' benar</div></div>' +
+          '</div>' +
+          '<div class="cb-cta">' +
+            '<button class="btn btn-primary btn-sm" data-open-bab="' + c.n + '">Buka Bab ' + c.n + '</button>' +
+            '<button class="btn btn-secondary btn-sm">Kerjakan Ujian Bab</button>' +
+          '</div>' +
+        '</div>';
+      var top = el.querySelector('.chapter-top');
+      top.addEventListener('click', function (e) {
+        if (e.target.closest('[data-open-bab]')) return;
+        var open = el.getAttribute('data-open') === 'true';
+        el.setAttribute('data-open', String(!open));
+        top.setAttribute('aria-expanded', String(!open));
+      });
+      el.querySelector('[data-open-bab]').addEventListener('click', function () {
+        openDetail(s, c);
+      });
+      box.appendChild(el);
+    });
+  }
+
+  function colorLabel(st) {
+    if (st === 'green') return '<span class="pill green"><i></i>Dikuasai</span>';
+    if (st === 'red') return '<span class="pill red"><i></i>Perlu Peningkatan</span>';
+    return '<span class="pill gray">Belum mulai</span>';
+  }
+
+  /* Chapters → detail */
+  function openDetail(s, c) {
+    current.subject = Object.keys(DATA).find(function (k) { return DATA[k] === s; });
+    current.chapter = c.n;
+    current.topic = 0;
+    document.getElementById('bc-chap-subject').textContent = s.name;
+    document.getElementById('bc-chapter').textContent = 'Bab ' + c.n + ' · ' + c.t;
+    document.getElementById('btn-kerjakan-ujian-bab').textContent = 'Kerjakan Ujian Bab ' + c.n;
+    var topics = TOPICS[current.subject] || TOPICS.mtk;
+    renderTopics(topics);
+    renderArticle(topics[current.topic]);
+    show('detail');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function renderTopics(topics) {
+    var box = document.getElementById('topic-list');
+    box.innerHTML = '';
+    topics.forEach(function (tp, i) {
+      var b = document.createElement('button');
+      b.className = 'topic-item';
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(i === current.topic));
+      b.setAttribute('data-done', String(i < current.topic));
+      b.innerHTML = '<span class="tick' + (i === current.topic ? ' doing' : '') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>' + (i + 1) + '. ' + tp.t;
+      b.addEventListener('click', function () {
+        current.topic = i;
+        renderTopics(topics);
+        renderArticle(tp);
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function renderArticle(tp) {
+    var b = BLOCKS[tp.blocks];
+    var el = document.getElementById('article');
+    el.innerHTML =
+      '<span class="cp-badge">' + tp.cp + '</span>' +
+      '<h1>' + b.title + '</h1>' +
+      b.html +
+      (b.graph || '') +
+      '<div class="article-nav">' +
+        '<div><span class="prevnext">' + tp.t + '</span></div>' +
+        '<a class="section-link" href="#" data-next-topic>Topik berikutnya →</a>' +
+      '</div>';
+    var next = el.querySelector('[data-next-topic]');
+    if (next) {
+      next.addEventListener('click', function (e) {
+        e.preventDefault();
+        var topics = TOPICS[current.subject] || TOPICS.mtk;
+        if (current.topic < topics.length - 1) {
+          current.topic++;
+          renderTopics(topics);
+          renderArticle(topics[current.topic]);
+        }
+      });
+    }
+  }
+
+  /* Breadcrumb nav */
+  document.querySelectorAll('[data-nav-catalog]').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); show('catalog'); });
+  });
+  var bcChap = document.getElementById('bc-chap-subject');
+  bcChap.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!current.subject) return;
+    var s = DATA[current.subject];
+    document.getElementById('ch-subject-ic').className = 'big-ic si-blue';
+    document.getElementById('ch-subject-name').textContent = s.name;
+    document.getElementById('ch-subject-sub').textContent = s.sub;
+    document.getElementById('ch-subject-pct').textContent = s.pct + '%';
+    document.getElementById('ch-subject-count').textContent = s.count;
+    document.getElementById('ch-subject-bar').style.width = s.pct + '%';
+    renderChapters(s);
+    show('chapters');
+  });
+
+  /* Restore view from localStorage, else default catalog */
+  try {
+    var prev = localStorage.getItem('yl-learn-view');
+    if (prev && views[prev]) show(prev);
+  } catch (e) {}
+  try {
+    if (!localStorage.getItem('yl-learn-view')) show('catalog');
+  } catch (e) { show('catalog'); }
+})();
+</script>
+<script>
+(function () {
+  var THEME_KEY = 'yl-theme';
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? 'Mode terang' : 'Mode gelap');
+      var moon = b.querySelector('[data-icon-moon]');
+      var sun = b.querySelector('[data-icon-sun]');
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+    });
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.querySelectorAll('[data-theme-btn]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      });
+    });
+  }
+  initTheme();
+})();
+</script>
+</body>
+</html>

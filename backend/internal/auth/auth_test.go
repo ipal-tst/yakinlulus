@@ -154,9 +154,62 @@ func TestRestrictGradeSchoolByRole(t *testing.T) {
 	assert.Equal(t, "Budi", *got.FullName)
 }
 
-func TestUpdateUserQueryTargetsIdentityUser(t *testing.T) {
-	q := buildUpdateUserQuery()
-	assert.Contains(t, q, "identity.user", "UpdateUser SQL must target identity.user")
-	assert.Contains(t, q, "email", "UpdateUser SQL must set email")
-	assert.NotContains(t, q, "school_name", "school_name no longer exists on identity.user")
+func TestIsValidRoleCode(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"SUPER_ADMIN", true},
+		{"STAFF_1", true},
+		{"staff", false},
+		{"A B", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isValidRoleCode(c.in); got != c.want {
+			t.Errorf("isValidRoleCode(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestPermissionCatalogDefaultsCoverage(t *testing.T) {
+	ids := map[string]bool{}
+	for _, p := range PermissionCatalog {
+		ids[p.ID] = true
+	}
+	for role, perms := range defaultRolePerms {
+		for id := range perms {
+			if !ids[id] {
+				t.Errorf("role %s references unknown permission %s", role, id)
+			}
+		}
+	}
+	for _, p := range PermissionCatalog {
+		if strings.Count(p.ID, ".") != 1 {
+			t.Errorf("permission %s should be module.code", p.ID)
+		}
+	}
+}
+
+func TestModuleOf(t *testing.T) {
+	if moduleOf("academic.read") != "academic" {
+		t.Error("moduleOf mismatch")
+	}
+	if resourceOf("academic.read") != "academic" {
+		t.Error("resourceOf mismatch")
+	}
+}
+
+func TestBuildUserWherePlaceholders(t *testing.T) {
+	f := UserListFilter{Q: "x", Role: "SISWA", Status: "ACTIVE", EducationLevel: "SMA"}
+	where, args := buildUserWhere(f)
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args, got %d", len(args))
+	}
+	if !strings.Contains(where, "$1") || !strings.Contains(where, "$4") {
+		t.Errorf("placeholder indexing broken: %s", where)
+	}
+	if strings.Contains(where, "$5") {
+		t.Errorf("placeholder overflow: %s", where)
+	}
 }

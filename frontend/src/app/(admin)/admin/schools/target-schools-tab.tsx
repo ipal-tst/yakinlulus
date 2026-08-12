@@ -1,15 +1,17 @@
 // src/app/(admin)/admin/schools/target-schools-tab.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { TargetSchoolTable } from "@/components/admin/schools/target-school-table";
-import { TargetSchoolFormDialog } from "@/components/admin/schools/target-school-form-dialog";
-import { targetSchoolService, TargetSchool, TargetSchoolPayload } from "@/services/target-school.service";
-import { schoolService, School } from "@/services/school.service";
-import { sortedProvinces } from "@/lib/target-school-mappers";
+import { TargetScoreTable, TargetScoreRow } from "@/components/admin/schools/target-score-table";
+import { TargetScoreFormDialog } from "@/components/admin/schools/target-score-form-dialog";
+import { TargetScoreTrendPanel } from "@/components/admin/schools/target-score-trend-panel";
+import { ImportResultCard } from "@/components/admin/shared/import-result-card";
+import { BulkActionBar } from "@/components/admin/shared/bulk-action-bar";
+import { targetSchoolService, TargetSchoolScore, TargetSchool } from "@/services/target-school.service";
+import { defaultMaxTotal } from "@/lib/target-school-mappers";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,91 +21,179 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertCircle, Target } from "lucide-react";
+import { Plus, AlertCircle, LineChart as LineChartIcon, Download, Upload } from "lucide-react";
 
 const LEVEL_OPTIONS = ["SMP", "SMA", "UNIVERSITY"];
 const ALL = "all";
 
-function unwrapSchools(data: School[] | { items?: School[] } | null | undefined): School[] {
+function unwrapPayungs(data: TargetSchool[] | { items?: TargetSchool[] } | null | undefined): TargetSchool[] {
     if (Array.isArray(data)) return data;
     return data?.items ?? [];
 }
 
+function unwrapScores(data: TargetSchoolScore[] | { items?: TargetSchoolScore[] } | null | undefined): TargetSchoolScore[] {
+    if (Array.isArray(data)) return data;
+    return data?.items ?? [];
+}
+
+function buildRows(scores: TargetSchoolScore[], payungs: TargetSchool[]): TargetScoreRow[] {
+    const payungMap = new Map<string, TargetSchool>();
+    for (const p of payungs) payungMap.set(p.id, p);
+
+    const byPayung = new Map<string, TargetSchoolScore[]>();
+    for (const s of scores) {
+        const arr = byPayung.get(s.target_school_id) ?? [];
+        arr.push(s);
+        byPayung.set(s.target_school_id, arr);
+    }
+
+    const rows: TargetScoreRow[] = [];
+    for (const [pid, arr] of byPayung) {
+        const payung = payungMap.get(pid);
+        const sorted = [...arr].sort((a, b) => a.academic_year.localeCompare(b.academic_year));
+        for (let i = 0; i < sorted.length; i++) {
+            const cur = sorted[i];
+            const prev = sorted[i - 1];
+            rows.push({
+                id: cur.id,
+                target_school_id: pid,
+                school_name: payung?.name ?? "—",
+                level: payung?.level ?? "",
+                academic_year: cur.academic_year,
+                min_score: cur.min_score,
+                max_score: cur.max_score,
+                max_total_score: cur.max_total_score,
+                is_active: payung?.is_active ?? false,
+                delta_min: cur.min_score != null && prev?.min_score != null ? cur.min_score - prev.min_score : undefined,
+                delta_max: cur.max_score != null && prev?.max_score != null ? cur.max_score - prev.max_score : undefined,
+            });
+        }
+    }
+    rows.sort((a, b) => {
+        const y = b.academic_year.localeCompare(a.academic_year);
+        if (y !== 0) return y;
+        return a.school_name.localeCompare(b.school_name, "id");
+    });
+    return rows;
+}
+
 export function TargetSchoolsTab() {
     const qc = useQueryClient();
+    const [year, setYear] = useState<string | undefined>();
     const [level, setLevel] = useState<string | undefined>();
-    const [province, setProvince] = useState<string | undefined>();
+    const [trendMode, setTrendMode] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
-    const [editingTarget, setEditingTarget] = useState<TargetSchool | null>(null);
-    const [deleteTarget, setDeleteTarget] = useState<TargetSchool | null>(null);
+    const [editingScore, setEditingScore] = useState<TargetSchoolScore | null>(null);
+    const [addToPayungId, setAddToPayungId] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState<TargetScoreRow | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<{ total: number; success: number; skipped: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { data: schools = [], isLoading, error, refetch } = useQuery({
-        queryKey: ["admin-target-schools", level, province, ""],
-        queryFn: () => targetSchoolService.listTargetSchools({ level, province, q: "" }),
+    const { data: payungs = [], isLoading: payungLoading, error: payungError, refetch: refetchPayungs } = useQuery({
+        queryKey: ["admin-target-payungs"],
+        queryFn: () => targetSchoolService.listTargetSchools({ include_inactive: true }),
     });
 
-    const { data: catalogSchools = [] } = useQuery({
-        queryKey: ["admin-schools-catalog"],
-        queryFn: () => schoolService.listSchools({ limit: 500 }),
+    const safePayungs = unwrapPayungs(payungs);
+
+    const { data: scores = [], isLoading, error, refetch } = useQuery({
+        queryKey: ["admin-target-scores", year ?? ""],
+        queryFn: () => targetSchoolService.listScores({ academic_year: year || undefined }),
     });
 
-    const provinces = useMemo(
-        () => sortedProvinces(unwrapSchools(catalogSchools)),
-        [catalogSchools]
-    );
+    const safeScores = unwrapScores(scores);
+    const rows = useMemo(() => buildRows(safeScores, safePayungs), [safeScores, safePayungs]);
 
-    const createMutation = useMutation({
-        mutationFn: targetSchoolService.createTargetSchool,
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["admin-target-schools"] });
-            setFormOpen(false);
-        },
-    });
+    const years = useMemo(() => {
+        const set = new Set<string>();
+        for (const s of safeScores) if (s.academic_year) set.add(s.academic_year);
+        return Array.from(set).sort((a, b) => b.localeCompare(a));
+    }, [safeScores]);
 
-    const updateMutation = useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: TargetSchoolPayload }) =>
-            targetSchoolService.updateTargetSchool(id, payload),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["admin-target-schools"] });
-            setEditingTarget(null);
-            setFormOpen(false);
-        },
-    });
+    const levelRows = level ? rows.filter((r) => r.level === level) : rows;
+
+    const addTarget = safePayungs.find((p) => p.id === addToPayungId);
+    const addTargetLevel = addTarget?.level ?? (level || "");
 
     const deleteMutation = useMutation({
-        mutationFn: targetSchoolService.deleteTargetSchool,
+        mutationFn: targetSchoolService.deleteScore,
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["admin-target-schools"] });
+            qc.invalidateQueries({ queryKey: ["admin-target-scores"] });
+            qc.invalidateQueries({ queryKey: ["admin-target-payungs"] });
             setDeleteTarget(null);
         },
     });
 
-    const toggleMutation = useMutation({
-        mutationFn: ({ id, target }: { id: string; target: TargetSchool }) => {
-            const payload: TargetSchoolPayload = {
-                school_id: target.school_id as string,
-                name: target.name,
-                level: target.level,
-                min_score: target.min_score ?? undefined,
-                max_score: target.max_score ?? undefined,
-                max_total_score: target.max_total_score,
-                subjects: target.subjects ?? [],
-                academic_year: target.academic_year ?? undefined,
-                is_active: !target.is_active,
-            };
-            return targetSchoolService.updateTargetSchool(id, payload);
+    const bulkDeleteMutation = useMutation({
+        mutationFn: targetSchoolService.bulkDeleteScores,
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["admin-target-scores"] });
+            qc.invalidateQueries({ queryKey: ["admin-target-payungs"] });
+            setSelectedIds(new Set());
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-target-schools"] }),
     });
 
-    const handleEdit = (s: TargetSchool) => {
-        setEditingTarget(s);
-        setFormOpen(true);
+    const handleExport = async () => {
+        try {
+            await targetSchoolService.exportScores(selectedIds.size > 0 ? Array.from(selectedIds) : undefined);
+        } catch (err) {
+            // surface via alert untuk kesederhanaan konsisten dengan flow import
+            window.alert(err instanceof Error ? err.message : "Gagal mengekspor");
+        }
+    };
+
+    const handleImportFile = async (file: File) => {
+        setImporting(true);
+        setImportResult(null);
+        try {
+            const res = await targetSchoolService.importScores(file);
+            setImportResult({
+                total: res.created + res.skipped + res.failed,
+                success: res.created,
+                skipped: res.skipped,
+                failed: res.failed,
+                errors: res.errors,
+            });
+            qc.invalidateQueries({ queryKey: ["admin-target-scores"] });
+            qc.invalidateQueries({ queryKey: ["admin-target-payungs"] });
+        } catch (err) {
+            setImportResult({
+                total: 0,
+                success: 0,
+                skipped: 0,
+                failed: 1,
+                errors: [{ row: 0, message: err instanceof Error ? err.message : "Gagal mengimpor" }],
+            });
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const handleEdit = (row: TargetScoreRow) => {
+        const score = safeScores.find((s) => s.id === row.id);
+        if (score) {
+            setEditingScore(score);
+            setFormOpen(true);
+        }
     };
 
     const handleFormClose = () => {
         setFormOpen(false);
-        setEditingTarget(null);
+        setEditingScore(null);
+    };
+
+    const handleAddScore = () => {
+        setEditingScore(null);
+        setAddToPayungId(safePayungs[0]?.id ?? "");
+        setFormOpen(true);
+    };
+
+    const handleYearChange = (value: string | null) => {
+        const v = value ?? null;
+        setYear(v === ALL ? undefined : v ?? undefined);
     };
 
     const handleLevelChange = (value: string | null) => {
@@ -111,28 +201,53 @@ export function TargetSchoolsTab() {
         setLevel(v === ALL ? undefined : v ?? undefined);
     };
 
-    const handleProvinceChange = (value: string | null) => {
-        const v = value ?? null;
-        setProvince(v === ALL ? undefined : v ?? undefined);
-    };
-
-    const empty = Array.isArray(schools) && schools.length === 0;
-
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h3 className="text-lg font-semibold">Target Sekolah &amp; Kampus PT</h3>
+                    <h3 className="text-lg font-semibold">Nilai Target per Tahun</h3>
                     <p className="text-sm text-muted-foreground">
-                        Kelola target sekolah/PT sebagai acuan nilai siswa.
+                        Nilai penerimaan min/max per (sekolah × tahun ajaran) sebagai acuan siswa.
                     </p>
                 </div>
-                <Button onClick={() => setFormOpen(true)} className="rounded-xl gap-2 font-semibold shadow-xs">
-                    <Plus className="h-4 w-4" /> Tambah Target Sekolah
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button variant={trendMode ? "default" : "outline"} size="sm" className="rounded-xl gap-2" onClick={() => setTrendMode((v) => !v)}>
+                        <LineChartIcon className="h-4 w-4" /> {trendMode ? "Mode Tabel" : "Mode Tren"}
+                    </Button>
+                    <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={handleExport}>
+                        <Download className="h-4 w-4" /> Export XLSX
+                    </Button>
+                    <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                        <Upload className="h-4 w-4" /> {importing ? "Mengimpor..." : "Import XLSX"}
+                    </Button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls"
+                        className="hidden"
+                        onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleImportFile(f);
+                        }}
+                    />
+                    <Button onClick={handleAddScore} className="rounded-xl gap-2 font-semibold shadow-xs">
+                        <Plus className="h-4 w-4" /> + Baris Nilai
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+                <Select value={year ?? ALL} onValueChange={handleYearChange}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Semua Tahun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value={ALL}>Semua Tahun</SelectItem>
+                        {years.map((y) => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Select value={level ?? ALL} onValueChange={handleLevelChange}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Semua Jenjang" />
@@ -144,78 +259,90 @@ export function TargetSchoolsTab() {
                         ))}
                     </SelectContent>
                 </Select>
-                <Select value={province ?? ALL} onValueChange={handleProvinceChange}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Semua Provinsi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value={ALL}>Semua Provinsi</SelectItem>
-                        {provinces.map((p) => (
-                            <SelectItem key={p} value={p}>{p}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
             </div>
 
-            {error && (
+            {importResult && (
+                <ImportResultCard
+                    result={importResult}
+                    onClose={() => setImportResult(null)}
+                />
+            )}
+
+            {(error || payungError) && (
                 <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{error instanceof Error ? error.message : "Gagal memuat target sekolah"}</span>
-                    <Button variant="ghost" size="sm" onClick={() => refetch()} className="ml-auto rounded-lg">
+                    <span>{error instanceof Error ? error.message : payungError instanceof Error ? payungError.message : "Gagal memuat data nilai"}</span>
+                    <Button variant="ghost" size="sm" onClick={() => { refetch(); refetchPayungs(); }} className="ml-auto rounded-lg">
                         Coba lagi
                     </Button>
                 </div>
             )}
 
-            {isLoading ? (
-                <div className="space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <Skeleton key={i} className="h-14 w-full rounded-xl" />
-                    ))}
-                </div>
-            ) : empty ? (
-                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Target className="h-4 w-4" />
-                    </div>
-                    <p className="font-semibold text-foreground">Belum ada target sekolah</p>
-                    <p className="text-sm text-muted-foreground max-w-md">
-                        Tambahkan target sekolah/PT beserta rentang nilai untuk acuan siswa.
-                    </p>
-                    <Button onClick={() => setFormOpen(true)} className="rounded-xl gap-2 font-semibold shadow-xs mt-1">
-                        <Plus className="h-4 w-4" /> Tambah Target Sekolah
-                    </Button>
-                </div>
+            {trendMode ? (
+                <TargetScoreTrendPanel payungs={safePayungs} />
             ) : (
-                <TargetSchoolTable
-                    schools={schools}
-                    onEdit={handleEdit}
-                    onDelete={(s) => setDeleteTarget(s)}
-                    onToggle={(s) =>
-                        toggleMutation.mutate({ id: s.id, target: s })
-                    }
-                />
+                <>
+                    {selectedIds.size > 0 && (
+                        <BulkActionBar
+                            count={selectedIds.size}
+                            actions={[
+                                {
+                                    label: "Hapus",
+                                    variant: "destructive",
+                                    confirm: `Hapus ${selectedIds.size} baris nilai terpilih?`,
+                                    onClick: () => bulkDeleteMutation.mutate(Array.from(selectedIds)),
+                                },
+                            ]}
+                            onClear={() => setSelectedIds(new Set())}
+                        />
+                    )}
+
+                    {isLoading || payungLoading ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                            ))}
+                        </div>
+                    ) : levelRows.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <LineChartIcon className="h-5 w-5" />
+                            </div>
+                            <p className="font-semibold text-foreground">Belum ada data nilai target</p>
+                            <p className="text-sm text-muted-foreground max-w-md">
+                                Tambahkan nilai penerimaan per (sekolah × tahun ajaran) untuk acuan siswa.
+                            </p>
+                            <Button onClick={handleAddScore} className="rounded-xl gap-2 font-semibold shadow-xs mt-1">
+                                <Plus className="h-4 w-4" /> + Baris Nilai
+                            </Button>
+                        </div>
+                    ) : (
+                        <TargetScoreTable
+                            rows={levelRows}
+                            onEdit={handleEdit}
+                            onDelete={(r) => setDeleteTarget(r)}
+                            selectable
+                            selectedRowIds={selectedIds}
+                            onSelectionChange={setSelectedIds}
+                        />
+                    )}
+                </>
             )}
 
-            <TargetSchoolFormDialog
+            <TargetScoreFormDialog
                 open={formOpen}
                 onOpenChange={(o) => !o && handleFormClose()}
-                initial={editingTarget}
-                level={level}
-                loading={createMutation.isPending || updateMutation.isPending}
-                onSubmit={(payload) => {
-                    if (editingTarget) {
-                        updateMutation.mutate({ id: editingTarget.id, payload });
-                    } else {
-                        createMutation.mutate(payload);
-                    }
-                }}
+                payungId={addToPayungId || editingScore?.target_school_id}
+                payungName={editingScore ? safePayungs.find((p) => p.id === editingScore.target_school_id)?.name : addTarget?.name}
+                level={addTargetLevel}
+                maxDefault={defaultMaxTotal(addTargetLevel)}
+                initial={editingScore}
             />
 
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
-                title="Hapus target sekolah?"
-                description={`${deleteTarget?.name} akan dihapus permanen.`}
+                title="Hapus baris nilai?"
+                description={`Nilai ${deleteTarget?.school_name ?? ""} tahun ${deleteTarget?.academic_year ?? ""} akan dihapus.`}
                 confirmLabel="Hapus"
                 variant="destructive"
                 loading={deleteMutation.isPending}
